@@ -251,6 +251,9 @@ export const generateFullWeeklyDetails = async (planOverview: any[], targets: an
     Baserat på denna översikt, generera detaljerade ingredienslistor och korta instruktioner för varje måltid.
     Plan: ${planStr}
 
+    VIKTIGT: Varje ingrediens MÅSTE ha mängd och enhet (t.ex. \"150 g kyckling\", \"2 dl ris\", \"1 msk olivolja\").
+    Inkludera alltid mängder per råvara och håll det realistiskt för antal portioner.
+
     Output JSON format: Array of Days. Each day has a 'meals' array corresponding to the input. Add ingredients and instructions to each meal.
   `;
 
@@ -272,7 +275,7 @@ export const generateFullWeeklyDetails = async (planOverview: any[], targets: an
                 properties: {
                   name: { type: Type.STRING },
                   type: { type: Type.STRING },
-                  ingredients: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  ingredients: { type: Type.ARRAY, items: { type: Type.STRING, description: "Ingrediens med mängd och enhet" } },
                   instructions: { type: Type.STRING }
                 }
               }
