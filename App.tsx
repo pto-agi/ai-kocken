@@ -1,0 +1,87 @@
+
+import React, { useEffect } from 'react';
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { useAuthStore } from './store/authStore';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import { Loader2 } from 'lucide-react';
+import { AuthGuard } from './components/AuthGuard';
+
+// Sidor
+import { Chef } from './pages/Chef';
+import { Profile } from './pages/Profile';
+import AuthScreen from './components/AuthScreen';
+import PremiumPaywall from './components/PremiumPaywall';
+
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+};
+
+const PageContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="max-w-7xl mx-auto px-4 md:px-8 pb-24 text-slate-50 min-h-[60vh]">
+    {children}
+  </div>
+);
+
+function App() {
+  const { initialize, isLoading } = useAuthStore();
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+        <Loader2 className="w-12 h-12 animate-spin text-[#a0c81d]" />
+      </div>
+    );
+  }
+
+  return (
+    <Router>
+      <ScrollToTop />
+      <div className="min-h-screen bg-[#0f172a] text-slate-50 font-sans selection:bg-[#a0c81d] selection:text-[#0f172a] flex flex-col">
+        
+        <Navbar />
+
+        <main className="pt-20 flex-grow flex flex-col">
+          <Routes>
+            {/* AI Kocken är nu startsida */}
+            <Route 
+              path="/" 
+              element={
+                <Chef />
+              } 
+            />
+
+            <Route 
+              path="/profile" 
+              element={
+                <PageContainer>
+                  <AuthGuard requirePremium={false}>
+                    <Profile />
+                  </AuthGuard>
+                </PageContainer>
+              } 
+            />
+
+            <Route path="/auth" element={<AuthScreen />} />
+            
+            <Route path="/premium" element={<PageContainer><PremiumPaywall variant="premium" /></PageContainer>} />
+            
+          </Routes>
+        </main>
+
+        <Footer />
+        
+      </div>
+    </Router>
+  );
+}
+
+export default App;
