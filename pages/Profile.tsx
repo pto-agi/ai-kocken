@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   User, LogOut, Mail, Settings, Trash2, Loader2,
-  FileText, FileDown, Plus, Clock, RefreshCw
+  FileText, FileDown, Plus, Clock, RefreshCw, CreditCard
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { databaseService } from '../services/databaseService';
@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { generateWeeklySchedulePDF } from '../utils/pdfGenerator';
 import { generateFullWeeklyDetails } from '../services/geminiService';
-import AgentChatPanel from '../components/AgentChatPanel';
+import { createPortalSession } from '../services/stripeService';
 
 type MainTab = 'WEEKLY_PLANS' | 'SETTINGS';
 
@@ -23,6 +23,7 @@ export const Profile: React.FC = () => {
 
   const [newPassword, setNewPassword] = useState('');
   const [passwordStatus, setPasswordStatus] = useState<'idle' | 'success' | 'error' | 'loading'>('idle');
+  const [isPortalLoading, setIsPortalLoading] = useState(false);
 
   const { data: weeklyPlans = [] } = useQuery({
     queryKey: ['weeklyPlans', user?.id],
@@ -50,6 +51,18 @@ export const Profile: React.FC = () => {
       console.error('Password Update Error:', err);
       setPasswordStatus('error');
       setTimeout(() => setPasswordStatus('idle'), 3000);
+    }
+  };
+
+  const handleOpenBillingPortal = async () => {
+    setIsPortalLoading(true);
+    try {
+      const url = await createPortalSession({ returnPath: '/profile' });
+      window.location.href = url;
+    } catch (err) {
+      alert('Kunde inte öppna Stripe. Försök igen.');
+    } finally {
+      setIsPortalLoading(false);
     }
   };
 
@@ -152,7 +165,7 @@ export const Profile: React.FC = () => {
                       >
                         <RefreshCw className="w-5 h-5" />
                       </button>
-                      <Link to="/?tab=WEEKLY" className="bg-[#a0c81d] text-[#0f172a] px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#b5e02e] transition-all flex items-center gap-2 shadow-lg shadow-[#a0c81d]/20">
+                      <Link to="/recept" className="bg-[#a0c81d] text-[#0f172a] px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#b5e02e] transition-all flex items-center gap-2 shadow-lg shadow-[#a0c81d]/20">
                         <Plus className="w-4 h-4" /> Ny Plan
                       </Link>
                     </div>
@@ -227,6 +240,34 @@ export const Profile: React.FC = () => {
                           {user.email}
                         </div>
                       </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-4">Medlemskap & Betalning</label>
+                        <div className="p-5 bg-[#0f172a]/60 backdrop-blur-md border border-white/10 rounded-2xl text-slate-200 shadow-xl space-y-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+                                <CreditCard className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-black text-white">
+                                  {user.membership_level === 'premium' ? 'Premium aktiv' : 'Gratis'}
+                                </p>
+                                <p className="text-[11px] text-slate-400 font-medium">
+                                  Hantera betalmetod, fakturor och uppsägning.
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={handleOpenBillingPortal}
+                              disabled={isPortalLoading}
+                              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-xs font-black uppercase tracking-widest text-white transition-all disabled:opacity-50"
+                            >
+                              {isPortalLoading ? 'Öppnar...' : 'Hantera'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="space-y-6">
@@ -256,9 +297,6 @@ export const Profile: React.FC = () => {
               </div>
             )}
 
-            <div className="mt-10">
-              <AgentChatPanel />
-            </div>
           </div>
         </div>
       </div>

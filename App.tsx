@@ -8,11 +8,13 @@ import { Loader2 } from 'lucide-react';
 import { AuthGuard } from './components/AuthGuard';
 
 // Sidor
-import { Chef } from './pages/Chef';
+import { Home } from './pages/Home';
+import { Recipes } from './pages/Recipes';
 import { Profile } from './pages/Profile';
 import { Start } from './pages/Start';
 import { Uppfoljning } from './pages/Uppfoljning';
 import { Intranet } from './pages/Intranet';
+import { Support } from './pages/Support';
 import AuthScreen from './components/AuthScreen';
 import PremiumPaywall from './components/PremiumPaywall';
 
@@ -71,11 +73,28 @@ function App() {
 
         <main className="pt-20 flex-grow flex flex-col">
           <Routes>
-            {/* AI Kocken är nu startsida */}
             <Route 
               path="/" 
               element={
-                <Chef />
+                <Home />
+              } 
+            />
+
+            <Route 
+              path="/recept" 
+              element={
+                <AuthGuard requirePremium={false}>
+                  <Recipes />
+                </AuthGuard>
+              } 
+            />
+
+            <Route 
+              path="/support" 
+              element={
+                <AuthGuard requirePremium={false}>
+                  <Support />
+                </AuthGuard>
               } 
             />
 

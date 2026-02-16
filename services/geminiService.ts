@@ -1,6 +1,5 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { RecipeIdea } from "../types";
 import { getEnv } from "../lib/env";
 
 // Initialize Gemini
@@ -29,38 +28,6 @@ export interface WeeklyPlanRequest {
 const RECIPE_MODEL = 'gemini-2.5-flash-preview-09-2025'; // Using latest flash for speed
 
 // --- RECIPE GENERATION ---
-
-export const generateRecipeIdeas = async (tags: string[], pantryContext: string): Promise<RecipeIdea[]> => {
-  const prompt = `
-    Generera 3-5 receptidéer baserat på följande taggar: ${tags.join(', ')}.
-    ${pantryContext ? `Använd gärna följande skafferivaror om det passar: ${pantryContext}` : ''}
-    Svaret SKA vara en JSON-array.
-  `;
-
-  const response = await ai.models.generateContent({
-    model: RECIPE_MODEL,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            description: { type: Type.STRING },
-            calories: { type: Type.NUMBER },
-            proteinGrams: { type: Type.NUMBER },
-            tags: { type: Type.ARRAY, items: { type: Type.STRING } }
-          }
-        }
-      }
-    }
-  });
-
-  return JSON.parse(response.text || "[]");
-};
-
 export const generateRecipe = async (title: string, description: string, tags: string[]): Promise<string> => {
   const prompt = `
     Skapa ett detaljerat recept för "${title}".

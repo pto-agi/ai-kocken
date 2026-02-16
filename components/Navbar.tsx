@@ -4,16 +4,17 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { 
   ChefHat, 
+  Home,
   User, 
   Menu, 
   X, 
   LogOut,
-  FileText,
   ChevronRight,
   Settings,
   ShieldCheck,
   Crown,
-  ArrowRight
+  ArrowRight,
+  LifeBuoy
 } from 'lucide-react';
 
 const Navbar: React.FC = () => {
@@ -45,18 +46,14 @@ const Navbar: React.FC = () => {
     setIsDrawerOpen(false);
   };
 
-  const navLinks = [
-    { path: '/', label: 'AI KOCKEN', icon: ChefHat },
-    { path: '/profile', label: 'MINA SIDOR', icon: User },
-    ...(session
-      ? isStaff
-        ? [{ path: '/intranet', label: 'INTRANÄT', icon: ShieldCheck }]
-        : [
-            { path: '/start', label: 'STARTFORMULÄR', icon: FileText },
-            { path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ShieldCheck }
-          ]
-      : [])
-  ];
+  const navLinks = isStaff
+    ? [{ path: '/intranet', label: 'INTRANÄT', icon: ShieldCheck }]
+    : [
+        { path: '/', label: 'HEM', icon: Home },
+        { path: '/recept', label: 'RECEPT', icon: ChefHat },
+        { path: '/support', label: 'SUPPORT', icon: LifeBuoy },
+        { path: '/profile', label: 'MINA SIDOR', icon: User }
+      ];
 
   return (
     <>
@@ -146,7 +143,11 @@ const Navbar: React.FC = () => {
             </button>
 
             <div className="mt-6 mb-2">
-                {!isPremium ? (
+                {isStaff ? (
+                    <div className="flex items-center justify-center w-full py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold uppercase tracking-wide">
+                        <ShieldCheck className="w-4 h-4 mr-2" /> Personal
+                    </div>
+                ) : !isPremium ? (
                     <Link 
                         to="/premium" 
                         onClick={() => setIsDrawerOpen(false)}

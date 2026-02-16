@@ -33,32 +33,6 @@ export enum AppRoute {
   COACH = 'coach' 
 }
 
-export type ViewState = AppRoute | string;
-
-// --- SMART RECIPE TYPES (GULD-FEATURE) ---
-
-export interface Ingredient {
-  item: string;
-  amount: string;
-  category: string; // "Guld-nyckeln" för sortering (t.ex. "Mejeri", "Grönsaker")
-}
-
-export interface SmartRecipeData {
-  title: string;
-  description: string;
-  meta: {
-    time: string;
-    kcal: number;
-    protein: string;
-  };
-  ingredients: Ingredient[];
-  instructions: { 
-    step: number; 
-    text: string 
-  }[];
-  healthTip: string;
-}
-
 // --- CALCULATOR TYPES ---
 
 export interface MacroSplit {
@@ -107,6 +81,7 @@ export interface UserProfile {
   isPremium?: boolean;       // Helper property often used in frontend
   is_staff?: boolean;
   subscription_status?: string;
+  stripe_customer_id?: string;
   coaching_expires_at?: string; // DATE STRING from Google Sheets/Zapier
   biometrics?: {
     data: UserData;
@@ -182,18 +157,6 @@ export interface SupportTicket {
 }
 
 // --- AI GENERATION TYPES ---
-
-export interface RecipeIdea {
-  title: string;
-  description: string;
-  calories: number;
-  macros?: {
-    protein: number;
-    carbs: number;
-    fats: number;
-  };
-  tags?: string[];
-}
 
 export interface AIAdviceState {
   loading: boolean;

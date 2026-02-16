@@ -116,6 +116,7 @@ const WeeklyPlanner: React.FC = () => {
   const [recipeLoading, setRecipeLoading] = useState(false);
   
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [saveOutcome, setSaveOutcome] = useState<'saved' | 'skipped' | 'error' | null>(null);
 
   const macroSum = request.targets.p + request.targets.c + request.targets.f;
   const isMacroSumValid = macroSum === 100;
@@ -294,6 +295,7 @@ ${meal.instructions}
     
     setStep(3);
     setIsFinalizing(true);
+    setSaveOutcome(null);
     
     try {
         // 1. Generate full details (ingredients/instructions) for all meals
@@ -303,9 +305,16 @@ ${meal.instructions}
         if (userId) {
             const saved = await databaseService.saveWeeklyPlan(userId, detailedPlan, `Veckomeny (${new Date().toLocaleDateString()})`);
             if (!saved) {
+                setSaveOutcome('error');
                 alert("Kunde inte spara veckomenyn. Kontrollera inloggning eller rättigheter.");
             } else {
-                queryClient.invalidateQueries({ queryKey: ['weeklyPlans'] });
+                setSaveOutcome('saved');
+                queryClient.invalidateQueries({ queryKey: ['weeklyPlans', userId] });
+            }
+        } else {
+            setSaveOutcome('skipped');
+            if (window.confirm("Logga in för att spara veckomenyn i din profil. Vill du logga in nu?")) {
+                navigate('/auth');
             }
         }
 
@@ -352,6 +361,11 @@ ${meal.instructions}
       
       {/* Header */}
       <div className="mb-8 pt-8 md:pt-12 text-center">
+        <div className="flex items-center justify-center mb-4">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+            <CalendarDays className="w-3 h-3 text-[#a0c81d]" /> Veckomeny
+          </span>
+        </div>
         <h1 className="text-3xl md:text-5xl font-black text-white font-heading tracking-tight mb-2">
           Kalibera kosten <span className="text-[#a0c81d]">efter just dig</span>
         </h1>
@@ -735,7 +749,10 @@ ${meal.instructions}
                         <div>
                             <h3 className="text-3xl md:text-4xl font-black text-white mb-4">Klart!</h3>
                             <p className="text-slate-300 max-w-md mx-auto mb-8">
-                                Din veckoplan har skapats och PDF-filen laddas ner. Du hittar även planen sparad i din profil.
+                                Din veckoplan har skapats och PDF-filen laddas ner.
+                                {saveOutcome === 'saved' && ' Du hittar även planen sparad i din profil.'}
+                                {saveOutcome === 'skipped' && ' Logga in för att spara veckomenyer i din profil.'}
+                                {saveOutcome === 'error' && ' Planen kunde inte sparas – försök gärna igen.'}
                             </p>
                             <div className="flex flex-col md:flex-row gap-4 justify-center">
                                 <button onClick={() => navigate('/profile')} className="px-8 py-4 bg-[#0f172a] border border-white/10 rounded-xl text-white font-bold uppercase tracking-widest text-xs hover:bg-[#1e293b]">

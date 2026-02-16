@@ -34,7 +34,7 @@ const Footer: React.FC = () => {
           <div>
             <h4 className="font-heading font-bold text-white mb-6 tracking-wide">Tjänsten</h4>
             <ul className="space-y-4 text-sm text-slate-400 font-medium">
-              <li><Link to="/" className="hover:text-[#a0c81d] transition-colors duration-200 block py-1">AI Kocken</Link></li>
+              <li><Link to="/recept" className="hover:text-[#a0c81d] transition-colors duration-200 block py-1">Recept</Link></li>
               <li><Link to="/premium" className="hover:text-[#a0c81d] transition-colors duration-200 block py-1">Bli Medlem</Link></li>
             </ul>
           </div>
