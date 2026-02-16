@@ -95,6 +95,23 @@ export const databaseService = {
     return !error;
   },
 
+  // --- UPPFOLJNING ---
+  async getLatestUppfoljning(userId: string): Promise<any | null> {
+    const { data, error } = await supabase
+      .from('uppfoljningar')
+      .select('id, created_at, is_done, done_at, done_by')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching uppfoljning:', error);
+      return null;
+    }
+    return data || null;
+  },
+
   // --- SHOPPING LIST ---
   async getShoppingList(userId: string): Promise<ShoppingItem[]> {
     const { data, error } = await supabase

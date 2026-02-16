@@ -31,6 +31,12 @@ export const Profile: React.FC = () => {
     enabled: !!user,
   });
 
+  const { data: latestUppfoljning } = useQuery({
+    queryKey: ['latestUppfoljning', user?.id],
+    queryFn: () => user ? databaseService.getLatestUppfoljning(user.id) : Promise.resolve(null),
+    enabled: !!user,
+  });
+
   const deletePlanMutation = useMutation({
     mutationFn: (id: string) => databaseService.deleteWeeklyPlan(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['weeklyPlans'] })
@@ -102,6 +108,15 @@ export const Profile: React.FC = () => {
     </button>
   );
 
+  const formatDate = (value?: string | null) => {
+    if (!value) return 'Ej inskickad';
+    return new Date(value).toLocaleDateString('sv-SE');
+  };
+
+  const uppStatus = latestUppfoljning
+    ? (latestUppfoljning.is_done ? 'Genomförd' : 'Pågående')
+    : 'Ej inskickad';
+
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-200 font-sans pb-32 pt-24 px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
@@ -148,6 +163,43 @@ export const Profile: React.FC = () => {
           <div className="lg:col-span-9 min-h-[600px]">
             {activeTab === 'WEEKLY_PLANS' && (
               <div className="space-y-8 animate-fade-in">
+                <div className="bg-[#1e293b] rounded-[2.5rem] p-6 md:p-8 border border-white/5 shadow-2xl relative overflow-hidden">
+                  <div className="absolute -top-16 -right-10 w-[240px] h-[240px] bg-emerald-500/10 rounded-full blur-[90px]"></div>
+                  <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Uppföljning</p>
+                      <h3 className="text-xl md:text-2xl font-black text-white flex items-center gap-3">
+                        Senast inskickad
+                      </h3>
+                      <p className="text-slate-400 text-sm font-medium mt-2">
+                        {formatDate(latestUppfoljning?.created_at)}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-start md:items-end gap-3">
+                      <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                        uppStatus === 'Genomförd'
+                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                          : uppStatus === 'Pågående'
+                            ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                            : 'bg-white/5 text-slate-400 border-white/10'
+                      }`}>
+                        {uppStatus}
+                      </span>
+                      {uppStatus === 'Genomförd' && (
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                          Klarmarkerad {formatDate(latestUppfoljning?.done_at)}
+                        </span>
+                      )}
+                      <Link
+                        to="/uppfoljning"
+                        className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-black uppercase tracking-widest text-white hover:bg-[#a0c81d]/20 hover:border-[#a0c81d]/40 transition"
+                      >
+                        Skicka uppföljning
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="bg-[#1e293b] rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl relative overflow-hidden">
                   <div className="absolute top-[-20%] right-[-10%] w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px]"></div>
                   <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">

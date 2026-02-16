@@ -15,6 +15,7 @@ import { Start } from './pages/Start';
 import { Uppfoljning } from './pages/Uppfoljning';
 import { Intranet } from './pages/Intranet';
 import { Support } from './pages/Support';
+import { Forlangning } from './pages/Forlangning';
 import AuthScreen from './components/AuthScreen';
 import PremiumPaywall from './components/PremiumPaywall';
 
@@ -125,6 +126,11 @@ function App() {
                   <Uppfoljning />
                 </AuthGuard>
               }
+            />
+
+            <Route
+              path="/forlangning"
+              element={<Forlangning />}
             />
 
             <Route
