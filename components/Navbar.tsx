@@ -25,6 +25,7 @@ const Navbar: React.FC = () => {
 
   const isActive = (path: string) => location.pathname === path;
   const isPremium = profile?.membership_level === 'premium';
+  const isStaff = profile?.is_staff === true;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -48,10 +49,12 @@ const Navbar: React.FC = () => {
     { path: '/', label: 'AI KOCKEN', icon: ChefHat },
     { path: '/profile', label: 'MINA SIDOR', icon: User },
     ...(session
-      ? [
-          { path: '/start', label: 'STARTFORMULÄR', icon: FileText },
-          { path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ShieldCheck }
-        ]
+      ? isStaff
+        ? [{ path: '/intranet', label: 'INTRANÄT', icon: ShieldCheck }]
+        : [
+            { path: '/start', label: 'STARTFORMULÄR', icon: FileText },
+            { path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ShieldCheck }
+          ]
       : [])
   ];
 

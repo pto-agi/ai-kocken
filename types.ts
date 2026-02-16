@@ -105,6 +105,7 @@ export interface UserProfile {
   full_name?: string;
   membership_level?: string; // 'free' | 'premium'
   isPremium?: boolean;       // Helper property often used in frontend
+  is_staff?: boolean;
   subscription_status?: string;
   coaching_expires_at?: string; // DATE STRING from Google Sheets/Zapier
   biometrics?: {

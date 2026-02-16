@@ -7,14 +7,17 @@ import PremiumPaywall from './PremiumPaywall';
 interface AuthGuardProps {
   children: React.ReactNode;
   requirePremium?: boolean;
+  requireStaff?: boolean;
 }
 
 export const AuthGuard: React.FC<AuthGuardProps> = ({ 
   children, 
-  requirePremium = false 
+  requirePremium = false,
+  requireStaff = false
 }) => {
   const { session, profile, isLoading } = useAuthStore();
   const location = useLocation();
+  const isStaff = profile?.is_staff === true;
 
   // 1. Laddar profil/session
   if (isLoading) {
@@ -34,6 +37,14 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     }
     // Redirect to /auth for consistent login experience
     return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  if (requireStaff && !isStaff) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (!requireStaff && isStaff) {
+    return <Navigate to="/intranet" replace />;
   }
 
   // 3. Om inloggad men saknar Premium (på en sida som kräver det)

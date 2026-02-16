@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -12,6 +12,7 @@ import { Chef } from './pages/Chef';
 import { Profile } from './pages/Profile';
 import { Start } from './pages/Start';
 import { Uppfoljning } from './pages/Uppfoljning';
+import { Intranet } from './pages/Intranet';
 import AuthScreen from './components/AuthScreen';
 import PremiumPaywall from './components/PremiumPaywall';
 
@@ -20,6 +21,22 @@ const ScrollToTop = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
+  return null;
+};
+
+const StaffRedirect = () => {
+  const { session, profile, isLoading } = useAuthStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!session) return;
+    if (profile?.is_staff !== true) return;
+    if (location.pathname === '/intranet') return;
+    navigate('/intranet', { replace: true });
+  }, [isLoading, session, profile?.is_staff, location.pathname, navigate]);
+
   return null;
 };
 
@@ -47,6 +64,7 @@ function App() {
   return (
     <Router>
       <ScrollToTop />
+      <StaffRedirect />
       <div className="min-h-screen bg-[#0f172a] text-slate-50 font-sans selection:bg-[#a0c81d] selection:text-[#0f172a] flex flex-col">
         
         <Navbar />
@@ -86,6 +104,15 @@ function App() {
               element={
                 <AuthGuard requirePremium={false}>
                   <Uppfoljning />
+                </AuthGuard>
+              }
+            />
+
+            <Route
+              path="/intranet"
+              element={
+                <AuthGuard requireStaff>
+                  <Intranet />
                 </AuthGuard>
               }
             />

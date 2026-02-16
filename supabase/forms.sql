@@ -6,6 +6,9 @@ create table if not exists public.startformular (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),
+  is_done boolean not null default false,
+  done_at timestamptz,
+  done_by uuid,
   first_name text not null,
   last_name text not null,
   email text not null,
@@ -40,6 +43,9 @@ create table if not exists public.uppfoljningar (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),
+  is_done boolean not null default false,
+  done_at timestamptz,
+  done_by uuid,
   first_name text not null,
   last_name text not null,
   email text not null,
@@ -60,18 +66,96 @@ create index if not exists uppfoljningar_user_id_idx on public.uppfoljningar (us
 alter table public.startformular enable row level security;
 alter table public.uppfoljningar enable row level security;
 
+drop policy if exists "startformular_insert_own" on public.startformular;
 create policy "startformular_insert_own" on public.startformular
   for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "startformular_select_own" on public.startformular;
 create policy "startformular_select_own" on public.startformular
   for select
   using (auth.uid() = user_id);
 
+drop policy if exists "startformular_select_staff" on public.startformular;
+create policy "startformular_select_staff" on public.startformular
+  for select
+  using (
+    exists (
+      select 1
+      from public.profiles
+      where id = auth.uid()
+        and is_staff = true
+    )
+  );
+
+drop policy if exists "startformular_update_staff" on public.startformular;
+create policy "startformular_update_staff" on public.startformular
+  for update
+  using (
+    exists (
+      select 1
+      from public.profiles
+      where id = auth.uid()
+        and is_staff = true
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from public.profiles
+      where id = auth.uid()
+        and is_staff = true
+    )
+  );
+
+drop policy if exists "uppfoljningar_insert_own" on public.uppfoljningar;
 create policy "uppfoljningar_insert_own" on public.uppfoljningar
   for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "uppfoljningar_select_own" on public.uppfoljningar;
 create policy "uppfoljningar_select_own" on public.uppfoljningar
   for select
   using (auth.uid() = user_id);
+
+drop policy if exists "uppfoljningar_select_staff" on public.uppfoljningar;
+create policy "uppfoljningar_select_staff" on public.uppfoljningar
+  for select
+  using (
+    exists (
+      select 1
+      from public.profiles
+      where id = auth.uid()
+        and is_staff = true
+    )
+  );
+
+drop policy if exists "uppfoljningar_update_staff" on public.uppfoljningar;
+create policy "uppfoljningar_update_staff" on public.uppfoljningar
+  for update
+  using (
+    exists (
+      select 1
+      from public.profiles
+      where id = auth.uid()
+        and is_staff = true
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from public.profiles
+      where id = auth.uid()
+        and is_staff = true
+    )
+  );
+
+alter table public.startformular
+  add column if not exists is_done boolean not null default false,
+  add column if not exists done_at timestamptz,
+  add column if not exists done_by uuid;
+
+alter table public.uppfoljningar
+  add column if not exists is_done boolean not null default false,
+  add column if not exists done_at timestamptz,
+  add column if not exists done_by uuid;
