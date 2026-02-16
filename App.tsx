@@ -10,6 +10,8 @@ import { AuthGuard } from './components/AuthGuard';
 // Sidor
 import { Chef } from './pages/Chef';
 import { Profile } from './pages/Profile';
+import { Start } from './pages/Start';
+import { Uppfoljning } from './pages/Uppfoljning';
 import AuthScreen from './components/AuthScreen';
 import PremiumPaywall from './components/PremiumPaywall';
 
@@ -68,6 +70,24 @@ function App() {
                   </AuthGuard>
                 </PageContainer>
               } 
+            />
+
+            <Route
+              path="/start"
+              element={
+                <AuthGuard requirePremium={false}>
+                  <Start />
+                </AuthGuard>
+              }
+            />
+
+            <Route
+              path="/uppfoljning"
+              element={
+                <AuthGuard requirePremium={false}>
+                  <Uppfoljning />
+                </AuthGuard>
+              }
             />
 
             <Route path="/auth" element={<AuthScreen />} />

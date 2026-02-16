@@ -8,6 +8,7 @@ import {
   Menu, 
   X, 
   LogOut,
+  FileText,
   ChevronRight,
   Settings,
   ShieldCheck,
@@ -46,6 +47,12 @@ const Navbar: React.FC = () => {
   const navLinks = [
     { path: '/', label: 'AI KOCKEN', icon: ChefHat },
     { path: '/profile', label: 'MINA SIDOR', icon: User },
+    ...(session
+      ? [
+          { path: '/start', label: 'STARTFORMULÄR', icon: FileText },
+          { path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ShieldCheck }
+        ]
+      : [])
   ];
 
   return (
