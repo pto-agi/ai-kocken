@@ -311,7 +311,7 @@ export const generateWeeklySchedulePDF = (fullPlan: any[], targets: any) => {
       doc.setFontSize(9);
       doc.setTextColor(...COLORS.primaryDark);
       doc.text(
-        `DAGENS TOTALT: ${totals.kcal} KCAL  |  P: ${totals.protein}g  C: ${totals.carbs}g  F: ${totals.fat}g`,
+        `DAGENS TOTALT: ${totals.kcal} KCAL  |  P: ${totals.protein}g  K: ${totals.carbs}g  F: ${totals.fat}g`,
         margin,
         yPos + 7
       );
@@ -379,7 +379,7 @@ export const generateWeeklySchedulePDF = (fullPlan: any[], targets: any) => {
         doc.setTextColor(...COLORS.slate);
         doc.setFont(FONTS.heading, "normal");
         doc.text(
-          `${mKcal} kcal | P ${mProt}g • C ${mCarb}g • F ${mFat}g`,
+          `${mKcal} kcal | P ${mProt}g • K ${mCarb}g • F ${mFat}g`,
           margin + contentWidth - 10,
           yPos,
           { align: "right" }

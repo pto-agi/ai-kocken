@@ -159,7 +159,7 @@ export const generateWeeklyPlan = async (request: WeeklyPlanRequest): Promise<an
     1. Du SKA generera en array med ${request.days} dagar.
     2. Varje dag ska innehålla en array "meals" med exakt ${request.mealsPerDay} objekt.
     3. Varje måltid MÅSTE ha ett "name" (namn på rätten) och "type" (t.ex. "Frukost", "Lunch").
-    4. Försök att matcha makrofördelningen (P/C/F) så gott det går genom val av råvaror.
+    4. Försök att matcha makrofördelningen (P/K/F) så gott det går genom val av råvaror.
     
     VIKTIGT: Returnera endast en JSON-array.
   `;
@@ -295,7 +295,7 @@ export const swapMeal = async (currentMealName: string, mealType: string, reques
       Byt ut maträtten "${currentMealName}" (${mealType}) mot något annat som passar:
       Diet: ${request.diet.type}
       Målkalorier för denna måltid: ca ${targetKcal} kcal (Var realistisk, dela inte bara totalen).
-      Makromål: P ${request.targets.p}%, C ${request.targets.c}%, F ${request.targets.f}%
+      Makromål: P ${request.targets.p}%, K ${request.targets.c}%, F ${request.targets.f}%
       
       Ge mig det nya förslaget som JSON. Namn är obligatoriskt.
     `;

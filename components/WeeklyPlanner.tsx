@@ -17,12 +17,12 @@ import { useNavigate } from 'react-router-dom';
 
 // --- CONFIG ---
 const LOADING_STATES = [
-  { text: "Analyserar din metaboliska profil...", icon: Brain },
-  { text: "Kalibrerar makronutrienter...", icon: PieChart },
-  { text: "Väljer råvaror efter budget och säsong...", icon: Wallet },
-  { text: "Komponerar recept för maximal smak...", icon: ChefHat },
-  { text: "Optimerar inköpslistan...", icon: ShoppingBasket },
-  { text: "Färdigställer din strategiska plan...", icon: CalendarDays }
+  { text: "Tolkar dina mål, preferenser och allergier...", icon: Brain },
+  { text: "Beräknar energi och makrofördelning...", icon: PieChart },
+  { text: "Matchar rätter efter budget och tidsram...", icon: Wallet },
+  { text: "Sätter ihop recept som passar din vardag...", icon: ChefHat },
+  { text: "Skapar portionsmängder och inköpslista...", icon: ShoppingBasket },
+  { text: "Finjusterar veckan och låser planen...", icon: CalendarDays }
 ];
 
 const DIET_TYPES = [
@@ -59,7 +59,7 @@ const macroLine = (meal: any) => {
   const f = nDisplay(meal?.fat);
 
   if (!p && !c && !f) return kcal ? `${kcal} kcal` : "";
-  return `${kcal} kcal • P ${p}g • C ${c}g • F ${f}g`;
+  return `${kcal} kcal • P ${p}g • K ${c}g • F ${f}g`;
 };
 
 // Custom Markdown Components for consistent styling
@@ -252,7 +252,7 @@ ${meal.instructions}
 
 ---
 
-**Näringsvärde:** ${meal.kcal} kcal | **P:** ${meal.protein}g | **C:** ${meal.carbs}g | **F:** ${meal.fat}g
+**Näringsvärde:** ${meal.kcal} kcal | **P:** ${meal.protein}g | **K:** ${meal.carbs}g | **F:** ${meal.fat}g
         `;
         setRecipeContent(md);
         setRecipeLoading(false);

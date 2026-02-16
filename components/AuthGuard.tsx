@@ -2,7 +2,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import PremiumPaywall from './PremiumPaywall';
+import PremiumAccess from './PremiumAccess';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -32,8 +32,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   if (!session) {
     // Om sidan är en "Premium-sida" (t.ex. Kocken), visa den säljande Paywallen
     if (requirePremium) {
-      // ÄNDRING: Använd 'premium'-varianten för att matcha /premium-sidan enhetligt
-      return <PremiumPaywall variant="premium" />;
+      return <PremiumAccess mode="logged_out" />;
     }
     // Redirect to /auth for consistent login experience
     return <Navigate to="/auth" state={{ from: location }} replace />;
@@ -50,8 +49,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   // 3. Om inloggad men saknar Premium (på en sida som kräver det)
   if (requirePremium && profile?.membership_level !== 'premium') {
     return (
-      <PremiumPaywall 
-        variant="premium" 
+      <PremiumAccess 
+        mode="locked"
         title="Premiuminnehåll" 
         description="Denna funktion är exklusiv för våra Premium-medlemmar. Uppgradera för att få tillgång."
       />

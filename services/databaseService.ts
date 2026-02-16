@@ -82,6 +82,12 @@ export const databaseService = {
 
     if (error) {
       console.error('Error saving plan:', error);
+      console.error('Error saving plan details:', {
+        message: (error as any)?.message,
+        details: (error as any)?.details,
+        hint: (error as any)?.hint,
+        code: (error as any)?.code
+      });
       return false;
     }
     return true;

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   User, LogOut, Mail, Settings, Trash2, Loader2,
-  FileText, FileDown, Plus, Clock, RefreshCw
+  FileText, FileDown, Plus, Clock, RefreshCw,
+  LayoutDashboard, ArrowRight
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { databaseService } from '../services/databaseService';
@@ -11,13 +12,15 @@ import { supabase } from '../lib/supabase';
 import { generateWeeklySchedulePDF } from '../utils/pdfGenerator';
 import { generateFullWeeklyDetails } from '../services/geminiService';
 
-type MainTab = 'WEEKLY_PLANS' | 'SETTINGS';
+type MainTab = 'OVERVIEW' | 'PLANS' | 'SETTINGS';
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { session, profile: user, signOut } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<MainTab>('WEEKLY_PLANS');
+  const [activeTab, setActiveTab] = useState<MainTab>('OVERVIEW');
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelStatus, setCancelStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const queryClient = useQueryClient();
 
   const [newPassword, setNewPassword] = useState('');
@@ -41,6 +44,53 @@ export const Profile: React.FC = () => {
   });
 
   if (!user || !session) return null;
+
+  const handleCancelSubscription = async () => {
+    if (isCancelling) return;
+    setCancelStatus('idle');
+    setIsCancelling(true);
+    try {
+      const payload = {
+        user_id: user.id,
+        email: user.email,
+        stripe_email: user.email,
+        name: user.full_name || '',
+        membership_level: user.membership_level || '',
+        requested_at: new Date().toISOString(),
+        source: 'cancel_premium'
+      };
+
+      const body = new URLSearchParams(
+        Object.entries(payload).map(([key, value]) => [key, String(value ?? '')])
+      ).toString();
+
+      let res: Response | null = null;
+      try {
+        res = await fetch('https://hooks.zapier.com/hooks/catch/1514319/uc2m2ex/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body
+        });
+      } catch (err) {
+        console.warn('Cancel webhook primary failed, retrying no-cors:', err);
+        await fetch('https://hooks.zapier.com/hooks/catch/1514319/uc2m2ex/', {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body
+        });
+        res = null;
+      }
+
+      if (res && !res.ok) throw new Error('Webhook failed');
+      setCancelStatus('success');
+    } catch (err) {
+      console.error('Cancel subscription webhook error:', err);
+      setCancelStatus('error');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const handleUpdatePassword = async () => {
     if (newPassword.length < 6) return;
@@ -141,51 +191,193 @@ export const Profile: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-3 space-y-4">
             <div className="bg-[#1e293b]/60 backdrop-blur-md rounded-[2rem] p-4 border border-white/5 shadow-xl sticky top-28">
-              <NavButton id="WEEKLY_PLANS" label="Veckomenyer" icon={FileText} />
+              <NavButton id="OVERVIEW" label="Översikt" icon={LayoutDashboard} />
+              <NavButton id="PLANS" label="Veckomenyer" icon={FileText} />
               <NavButton id="SETTINGS" label="Säkerhet" icon={Settings} />
             </div>
           </div>
 
           <div className="lg:col-span-9 min-h-[600px]">
-            {activeTab === 'WEEKLY_PLANS' && (
+            {activeTab === 'OVERVIEW' && (
               <div className="space-y-8 animate-fade-in">
-                <div className="bg-[#1e293b] rounded-[2.5rem] p-6 md:p-8 border border-white/5 shadow-2xl relative overflow-hidden">
-                  <div className="absolute -top-16 -right-10 w-[240px] h-[240px] bg-emerald-500/10 rounded-full blur-[90px]"></div>
-                  <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="bg-[#1e293b] rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl relative overflow-hidden">
+                  <div className="absolute -top-10 -right-10 w-[220px] h-[220px] bg-[#a0c81d]/10 rounded-full blur-[90px]"></div>
+                  <div className="relative z-10 flex flex-col gap-6">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Uppföljning</p>
-                      <h3 className="text-xl md:text-2xl font-black text-white flex items-center gap-3">
-                        Senast inskickad
-                      </h3>
-                      <p className="text-slate-400 text-sm font-medium mt-2">
-                        {formatDate(latestUppfoljning?.created_at)}
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Medlemskap</p>
+                      <h3 className="text-2xl md:text-3xl font-black text-white">Dina prenumerationer</h3>
+                      <p className="text-slate-400 text-sm font-medium mt-2 max-w-2xl">
+                        Här hittar du alla aktiva prenumerationer kopplade till ditt konto. Fler produkter kan läggas till framöver.
                       </p>
                     </div>
-                    <div className="flex flex-col items-start md:items-end gap-3">
-                      <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                        uppStatus === 'Genomförd'
-                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                          : uppStatus === 'Pågående'
-                            ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                            : 'bg-white/5 text-slate-400 border-white/10'
-                      }`}>
-                        {uppStatus}
-                      </span>
-                      {uppStatus === 'Genomförd' && (
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                          Klarmarkerad {formatDate(latestUppfoljning?.done_at)}
-                        </span>
-                      )}
-                      <Link
-                        to="/uppfoljning"
-                        className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-black uppercase tracking-widest text-white hover:bg-[#a0c81d]/20 hover:border-[#a0c81d]/40 transition"
-                      >
-                        Skicka uppföljning
-                      </Link>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="rounded-2xl border border-white/10 bg-[#0f172a]/70 p-6 flex flex-col gap-4">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">App‑prenumeration</p>
+                            <h4 className="text-lg md:text-xl font-black text-white">PTO Ai Premium</h4>
+                            <p className="text-slate-400 text-sm mt-2">
+                              Full tillgång till kost, recept, veckomenyer och uppföljning.
+                            </p>
+                          </div>
+                          <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                            user.membership_level === 'premium'
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                              : 'bg-white/5 text-slate-400 border-white/10'
+                          }`}>
+                            {user.membership_level === 'premium' ? 'Aktiv' : 'Inte aktiv'}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-300">
+                          {[
+                            'AI‑recept och veckomenyer utan begränsningar',
+                            'Automatisk inköpslista och kostschema',
+                            'Spara planer och följ utveckling i Mina sidor',
+                            'Prioriterad tillgång till nya funktioner'
+                          ].map((text) => (
+                            <div key={text} className="flex items-start gap-3">
+                              <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
+                              <span>{text}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-white/10">
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                            {user.membership_level === 'premium'
+                              ? 'Premium är aktivt på ditt konto'
+                              : 'Ingen aktiv prenumeration hittades'}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {cancelStatus === 'success' && (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">
+                                Begäran skickad
+                              </span>
+                            )}
+                            {cancelStatus === 'error' && (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-red-300">
+                                Kunde inte skicka
+                              </span>
+                            )}
+                            {user.membership_level === 'premium' ? (
+                              <button
+                                onClick={handleCancelSubscription}
+                                disabled={isCancelling}
+                                className="px-4 py-2 rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:border-white/20 transition-all disabled:opacity-60"
+                              >
+                                {isCancelling ? 'Skickar...' : 'Avsluta prenumeration'}
+                              </button>
+                            ) : (
+                              <a
+                                href="https://betalning.privatetrainingonline.se/b/cNi00i4bN9lBaqO4sDcfK0v?locale=sv"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-white hover:border-white/20 transition-all"
+                              >
+                                Aktivera Premium
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-[#1e293b] rounded-[2.5rem] p-6 md:p-8 border border-white/5 shadow-2xl relative overflow-hidden">
+                    <div className="absolute -top-16 -right-10 w-[240px] h-[240px] bg-emerald-500/10 rounded-full blur-[90px]"></div>
+                    <div className="relative z-10 flex flex-col items-start justify-between gap-6">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Uppföljning</p>
+                        <h3 className="text-xl md:text-2xl font-black text-white flex items-center gap-3">
+                          Senast inskickad
+                        </h3>
+                        <p className="text-slate-400 text-sm font-medium mt-2">
+                          {formatDate(latestUppfoljning?.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-start gap-3">
+                        <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                          uppStatus === 'Genomförd'
+                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                            : uppStatus === 'Pågående'
+                              ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                              : 'bg-white/5 text-slate-400 border-white/10'
+                        }`}>
+                          {uppStatus}
+                        </span>
+                        {uppStatus === 'Genomförd' && (
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            Klarmarkerad {formatDate(latestUppfoljning?.done_at)}
+                          </span>
+                        )}
+                        <Link
+                          to="/uppfoljning"
+                          className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-black uppercase tracking-widest text-white hover:bg-[#a0c81d]/20 hover:border-[#a0c81d]/40 transition"
+                        >
+                          Skicka uppföljning
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#1e293b] rounded-[2.5rem] p-6 md:p-8 border border-white/5 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-[-20%] right-[-10%] w-[280px] h-[280px] bg-purple-500/10 rounded-full blur-[100px]"></div>
+                    <div className="relative z-10 flex flex-col gap-6 h-full">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Veckomenyer</p>
+                        <h3 className="text-xl md:text-2xl font-black text-white">Senaste planer</h3>
+                        <p className="text-slate-400 text-sm font-medium mt-2">
+                          {weeklyPlans.length === 0 ? 'Inga sparade planer ännu.' : `Du har ${weeklyPlans.length} sparade planer.`}
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        {weeklyPlans.slice(0, 3).map((plan: any) => (
+                          <div key={plan.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#0f172a]/60 px-4 py-3">
+                            <div>
+                              <p className="text-sm font-bold text-white">{plan.title || 'Namnlös Vecka'}</p>
+                              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                                {new Date(plan.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleDownloadSavedPlanPdf(plan)}
+                              disabled={isDownloadingPdf === plan.id}
+                              className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
+                            >
+                              {isDownloadingPdf === plan.id ? 'Förbereder...' : 'PDF'}
+                            </button>
+                          </div>
+                        ))}
+                        {weeklyPlans.length === 0 && (
+                          <div className="rounded-2xl border border-white/10 bg-[#0f172a]/60 px-4 py-4 text-sm text-slate-500">
+                            Skapa en ny plan för att se den här.
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-auto flex items-center justify-between">
+                        <Link to="/recept" className="text-[10px] font-black uppercase tracking-widest text-[#a0c81d]">
+                          Skapa ny plan
+                        </Link>
+                        <button
+                          onClick={() => setActiveTab('PLANS')}
+                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
+                        >
+                          Visa alla
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'PLANS' && (
+              <div className="space-y-8 animate-fade-in">
                 <div className="bg-[#1e293b] rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl relative overflow-hidden">
                   <div className="absolute top-[-20%] right-[-10%] w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px]"></div>
                   <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">

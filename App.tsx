@@ -17,7 +17,7 @@ import { Intranet } from './pages/Intranet';
 import { Support } from './pages/Support';
 import { Forlangning } from './pages/Forlangning';
 import AuthScreen from './components/AuthScreen';
-import PremiumPaywall from './components/PremiumPaywall';
+import PremiumAccess from './components/PremiumAccess';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -144,7 +144,7 @@ function App() {
 
             <Route path="/auth" element={<AuthScreen />} />
             
-            <Route path="/premium" element={<PageContainer><PremiumPaywall variant="premium" /></PageContainer>} />
+            <Route path="/premium" element={<PageContainer><PremiumAccess mode="logged_out" /></PageContainer>} />
             
           </Routes>
         </main>

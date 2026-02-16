@@ -50,7 +50,7 @@ const PORTAL_OPTIONS = [
   'Edenred'
 ];
 
-const WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uc3wqpg/';
+const WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uc2oeq2/';
 
 export const Forlangning: React.FC = () => {
   const [form, setForm] = useState({
@@ -110,17 +110,31 @@ export const Forlangning: React.FC = () => {
         source: 'forlangning'
       };
 
-      const res = await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      let res: Response | null = null;
+      try {
+        res = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        // Likely CORS/network; retry with no-cors to still deliver to Zapier
+        console.warn('Webhook primary failed, retrying no-cors:', err);
+        await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(payload)
+        });
+        res = null;
+      }
 
-      if (!res.ok) throw new Error('Webhook failed');
+      if (res && !res.ok) throw new Error('Webhook failed');
 
       setStatus('success');
       setForm({ firstName: '', lastName: '', email: '', plan: '', payment: '', portal: '' });
     } catch (err) {
+      console.error('Forlangning webhook error:', err);
       setStatus('error');
       setError('Kunde inte skicka förlängningen. Försök igen.');
     }
