@@ -5,7 +5,7 @@ import {
   Zap, Flame, Activity,
   CheckCircle2, Utensils,
   Soup, Carrot, Fish, Beef, Lock, Coffee, Sun, Moon, Apple, Brain,
-  Clock, MinusCircle, ChevronDown, ChevronUp, Egg, Leaf, Weight
+  Clock, MinusCircle, ChevronDown, ChevronUp, Egg, Leaf, Weight, LifeBuoy
 } from 'lucide-react';
 import { generateRecipeIdeas, generateRecipe } from '../services/geminiService';
 import { RecipeCard } from '../components/RecipeCard';
@@ -13,12 +13,13 @@ import ReactMarkdown from 'react-markdown';
 import { RecipeIdea, SavedRecipe, ViewState, SmartRecipeData } from '../types';
 import { databaseService } from '../services/databaseService';
 import WeeklyPlanner from './WeeklyPlanner';
+import SupportChat from './SupportChat';
 import { useAuthStore } from '../store/authStore';
 import { useRecipeStore } from '../store/recipeStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
-type MainTab = 'RECIPES' | 'WEEKLY';
+type MainTab = 'RECIPES' | 'WEEKLY' | 'SUPPORT';
 type MealType = 'Frukost' | 'Lunch' | 'Middag' | 'Mellanmål' | 'Alla';
 
 // Minimal, robust ikon-typ för lucide components
@@ -118,6 +119,7 @@ function normalizeIdea(idea: IdeaLike) {
 function safeTabFromUrl(v: string | null): MainTab {
   if (v === 'RECIPES') return 'RECIPES';
   if (v === 'WEEKLY') return 'WEEKLY';
+  if (v === 'SUPPORT') return 'SUPPORT';
   return 'WEEKLY';
 }
 
@@ -374,6 +376,17 @@ const RecipeBank: React.FC<RecipeBankProps> = ({ onNavigate: _onNavigate, isPrem
   const LoadingIcon = LOADING_STATES[loadingStateIndex].icon;
 
   const canSaveGeneratedRecipe = Boolean(generatedRecipeContent && selectedIdea);
+  const heroBadge = mainTab === 'SUPPORT' ? 'PTO Support' : 'PTO Ai-Powered Nutrition';
+  const heroAccent = mainTab === 'SUPPORT' ? 'Support' : 'Ai Kocken';
+  const heroDescription =
+    mainTab === 'SUPPORT'
+      ? 'Få hjälp med frågor om appen, konto och teknik — vi svarar snabbt.'
+      : (
+          <>
+            Generera veckomenyer med recept och inköpslistor - <br className="hidden md:block" />
+            Skräddarsytt för att passa med din kostplan från PTO.
+          </>
+        );
 
   return (
     <div className="animate-fade-in-up pb-20 overflow-x-hidden">
@@ -382,15 +395,14 @@ const RecipeBank: React.FC<RecipeBankProps> = ({ onNavigate: _onNavigate, isPrem
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[600px] h-[600px] bg-[#a0c81d]/10 blur-[120px] rounded-full pointer-events-none" />
         <div className="relative z-10 flex flex-col items-center">
           <div className="inline-flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[#a0c81d] text-[10px] md:text-xs font-bold uppercase tracking-widest mb-4 md:mb-6 backdrop-blur-sm shadow-lg whitespace-nowrap">
-            <Sparkles className="w-3 h-3" /> PTO Ai-Powered Nutrition
+            <Sparkles className="w-3 h-3" /> {heroBadge}
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-7xl font-black text-white font-heading tracking-tight leading-none mb-4">
-            PTO <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a0c81d] to-emerald-400">Ai Kocken</span>
+            PTO <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#a0c81d] to-emerald-400">{heroAccent}</span>
           </h1>
 
           <p className="text-slate-300/90 text-sm md:text-lg font-medium max-w-lg md:max-w-2xl leading-relaxed px-2">
-            Generera veckomenyer med recept och inköpslistor - <br className="hidden md:block" />
-            Skräddarsytt för att passa med din kostplan från PTO.
+            {heroDescription}
           </p>
         </div>
       </div>
@@ -398,7 +410,7 @@ const RecipeBank: React.FC<RecipeBankProps> = ({ onNavigate: _onNavigate, isPrem
       {/* Main Content Width Increased */}
       <div className="max-w-7xl mx-auto px-4 md:px-8">
         <div className="flex justify-center mb-8 w-full">
-          <div className="grid grid-cols-2 bg-[#1e293b] p-1.5 rounded-2xl shadow-xl border border-white/5 gap-2 w-full max-w-md">
+          <div className="grid grid-cols-3 bg-[#1e293b] p-1.5 rounded-2xl shadow-xl border border-white/5 gap-2 w-full max-w-2xl">
             <button
               onClick={() => setMainTab('WEEKLY')}
               className={`flex items-center justify-center gap-2 px-2 py-3 md:py-4 rounded-xl font-black uppercase tracking-widest text-[10px] md:text-sm transition-all ${mainTab === 'WEEKLY'
@@ -418,10 +430,26 @@ const RecipeBank: React.FC<RecipeBankProps> = ({ onNavigate: _onNavigate, isPrem
             >
               <ChefHat className="w-4 h-4 md:w-5 md:h-5" /> Måltidsförslag
             </button>
+
+            <button
+              onClick={() => setMainTab('SUPPORT')}
+              className={`flex items-center justify-center gap-2 px-2 py-3 md:py-4 rounded-xl font-black uppercase tracking-widest text-[10px] md:text-sm transition-all ${mainTab === 'SUPPORT'
+                ? 'bg-[#a0c81d] text-[#0f172a]'
+                : 'text-slate-400 hover:text-white'
+                }`}
+            >
+              <LifeBuoy className="w-4 h-4 md:w-5 md:h-5" /> Support
+            </button>
           </div>
         </div>
 
         {mainTab === 'WEEKLY' && <WeeklyPlanner />}
+
+        {mainTab === 'SUPPORT' && (
+          <div className="flex flex-col gap-8 w-full">
+            <SupportChat />
+          </div>
+        )}
 
         {mainTab === 'RECIPES' && (
           <div className="flex flex-col gap-8 w-full">
