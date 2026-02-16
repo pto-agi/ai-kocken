@@ -1,19 +1,16 @@
 
 import React, { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { Lock, Mail, AlertCircle, Cpu, CheckCircle2, Database, User, Loader2, ArrowRight, Sparkles } from 'lucide-react';
+import { Lock, Mail, AlertCircle, Cpu, CheckCircle2, Database, User, Loader2, ArrowRight } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface AuthScreenProps {
   embedded?: boolean;
-  redirectToStripe?: boolean;
   onSuccess?: () => void;
 }
 
-const STRIPE_PAYMENT_LINK_BASE = 'https://betalning.privatetrainingonline.se/b/cNi00i4bN9lBaqO4sDcfK0v';
-
-const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, redirectToStripe = false, onSuccess }) => {
+const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,18 +28,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, redirectToStr
 
   const { registerUser, signInUser } = useAuthStore();
   const isConfigured = isSupabaseConfigured();
-
-  const performRedirect = (userEmail: string) => {
-    if (!userEmail) return;
-    try {
-      const url = new URL(STRIPE_PAYMENT_LINK_BASE);
-      url.searchParams.set('locale', 'sv');
-      url.searchParams.set('prefilled_email', userEmail);
-      window.location.href = url.toString();
-    } catch (e) {
-      window.location.href = `${STRIPE_PAYMENT_LINK_BASE}?locale=sv&prefilled_email=${encodeURIComponent(userEmail)}`;
-    }
-  };
 
   const handleGoogleLogin = async () => {
     if (!isConfigured) { setError("Databas ej kopplad."); return; }
@@ -77,18 +62,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, redirectToStr
         // --- LOGIN ---
         const { error, user } = await signInUser(email, password);
         if (error) throw error;
-        
-        if (redirectToStripe && user?.email) {
-            performRedirect(user.email);
+        if (onSuccess) {
+            onSuccess();
+        } else if (!embedded) {
+            const from = (location.state as any)?.from?.pathname || '/';
+            navigate(from, { replace: true });
         } else {
-            if (onSuccess) {
-                onSuccess();
-            } else if (!embedded) {
-                const from = location.state?.from?.pathname || '/';
-                navigate(from, { replace: true });
-            } else {
-                window.location.reload();
-            }
+            window.location.reload();
         }
       } else {
         // --- REGISTER ---
@@ -101,12 +81,8 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, redirectToStr
         if (error) throw error;
         
         if (user) {
-           if (redirectToStripe && user.email) {
-               performRedirect(user.email);
-           } else {
-               setSuccessMsg("Konto skapat! Kontrollera din e-post.");
-               setLoading(false);
-           }
+           setSuccessMsg("Konto skapat! Kontrollera din e-post.");
+           setLoading(false);
         } else {
             setLoading(false);
         }
@@ -257,18 +233,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, redirectToStr
                         <button
                             type="submit"
                             disabled={loading || !isConfigured}
-                            className={`w-full bg-[#0f172a] hover:bg-slate-800 text-white font-black py-4 rounded-xl shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2 mt-4 text-sm uppercase tracking-wider ${
-                                redirectToStripe ? 'bg-[#a0c81d] text-[#0f172a] hover:bg-[#b5e02e]' : ''
-                            }`}
+                            className="w-full bg-[#0f172a] hover:bg-slate-800 text-white font-black py-4 rounded-xl shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2 mt-4 text-sm uppercase tracking-wider"
                         >
                             {loading ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
                             ) : (
                                 <>
-                                    {redirectToStripe 
-                                        ? (isLogin ? 'Logga in & Betala' : 'Skapa konto & Betala') 
-                                        : (isLogin ? 'Logga in' : 'Registrera Konto')
-                                    }
+                                    {isLogin ? 'Logga in' : 'Registrera Konto'}
                                     <ArrowRight className="w-4 h-4" />
                                 </>
                             )}

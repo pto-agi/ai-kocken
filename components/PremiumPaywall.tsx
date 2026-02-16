@@ -1,51 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
-  Check, Star, ShieldCheck, Crown, Sparkles, ArrowRight, Loader2, Lock
+  Check, Star, ShieldCheck, Crown, ArrowRight, Lock
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 
 interface PremiumPaywallProps {
   variant?: 'premium' | 'auth'; 
   title?: string;
   description?: string;
-  onAuthSuccess?: () => void;
 }
-
-const STRIPE_LINK = 'https://betalning.privatetrainingonline.se/b/cNi00i4bN9lBaqO4sDcfK0v?locale=sv';
 
 const PremiumPaywall: React.FC<PremiumPaywallProps> = ({ 
   variant = 'premium', 
   title, 
-  description,
-  onAuthSuccess
+  description
 }) => {
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [isRedirecting, setIsRedirecting] = useState(false);
-
   const isPremium = variant === 'premium';
-
-  // 1. Kontrollera session direkt när komponenten laddas
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        setUserEmail(user.email);
-      }
-    };
-    checkUser();
-  }, []);
-
-  // 2. Hantera klick för redan inloggade användare
-  const handleDirectPayment = () => {
-    if (!userEmail) return;
-    setIsRedirecting(true);
-    
-    // Bygg URL säkert med e-post
-    const url = new URL(STRIPE_LINK);
-    url.searchParams.set('prefilled_email', userEmail);
-    window.location.href = url.toString();
-  };
 
   // --- COPYWRITING & TEXT ---
   const content = isPremium ? {
@@ -116,23 +86,13 @@ const PremiumPaywall: React.FC<PremiumPaywallProps> = ({
 
             {/* --- CTA KNAPP --- */}
             <div className="pt-6 border-t border-white/10">
-                <button
-                    onClick={() => userEmail ? handleDirectPayment() : window.location.href = STRIPE_LINK}
-                    disabled={isRedirecting}
-                    className="group flex items-center justify-center gap-3 bg-white/10 hover:bg-white/20 border border-white/10 text-white px-6 py-4 rounded-xl font-bold text-sm transition-all w-full backdrop-blur-sm"
+                <Link
+                    to="/auth"
+                    className="group flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 text-white px-6 py-4 rounded-xl font-bold text-sm transition-all w-full backdrop-blur-sm"
                 >
-                    {isRedirecting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Skickas till kassan...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Prova Premium Nu</span>
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </>
-                    )}
-                </button>
+                    <span>Skapa konto</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
                 <div className="flex flex-col items-center mt-3 gap-1">
                   <p className="text-[10px] text-slate-400 font-medium">
                       Endast 99kr/mån. Ingen bindningstid.
@@ -154,7 +114,7 @@ const PremiumPaywall: React.FC<PremiumPaywallProps> = ({
           <div className="relative z-10 mt-8 pt-6 border-t border-white/5 flex flex-wrap justify-center md:justify-start items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
             {isPremium ? (
                <>
-                 <span className="flex items-center gap-1.5"><ShieldCheck className="w-3 h-3 text-emerald-500" /> Krypterad Betalning</span>
+                 <span className="flex items-center gap-1.5"><ShieldCheck className="w-3 h-3 text-emerald-500" /> Säker hantering</span>
                  <span className="flex items-center gap-1.5"><Star className="w-3 h-3 text-amber-500" /> Nöjd-kund-garanti</span>
                </>
             ) : (
