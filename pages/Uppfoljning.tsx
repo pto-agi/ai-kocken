@@ -54,6 +54,7 @@ const emptyState: UppfoljningFormState = {
 
 const inputClass = 'w-full p-3 rounded-xl bg-[#0f172a]/70 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:border-[#a0c81d] focus:ring-0 outline-none transition';
 const textareaClass = `${inputClass} min-h-[140px]`;
+const WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uctkcj5/';
 
 const parseIntSafe = (value: string) => {
   const cleaned = value.trim();
@@ -65,6 +66,15 @@ const parseIntSafe = (value: string) => {
 const toggleArrayValue = (list: string[], value: string) => (
   list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
 );
+
+const toWebhookBody = (data: Record<string, any>) => new URLSearchParams(
+  Object.entries(data).map(([key, value]) => {
+    if (value === undefined || value === null) return [key, ''];
+    if (typeof value === 'string') return [key, value];
+    if (typeof value === 'number' || typeof value === 'boolean') return [key, String(value)];
+    return [key, JSON.stringify(value)];
+  })
+).toString();
 
 const Uppfoljning: React.FC = () => {
   const { session, profile } = useAuthStore();
@@ -172,6 +182,37 @@ const Uppfoljning: React.FC = () => {
       setErrorMessage(error.message);
       setStatus('error');
       return;
+    }
+
+    try {
+      const webhookPayload = {
+        ...payload,
+        source: 'uppfoljning',
+        submitted_at: new Date().toISOString()
+      };
+      const body = toWebhookBody(webhookPayload);
+      let res: Response | null = null;
+      try {
+        res = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body
+        });
+      } catch (err) {
+        console.warn('Uppfoljning webhook primary failed, retrying no-cors:', err);
+        await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body
+        });
+        res = null;
+      }
+      if (res && !res.ok) {
+        console.warn('Uppfoljning webhook non-200:', res.status);
+      }
+    } catch (err) {
+      console.warn('Uppfoljning webhook error:', err);
     }
 
     setStatus('success');
