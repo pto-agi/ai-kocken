@@ -1,10 +1,5 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
-import { getEnv } from "../lib/env";
-
-// Initialize Gemini
-const apiKey = getEnv('VITE_GEMINI_API_KEY');
-const ai = new GoogleGenAI({ apiKey });
+import { Type } from "@google/genai";
 
 // Interfaces
 export interface WeeklyPlanRequest {
@@ -24,8 +19,20 @@ export interface WeeklyPlanRequest {
   };
 }
 
-// Model Configuration
-const RECIPE_MODEL = 'gemini-3-pro-preview'; // Preview pro model
+const GEMINI_ENDPOINT = '/api/gemini';
+
+const callGemini = async (contents: string, config?: any): Promise<string> => {
+  const res = await fetch(GEMINI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents, config })
+  });
+  if (!res.ok) {
+    throw new Error(`Gemini API error: ${res.status}`);
+  }
+  const data = await res.json();
+  return data?.text || "";
+};
 
 // --- RECIPE GENERATION ---
 export const generateRecipe = async (title: string, description: string, tags: string[]): Promise<string> => {
@@ -36,12 +43,8 @@ export const generateRecipe = async (title: string, description: string, tags: s
     Format: Markdown. Inkludera Ingredienser, Instruktioner (steg-för-steg), och Näringsvärde per portion.
   `;
 
-  const response = await ai.models.generateContent({
-    model: RECIPE_MODEL,
-    contents: prompt,
-  });
-
-  return response.text || "Kunde inte generera recept.";
+  const text = await callGemini(prompt);
+  return text || "Kunde inte generera recept.";
 };
 
 export const generateFullRecipe = async (title: string, context: string, tags?: string[], allergies?: string): Promise<string> => {
@@ -124,7 +127,7 @@ export const generateWeeklyPlan = async (request: WeeklyPlanRequest): Promise<an
       distributionInstruction = "Fördela jämnt men låt huvudmålen vara större än mellanmålen.";
   }
 
-  const prompt = `
+  const basePrompt = `
     Skapa en veckomatsedel (${request.days} dagar).
     
     KONFIGURATION:
@@ -161,7 +164,7 @@ export const generateWeeklyPlan = async (request: WeeklyPlanRequest): Promise<an
     3. Varje måltid MÅSTE ha ett "name" (namn på rätten) och "type" (t.ex. "Frukost", "Lunch").
     4. Försök att matcha makrofördelningen (P/K/F) så gott det går genom val av råvaror.
     
-    VIKTIGT: Returnera endast en JSON-array.
+    VIKTIGT: Returnera endast en JSON-array med exakt ${request.days} dagar. Inga förklaringar.
   `;
 
   // Define schema for a single meal
@@ -178,35 +181,52 @@ export const generateWeeklyPlan = async (request: WeeklyPlanRequest): Promise<an
     required: ["name", "type", "kcal"]
   };
 
-  const response = await ai.models.generateContent({
-    model: RECIPE_MODEL,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            day: { type: Type.STRING },
-            dailyTotals: { 
-                type: Type.OBJECT, 
-                properties: { kcal: {type: Type.NUMBER}, protein: {type: Type.NUMBER}, carbs: {type: Type.NUMBER}, fat: {type: Type.NUMBER} } 
-            },
-            meals: {
-                type: Type.ARRAY,
-                items: mealSchema
-            }
+  const requestConfig = {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          day: { type: Type.STRING },
+          dailyTotals: { 
+              type: Type.OBJECT, 
+              properties: { kcal: {type: Type.NUMBER}, protein: {type: Type.NUMBER}, carbs: {type: Type.NUMBER}, fat: {type: Type.NUMBER} } 
           },
-          required: ["day", "meals"]
-        }
+          meals: {
+              type: Type.ARRAY,
+              items: mealSchema
+          }
+        },
+        required: ["day", "meals"]
       }
     }
-  });
+  } as const;
 
-  const parsed = JSON.parse(response.text || "[]");
-  const arr = Array.isArray(parsed) ? parsed : [];
-  return arr.map((d: any, idx: number) => normalizeWeeklyDay(d, idx));
+  const callModel = async (prompt: string) => {
+    const text = await callGemini(prompt, requestConfig);
+    const parsed = JSON.parse(text || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  };
+
+  let arr = await callModel(basePrompt);
+  if (arr.length !== request.days) {
+    console.warn(`Weekly plan length mismatch: got ${arr.length}, expected ${request.days}. Retrying once.`);
+    const retryPrompt = `${basePrompt}\n\nOBS: Din senaste output hade ${arr.length} dagar. Returnera exakt ${request.days} dagar.`;
+    const retryArr = await callModel(retryPrompt);
+    if (retryArr.length === request.days) {
+      arr = retryArr;
+    }
+  }
+
+  const normalized = arr.map((d: any, idx: number) => normalizeWeeklyDay(d, idx));
+  if (normalized.length > request.days) return normalized.slice(0, request.days);
+  if (normalized.length < request.days) {
+    const missing = request.days - normalized.length;
+    const filler = Array.from({ length: missing }, (_, i) => normalizeWeeklyDay({}, normalized.length + i));
+    return normalized.concat(filler);
+  }
+  return normalized;
 };
 
 export const generateFullWeeklyDetails = async (planOverview: any[], targets: any): Promise<any[]> => {
@@ -224,36 +244,32 @@ export const generateFullWeeklyDetails = async (planOverview: any[], targets: an
     Output JSON format: Array of Days. Each day has a 'meals' array corresponding to the input. Add ingredients and instructions to each meal.
   `;
 
-  const response = await ai.models.generateContent({
-    model: RECIPE_MODEL,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            day: { type: Type.STRING },
-            meals: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  type: { type: Type.STRING },
-                  ingredients: { type: Type.ARRAY, items: { type: Type.STRING, description: "Ingrediens med mängd och enhet" } },
-                  instructions: { type: Type.STRING }
-                }
+  const detailsText = await callGemini(prompt, {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          day: { type: Type.STRING },
+          meals: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                type: { type: Type.STRING },
+                ingredients: { type: Type.ARRAY, items: { type: Type.STRING, description: "Ingrediens med mängd och enhet" } },
+                instructions: { type: Type.STRING }
               }
             }
           }
         }
       }
-    },
+    }
   });
 
-  const parsed = JSON.parse(response.text || "[]");
+  const parsed = JSON.parse(detailsText || "[]");
   const details = Array.isArray(parsed) ? parsed : [];
 
   return overviewNormalized.map((oDay: any, idx: number) => {
@@ -300,27 +316,23 @@ export const swapMeal = async (currentMealName: string, mealType: string, reques
       Ge mig det nya förslaget som JSON. Namn är obligatoriskt.
     `;
     
-    const response = await ai.models.generateContent({
-        model: RECIPE_MODEL,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT, 
-                properties: { 
-                    name: {type: Type.STRING}, 
-                    type: {type: Type.STRING},
-                    kcal: {type: Type.NUMBER}, 
-                    protein: {type: Type.NUMBER}, 
-                    carbs: {type: Type.NUMBER}, 
-                    fat: {type: Type.NUMBER} 
-                },
-                required: ["name"]
-            }
-        }
+    const swapText = await callGemini(prompt, {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT, 
+        properties: { 
+            name: {type: Type.STRING}, 
+            type: {type: Type.STRING},
+            kcal: {type: Type.NUMBER}, 
+            protein: {type: Type.NUMBER}, 
+            carbs: {type: Type.NUMBER}, 
+            fat: {type: Type.NUMBER} 
+        },
+        required: ["name"]
+      }
     });
     
-    const res = JSON.parse(response.text || "{}");
+    const res = JSON.parse(swapText || "{}");
     // Ensure type is preserved if AI forgets it
     if (!res.type) res.type = mealType;
     return res;
