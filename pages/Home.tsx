@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   CalendarDays,
-  FileText,
   LifeBuoy,
   LineChart,
   Sparkles,
-  User
+  User,
+  ShoppingBasket,
+  BadgePercent
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
@@ -41,10 +42,17 @@ const quickLinks = [
     tone: 'from-emerald-500/15 via-emerald-500/5 to-transparent'
   },
   {
-    title: 'Startformulär',
-    description: 'Uppdatera mål, data och preferenser.',
-    to: '/start',
-    icon: FileText,
+    title: 'Påfyllning',
+    description: 'Beställ kosttillskott till medlemspris.',
+    to: '/refill',
+    icon: ShoppingBasket,
+    tone: 'from-amber-500/15 via-amber-500/5 to-transparent'
+  },
+  {
+    title: 'Förlängning',
+    description: 'Förläng ditt medlemskap till klientpris.',
+    to: '/forlangning',
+    icon: BadgePercent,
     tone: 'from-purple-500/15 via-purple-500/5 to-transparent'
   }
 ];
