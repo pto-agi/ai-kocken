@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { 
   User, LogOut, Mail, Settings, Trash2, Loader2,
   FileText, FileDown, Plus, Clock, RefreshCw,
@@ -16,7 +16,8 @@ type MainTab = 'OVERVIEW' | 'PLANS' | 'SETTINGS';
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
-  const { session, profile: user, signOut } = useAuthStore();
+  const location = useLocation();
+  const { session, profile: user, signOut, refreshProfile } = useAuthStore();
   const [activeTab, setActiveTab] = useState<MainTab>('OVERVIEW');
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -25,6 +26,13 @@ export const Profile: React.FC = () => {
 
   const [newPassword, setNewPassword] = useState('');
   const [passwordStatus, setPasswordStatus] = useState<'idle' | 'success' | 'error' | 'loading'>('idle');
+  const [addressStatus, setAddressStatus] = useState<'idle' | 'success' | 'error' | 'loading'>('idle');
+  const [addressLine1, setAddressLine1] = useState('');
+  const [addressLine2, setAddressLine2] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [city, setCity] = useState('');
+  const [country, setCountry] = useState('Sverige');
+  const [phone, setPhone] = useState('');
 
   const { data: weeklyPlans = [] } = useQuery({
     queryKey: ['weeklyPlans', user?.id],
@@ -44,6 +52,23 @@ export const Profile: React.FC = () => {
   });
 
   if (!user || !session) return null;
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === 'settings') {
+      setActiveTab('SETTINGS');
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    setAddressLine1(user.address_line1 || '');
+    setAddressLine2(user.address_line2 || '');
+    setPostalCode(user.postal_code || '');
+    setCity(user.city || '');
+    setCountry(user.country || 'Sverige');
+    setPhone(user.phone || '');
+  }, [user.address_line1, user.address_line2, user.postal_code, user.city, user.country, user.phone]);
 
   const handleCancelSubscription = async () => {
     if (isCancelling) return;
@@ -105,6 +130,32 @@ export const Profile: React.FC = () => {
       console.error('Password Update Error:', err);
       setPasswordStatus('error');
       setTimeout(() => setPasswordStatus('idle'), 3000);
+    }
+  };
+
+  const handleSaveAddress = async () => {
+    setAddressStatus('loading');
+    try {
+      const payload = {
+        address_line1: addressLine1.trim(),
+        address_line2: addressLine2.trim(),
+        postal_code: postalCode.trim(),
+        city: city.trim(),
+        country: country.trim() || 'Sverige',
+        phone: phone.trim()
+      };
+      const { error } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', user.id);
+      if (error) throw error;
+      setAddressStatus('success');
+      refreshProfile();
+      setTimeout(() => setAddressStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Address update error:', err);
+      setAddressStatus('error');
+      setTimeout(() => setAddressStatus('idle'), 3000);
     }
   };
 
@@ -193,7 +244,7 @@ export const Profile: React.FC = () => {
             <div className="bg-[#1e293b]/60 backdrop-blur-md rounded-[2rem] p-4 border border-white/5 shadow-xl sticky top-28">
               <NavButton id="OVERVIEW" label="Översikt" icon={LayoutDashboard} />
               <NavButton id="PLANS" label="Veckomenyer" icon={FileText} />
-              <NavButton id="SETTINGS" label="Säkerhet" icon={Settings} />
+              <NavButton id="SETTINGS" label="Mina uppgifter" icon={Settings} />
             </div>
           </div>
 
@@ -457,7 +508,7 @@ export const Profile: React.FC = () => {
                 <div className="bg-[#1e293b] rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl min-h-[400px]">
                   <div className="border-b border-white/5 pb-8 mb-10">
                     <h2 className="text-3xl font-black text-white uppercase tracking-tight mb-2 flex items-center gap-3">
-                      <Settings className="w-8 h-8 text-slate-400" /> Konto & Säkerhet
+                      <Settings className="w-8 h-8 text-slate-400" /> Mina uppgifter
                     </h2>
                   </div>
 
@@ -515,6 +566,91 @@ export const Profile: React.FC = () => {
                       {passwordStatus === 'error' && (
                         <p className="text-xs text-red-400 font-bold">Kunde inte uppdatera lösenordet.</p>
                       )}
+                    </div>
+                  </div>
+
+                  <div className="mt-12 pt-10 border-t border-white/5">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 rounded-xl bg-[#a0c81d]/10 border border-[#a0c81d]/30 flex items-center justify-center text-[#a0c81d]">
+                        <User className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Leverans</p>
+                        <h3 className="text-xl font-black text-white">Adress & telefon</h3>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Adressrad 1</label>
+                        <input
+                          value={addressLine1}
+                          onChange={(e) => setAddressLine1(e.target.value)}
+                          placeholder="Gatuadress"
+                          className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Adressrad 2 (valfritt)</label>
+                        <input
+                          value={addressLine2}
+                          onChange={(e) => setAddressLine2(e.target.value)}
+                          placeholder="Lägenhet, portkod m.m."
+                          className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Postnummer</label>
+                        <input
+                          value={postalCode}
+                          onChange={(e) => setPostalCode(e.target.value)}
+                          placeholder="123 45"
+                          className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Stad</label>
+                        <input
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          placeholder="Ort"
+                          className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Land</label>
+                        <input
+                          value={country}
+                          onChange={(e) => setCountry(e.target.value)}
+                          placeholder="Sverige"
+                          className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Telefon (SMS‑avi)</label>
+                        <input
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="+46 7x xxx xx xx"
+                          className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-4 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-6 flex flex-col md:flex-row items-start md:items-center gap-4">
+                      <button
+                        onClick={handleSaveAddress}
+                        disabled={addressStatus === 'loading'}
+                        className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#0f172a] font-black uppercase tracking-widest text-xs hover:bg-[#b5e02e] transition-all disabled:opacity-50"
+                      >
+                        {addressStatus === 'loading' ? 'Sparar...' : addressStatus === 'success' ? 'Sparat' : 'Spara uppgifter'}
+                      </button>
+                      {addressStatus === 'error' && (
+                        <span className="text-xs text-red-400 font-bold">Kunde inte spara uppgifterna.</span>
+                      )}
+                      <span className="text-xs text-slate-500 font-medium">
+                        Leveransuppgifter används vid påfyllningsbeställningar.
+                      </span>
                     </div>
                   </div>
                 </div>

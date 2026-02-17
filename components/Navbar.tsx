@@ -15,7 +15,8 @@ import {
   Crown,
   ArrowRight,
   LifeBuoy,
-  ClipboardCheck
+  ClipboardCheck,
+  ShoppingBasket
 } from 'lucide-react';
 
 const Navbar: React.FC = () => {
@@ -53,6 +54,7 @@ const Navbar: React.FC = () => {
         { path: '/', label: 'HEM', icon: Home },
         { path: '/recept', label: 'RECEPT', icon: ChefHat },
         ...(session ? [{ path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ClipboardCheck }] : []),
+        ...(session ? [{ path: '/refill', label: 'PÅFYLLNING', icon: ShoppingBasket }] : []),
         { path: '/support', label: 'SUPPORT', icon: LifeBuoy },
         { path: '/profile', label: 'MINA SIDOR', icon: User }
       ];

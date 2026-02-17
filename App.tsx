@@ -16,6 +16,7 @@ import { Uppfoljning } from './pages/Uppfoljning';
 import { Intranet } from './pages/Intranet';
 import { Support } from './pages/Support';
 import { Forlangning } from './pages/Forlangning';
+import Refill from './pages/Refill';
 import AuthScreen from './components/AuthScreen';
 import PremiumAccess from './components/PremiumAccess';
 
@@ -131,6 +132,15 @@ function App() {
             <Route
               path="/forlangning"
               element={<Forlangning />}
+            />
+
+            <Route
+              path="/refill"
+              element={
+                <AuthGuard requirePremium={false}>
+                  <Refill />
+                </AuthGuard>
+              }
             />
 
             <Route

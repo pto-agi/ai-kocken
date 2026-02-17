@@ -82,6 +82,12 @@ export interface UserProfile {
   is_staff?: boolean;
   subscription_status?: string;
   coaching_expires_at?: string; // DATE STRING from Google Sheets/Zapier
+  phone?: string;
+  address_line1?: string;
+  address_line2?: string;
+  postal_code?: string;
+  city?: string;
+  country?: string;
   biometrics?: {
     data: UserData;
     results: CalculationResult;

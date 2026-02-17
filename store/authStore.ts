@@ -6,6 +6,7 @@ interface AuthState {
   profile: any;
   isLoading: boolean;
   initialize: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
   registerUser: (email: string, pass: string, name: string) => Promise<any>;
   signInUser: (email: string, pass: string) => Promise<any>;
   signOut: () => Promise<void>;
@@ -57,6 +58,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
         }
     });
+  },
+
+  refreshProfile: async () => {
+    const session = get().session;
+    if (!session?.user) return;
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      set({ profile });
+    } catch (error) {
+      console.error('Profile refresh error:', error);
+    }
   },
 
   registerUser: async (email, password, name) => {

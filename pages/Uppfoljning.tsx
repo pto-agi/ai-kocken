@@ -15,7 +15,6 @@ type UppfoljningFormState = {
   trainingPlaces: string[];
   trainingPlacesOther: string;
   sessionsPerWeek: string;
-  refillProducts: string[];
   autoContinue: string;
 };
 
@@ -37,16 +36,6 @@ const trainingPlaceOptions = [
   'Annat'
 ];
 
-const refillOptions = [
-  'Klientpaket (samtliga kosttillskott) | 1375 kr 995:-',
-  'Hydro Pulse | 399 kr 349:-',
-  'BCAA | 379 kr 349:-',
-  'Omega 3 | 199 kr 179:-',
-  'Magnesium | 199 kr 179:-',
-  'Multivitamin | 199 kr 179:-',
-  'Fettmätningsverktyg (Kaliper) | 299:-'
-];
-
 const autoContinueOptions = ['Ja', 'Nej', 'Kanske'];
 
 const emptyState: UppfoljningFormState = {
@@ -60,7 +49,6 @@ const emptyState: UppfoljningFormState = {
   trainingPlaces: [],
   trainingPlacesOther: '',
   sessionsPerWeek: '',
-  refillProducts: [],
   autoContinue: ''
 };
 
@@ -116,7 +104,6 @@ const Uppfoljning: React.FC = () => {
       trainingPlaces: ['Gym', 'Hemma', 'Annat'],
       trainingPlacesOther: 'Utomhuspark',
       sessionsPerWeek: '4',
-      refillProducts: ['Hydro Pulse | 399 kr 349:-', 'Omega 3 | 199 kr 179:-'],
       autoContinue: 'Kanske'
     });
   };
@@ -174,7 +161,6 @@ const Uppfoljning: React.FC = () => {
       training_places: form.trainingPlaces,
       training_places_other: form.trainingPlaces.includes('Annat') ? (form.trainingPlacesOther.trim() || null) : null,
       sessions_per_week: parseIntSafe(form.sessionsPerWeek),
-      refill_products: form.refillProducts,
       auto_continue: form.autoContinue || null
     };
 
@@ -192,8 +178,8 @@ const Uppfoljning: React.FC = () => {
   };
 
   const quickMenuItems = [
-    { label: 'Hydro Pulse – Prenumeration', href: '' },
-    { label: 'Förlängning (Erbjudande)', href: '' },
+    { label: 'Beställ påfyllning', href: '/refill' },
+    { label: 'Förlängning (Erbjudande)', href: '/forlangning' },
     { label: 'Lämna in uppföljning', href: '/uppfoljning' },
     { label: 'Lämna in startformulär', href: '/start' }
   ];
@@ -410,30 +396,6 @@ const Uppfoljning: React.FC = () => {
             <section className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
-                <h2 className="text-xl font-black text-white uppercase tracking-wide">Påfyllning till medlemspris</h2>
-              </div>
-              <p className="text-sm text-slate-400">Vill du att vi skickar hem en påfyllning till dig? Du får medlemsrabatt och fri frakt.</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {refillOptions.map((option) => (
-                  <label
-                    key={option}
-                    className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.refillProducts.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-white/10 hover:border-white/20'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={form.refillProducts.includes(option)}
-                      onChange={() => setForm((prev) => ({ ...prev, refillProducts: toggleArrayValue(prev.refillProducts, option) }))}
-                      className="accent-[#a0c81d]"
-                    />
-                    <span className="text-sm font-semibold text-slate-200">{option}</span>
-                  </label>
-                ))}
-              </div>
-            </section>
-
-            <section className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
                 <h2 className="text-xl font-black text-white uppercase tracking-wide">Automatisk fortsättning</h2>
               </div>
               <p className="text-sm text-slate-400">Du slipper avbrott i tjänsten. Fortsätt en månad i taget efter det att din tid tagit slut.</p>
@@ -487,6 +449,23 @@ const Uppfoljning: React.FC = () => {
             </div>
 
             <section className="pt-8 border-t border-white/5 space-y-4">
+              <div className="rounded-2xl border border-white/10 bg-[#0f172a]/70 p-5">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Medlemspris</p>
+                    <h3 className="text-lg md:text-xl font-black text-white">Behöver du påfyllning?</h3>
+                    <p className="text-slate-400 text-sm mt-2 max-w-xl">
+                      Beställ dina favoriter snabbt i vår mini‑butik och få medlemspriser direkt.
+                    </p>
+                  </div>
+                  <Link
+                    to="/refill"
+                    className="px-5 py-3 rounded-xl bg-[#a0c81d] text-[#0f172a] text-xs font-black uppercase tracking-widest hover:bg-[#b5e02e] transition"
+                  >
+                    Till påfyllning
+                  </Link>
+                </div>
+              </div>
               <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500">
                 <Sparkles className="w-4 h-4" /> Snabbmeny
               </div>
