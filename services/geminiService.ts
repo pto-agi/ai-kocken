@@ -25,7 +25,7 @@ export interface WeeklyPlanRequest {
 }
 
 // Model Configuration
-const RECIPE_MODEL = 'gemini-2.5-flash-preview-09-2025'; // Using latest flash for speed
+const RECIPE_MODEL = 'gemini-3-pro-preview'; // Preview pro model
 
 // --- RECIPE GENERATION ---
 export const generateRecipe = async (title: string, description: string, tags: string[]): Promise<string> => {

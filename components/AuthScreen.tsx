@@ -115,7 +115,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
         <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-900 rounded-2xl border border-white/10 shadow-2xl mb-6 relative group">
                 <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <Cpu className="w-8 h-8 text-[#a0c81d]" />
+                <img src="/pto-logotyp-2026.png" alt="PTO" className="w-9 h-9 object-contain" />
             </div>
             
             <div className="flex items-baseline justify-center leading-none mb-2">
