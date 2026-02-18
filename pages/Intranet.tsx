@@ -49,6 +49,8 @@ type UppfoljningEntry = BaseSubmission & {
   other_activity: string[] | null;
   training_places: string[] | null;
   training_places_other: string | null;
+  home_equipment: string[] | null;
+  home_equipment_other: string | null;
   sessions_per_week: number | null;
   refill_products: string[] | null;
   auto_continue: string | null;
@@ -204,6 +206,8 @@ const Intranet: React.FC = () => {
           other_activity,
           training_places,
           training_places_other,
+          home_equipment,
+          home_equipment_other,
           sessions_per_week,
           refill_products,
           auto_continue
@@ -542,6 +546,8 @@ const Intranet: React.FC = () => {
                                 <InfoRow label="Övrig aktivitet" value={formatList(data.other_activity)} />
                                 <InfoRow label="Träningsplatser" value={formatList(data.training_places)} />
                                 <InfoRow label="Träningsplatser annat" value={data.training_places_other || '—'} />
+                                <InfoRow label="Utrustning hemma" value={formatList(data.home_equipment)} />
+                                <InfoRow label="Utrustning annat" value={data.home_equipment_other || '—'} />
                               </div>
                             </section>
 
