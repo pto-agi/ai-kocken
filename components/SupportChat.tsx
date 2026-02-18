@@ -44,18 +44,13 @@ const chatkitBaseOptions: Omit<ChatKitOptions, 'api'> = {
   },
 };
 
-const getSessionUrl = () => {
-  const env = (import.meta as any).env || {};
-  return env.VITE_CHATKIT_SESSION_URL || '/api/chatkit/session';
-};
-
 const SupportChat: React.FC = () => {
   const [isReady, setIsReady] = useState(false);
   const [hasThread, setHasThread] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
 
-  const sessionUrl = useMemo(() => getSessionUrl(), []);
+  const sessionUrl = useMemo(() => '/api/chatkit/session', []);
 
   const { control, sendUserMessage } = useChatKit({
     ...chatkitBaseOptions,

@@ -21,19 +21,11 @@ export const getEnv = (key: string): string => {
     return val;
   }
 
-  // 3. Fallbacks (Dina nuvarande nycklar)
-  // OBS: Se till att "Website Restrictions" i Google Cloud Console tillåter din live-domän!
-  
-  if (key.includes('SUPABASE_URL')) {
-     return 'https://cghnlrinjtexhvetngbe.supabase.co'; 
-  }
-  
-  if (key.includes('SUPABASE_ANON_KEY')) {
-     return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnaG5scmluanRleGh2ZXRuZ2JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2Nzc1NDMsImV4cCI6MjA4MDI1MzU0M30.PObEMpnvHDzKjiycEQzjojqAW_E9SpBeLTILArjxzac'; 
-  }
-
-  if (key.includes('API_KEY') || key.includes('GEMINI')) {
-     return 'AIzaSyAaw1zsEW_7rnJb30UTDpiFsvI9i8gTVr0'; 
+  const isDev = Boolean(metaEnv?.DEV || metaEnv?.MODE === 'development');
+  if (isDev) {
+    // Undvik att läcka hemligheter via hårdkodade fallback-nycklar
+    // och gör det tydligt när en env saknas under dev.
+    console.warn(`[env] Missing ${key}`);
   }
 
   return '';
