@@ -12,6 +12,11 @@ export default function handler(req: any, res: any) {
   res.status(200).json({
     ok: envStatus.OPENAI_API_KEY && envStatus.CHATKIT_WORKFLOW_ID,
     time: new Date().toISOString(),
+    build: {
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
+      branch: process.env.VERCEL_GIT_COMMIT_REF || null,
+      deployment: process.env.VERCEL_URL || null,
+    },
     env: envStatus,
   });
 }
