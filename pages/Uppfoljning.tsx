@@ -173,10 +173,10 @@ const Uppfoljning: React.FC = () => {
     if (!form.email.trim()) {
       return 'Fyll i en giltig e-postadress.';
     }
-    if (!form.summaryFeedback.trim()) {
+    if (!form.quickKeepPlan && !form.summaryFeedback.trim()) {
       return 'Fyll i summering & feedback.';
     }
-    if (form.trainingPlaces.length === 0) {
+    if (!form.quickKeepPlan && form.trainingPlaces.length === 0) {
       return 'Välj var du vill/kan träna.';
     }
     return null;
@@ -350,8 +350,13 @@ const Uppfoljning: React.FC = () => {
                       onChange={(e) => setForm((prev) => ({ ...prev, quickKeepPlan: e.target.checked }))}
                       className="accent-[#a0c81d]"
                     />
-                    <span className="text-sm font-semibold text-[#3D3D3D]">Jag vill behålla samma upplägg en månad till</span>
+                    <span className="text-sm font-semibold text-[#3D3D3D]">Jag vill fortsätta med samma upplägg</span>
                   </label>
+                  {form.quickKeepPlan && (
+                    <p className="text-xs text-[#8A8177] font-medium">
+                      Då räcker det att du skickar in formuläret. Övriga fält är valfria.
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
@@ -362,7 +367,10 @@ const Uppfoljning: React.FC = () => {
                 <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Summering & feedback</h2>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Summering & Feedback inför kommande planering<span className="text-[#a0c81d]">*</span></label>
+                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">
+                  Summering & Feedback inför kommande planering
+                  {!form.quickKeepPlan && <span className="text-[#a0c81d]">*</span>}
+                </label>
                 <textarea
                   value={form.summaryFeedback}
                   onChange={(e) => setForm((prev) => ({ ...prev, summaryFeedback: e.target.value }))}
@@ -429,7 +437,9 @@ const Uppfoljning: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <p className="text-sm text-[#6B6158]">Jag vill/kan träna<span className="text-[#a0c81d]">*</span></p>
+                <p className="text-sm text-[#6B6158]">
+                  Jag vill/kan träna{!form.quickKeepPlan && <span className="text-[#a0c81d]">*</span>}
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {trainingPlaceOptions.map((option) => (
                     <label
