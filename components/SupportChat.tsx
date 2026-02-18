@@ -4,16 +4,16 @@ import type { ChatKitOptions } from '@openai/chatkit';
 
 const chatkitBaseOptions: Omit<ChatKitOptions, 'api'> = {
   theme: {
-    colorScheme: 'dark',
+    colorScheme: 'light',
     radius: 'round',
     density: 'spacious',
     color: {
       grayscale: {
-        hue: 220,
-        tint: 6,
+        hue: 35,
+        tint: 3,
       },
       accent: {
-        primary: '#a0c81d',
+        primary: '#8FB81A',
         level: 1,
       },
     },
