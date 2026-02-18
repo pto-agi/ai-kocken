@@ -404,6 +404,9 @@ export const Profile: React.FC = () => {
                               ? 'Premium är aktivt på ditt konto'
                               : 'Ingen aktiv prenumeration hittades'}
                           </div>
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                            Utgångsdatum: {user.coaching_expires_at ? formatDate(user.coaching_expires_at) : 'Ej angivet'}
+                          </div>
                           <div className="flex items-center gap-3">
                             {cancelStatus === 'success' && (
                               <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
