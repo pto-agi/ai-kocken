@@ -139,12 +139,16 @@ export const Forlangning: React.FC = () => {
         source: 'forlangning'
       };
 
+      const body = new URLSearchParams(
+        Object.entries(payload).map(([key, value]) => [key, String(value ?? '')])
+      ).toString();
+
       let res: Response | null = null;
       try {
         res = await fetch(FRISKVARD_WEBHOOK_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body
         });
       } catch (err) {
         // Likely CORS/network; retry with no-cors to still deliver to Zapier
@@ -153,7 +157,7 @@ export const Forlangning: React.FC = () => {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify(payload)
+          body
         });
         res = null;
       }
