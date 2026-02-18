@@ -52,6 +52,7 @@ export const StartTack: React.FC = () => {
                 <li>Vi går igenom dina mål och preferenser och sätter en plan som passar dig.</li>
                 <li>Om vi behöver något mer kontaktar vi dig via e‑post.</li>
                 <li>Din inbjudan till appen skickas till din e‑postadress.</li>
+                <li>Hittar du inget? Kolla gärna skräpposten.</li>
               </ul>
             </div>
 
