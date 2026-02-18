@@ -21,11 +21,21 @@ export default {
       },
       colors: {
         brand: {
-          dark: '#0f172a',   // slate-900
-          surface: '#1e293b', // slate-800
-          lime: '#a0c81d',    // Original Green Accent
-          text: '#f8fafc',    // slate-50
-          base: '#334155',    // slate-700
+          sand: 'var(--brand-sand)',
+          sage: 'var(--brand-sage)',
+          green: 'var(--brand-green)',
+          greenDeep: 'var(--brand-green-deep)',
+          charcoal: 'var(--brand-charcoal)',
+          line: 'var(--brand-line)',
+          apricot: 'var(--brand-apricot)',
+          muted: 'var(--brand-muted)',
+          mutedLight: 'var(--brand-muted-light)',
+          // Backward-compatible aliases
+          dark: 'var(--brand-sand)',
+          surface: 'var(--brand-sage)',
+          lime: 'var(--brand-green)',
+          text: 'var(--brand-charcoal)',
+          base: 'var(--brand-muted)',
         }
       },
       animation: {

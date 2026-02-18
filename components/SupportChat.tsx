@@ -89,49 +89,49 @@ const SupportChat: React.FC = () => {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-[2.5rem] border border-white/5 bg-[#0f172a] text-white shadow-2xl">
+    <div className="relative overflow-hidden rounded-[2.5rem] border border-[#E6E1D8] bg-[#F6F1E7] text-[#3D3D3D] shadow-2xl">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-[-220px] h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-[#a0c81d]/10 blur-[140px]" />
-        <div className="absolute right-[-120px] top-1/3 h-[420px] w-[420px] rounded-full bg-white/5 blur-[120px]" />
+        <div className="absolute right-[-120px] top-1/3 h-[420px] w-[420px] rounded-full bg-[#ffffff]/70 blur-[120px]" />
         <div className="absolute inset-0 opacity-[0.25] [background-image:radial-gradient(rgba(148,163,184,0.2)_1px,transparent_1px)] [background-size:26px_26px]" />
       </div>
 
       <div className="relative mx-auto flex w-full max-w-5xl flex-col px-4 py-6 sm:px-6">
         <section className={`mt-3 ${hasThread ? 'pt-2' : ''}`}>
           <div className="rounded-[28px] bg-gradient-to-br from-white/10 via-white/5 to-transparent p-[1px] shadow-[0_24px_70px_rgba(0,0,0,0.4)]">
-            <div className="rounded-[27px] bg-[#0f172a]/95 backdrop-blur">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
+            <div className="rounded-[27px] bg-[#F6F1E7]/95 backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E6E1D8] px-5 py-4 sm:px-6">
                 <div className="flex items-center gap-3">
                   <img
-                    src="/pto-logotyp.png"
+                    src="/logotyp-mix.png"
                     alt="Private Training Online"
                     className="h-7 w-auto object-contain"
                     loading="eager"
                   />
                   <div>
-                    <p className="text-sm font-semibold text-white">Private Training Online</p>
-                    <p className="text-xs text-slate-400">Kundtjänst · Svarar vanligtvis inom 2 minuter</p>
+                    <p className="text-sm font-semibold text-[#3D3D3D]">Private Training Online</p>
+                    <p className="text-xs text-[#6B6158]">Kundtjänst · Svarar vanligtvis inom 2 minuter</p>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 font-heading">
+                <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B6158] font-heading">
                   <button
                     type="button"
                     onClick={() => handleSuggestion('Jag behöver teknisk support.')}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-300 transition-colors hover:border-[#a0c81d]/30 hover:text-white"
+                    className="rounded-full border border-[#E6E1D8] bg-[#ffffff]/70 px-3 py-1 text-[#6B6158] transition-colors hover:border-[#a0c81d]/30 hover:text-[#3D3D3D]"
                   >
                     Support
                   </button>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Online</span>
+                  <span className="rounded-full border border-[#E6E1D8] bg-[#ffffff]/70 px-3 py-1">Online</span>
                 </div>
               </div>
 
               <div className="px-4 py-4 sm:px-6">
-                <div className="relative h-[60vh] min-h-[460px] w-full rounded-[22px] border border-white/10 bg-gradient-to-b from-[#0f172a] via-[#0f172a] to-[#0b1020] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                <div className="relative h-[60vh] min-h-[460px] w-full rounded-[22px] border border-[#E6E1D8] bg-gradient-to-b from-[#F6F1E7] via-[#F6F1E7] to-[#F6F1E7] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="h-full w-full">
                     <ChatKit control={control} className="h-full w-full" />
                   </div>
                   {!isReady && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[22px] bg-[#0b1222]/70 text-sm text-slate-300">
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[22px] bg-[#0b1222]/70 text-sm text-[#6B6158]">
                       Laddar chatten…
                     </div>
                   )}
@@ -143,7 +143,7 @@ const SupportChat: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-5 py-4 text-xs text-slate-400 sm:px-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E6E1D8] px-5 py-4 text-xs text-[#6B6158] sm:px-6">
                 <span>Välj en snabbfråga eller skriv din egen fråga.</span>
                 <span className="font-mono">Säker session</span>
               </div>

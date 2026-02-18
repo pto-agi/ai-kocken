@@ -54,7 +54,7 @@ const Navbar: React.FC = () => {
         { path: '/', label: 'HEM', icon: Home },
         { path: '/recept', label: 'RECEPT', icon: ChefHat },
         ...(session ? [{ path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ClipboardCheck }] : []),
-        ...(session ? [{ path: '/refill', label: 'PÅFYLLNING', icon: ShoppingBasket }] : []),
+        ...(session ? [{ path: '/refill', label: 'SHOP', icon: ShoppingBasket }] : []),
         { path: '/support', label: 'SUPPORT', icon: LifeBuoy },
         { path: '/profile', label: 'MINA SIDOR', icon: User }
       ];
@@ -64,14 +64,14 @@ const Navbar: React.FC = () => {
       <nav 
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${
           scrolled 
-            ? 'bg-[#0f172a]/95 backdrop-blur-md border-white/5 h-20 shadow-xl' 
-            : 'bg-[#0f172a] border-transparent h-24'
+            ? 'bg-[#3D3D3D]/95 backdrop-blur-md border-[#6B6158] h-20 shadow-xl' 
+            : 'bg-[#3D3D3D] border-transparent h-24'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-full flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group relative z-50">
-            <div className="relative flex items-center justify-center w-10 h-10 rounded-xl border border-white/10 shadow-lg bg-[#0f172a] group-hover:border-[#a0c81d]/30 transition-all duration-300 overflow-hidden">
-                <img src="/pto-logotyp-2026.png" alt="PTO" className="w-7 h-7 object-contain" />
+            <div className="relative flex items-center justify-center w-10 h-10 rounded-xl border border-[#6B6158] shadow-lg bg-[#3D3D3D] group-hover:border-[#a0c81d]/30 transition-all duration-300 overflow-hidden">
+                <img src="/logotyp-glow.png" alt="PTO" className="w-7 h-7 object-contain" />
             </div>
             <div className="flex flex-col">
                 <div className="flex items-baseline leading-none">
@@ -90,7 +90,7 @@ const Navbar: React.FC = () => {
               >
                 <div className="flex items-center gap-2">
                   <span className={`text-sm font-heading font-semibold tracking-wide transition-colors duration-300 ${
-                    isActive(link.path) ? 'text-[#a0c81d]' : 'text-slate-400 group-hover:text-white'
+                    isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'
                   }`}>
                     {link.label}
                   </span>
@@ -104,13 +104,13 @@ const Navbar: React.FC = () => {
             {session ? (
               <button 
                 onClick={handleSignOut} 
-                className="ml-2 p-2 text-slate-500 hover:text-red-400 transition-colors"
+                className="ml-2 p-2 text-white/70 hover:text-red-400 transition-colors"
                 title="Logga ut"
               >
                 <LogOut className="w-5 h-5" />
               </button>
             ) : (
-                <Link to="/auth" className="ml-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-white uppercase tracking-wide hover:bg-[#a0c81d] hover:text-[#0f172a] hover:border-[#a0c81d] transition-all">
+                <Link to="/auth" className="ml-2 px-4 py-2 bg-transparent border border-white/70 rounded-lg text-xs font-bold text-white uppercase tracking-wide hover:text-[#a0c81d] hover:border-[#a0c81d] transition-all">
                     Logga in
                 </Link>
             )}
@@ -118,7 +118,7 @@ const Navbar: React.FC = () => {
 
           <button 
             onClick={() => setIsDrawerOpen(true)}
-            className="md:hidden p-2 text-slate-300 hover:text-white transition-colors relative z-50"
+            className="md:hidden p-2 text-white/80 hover:text-white transition-colors relative z-50"
             aria-label="Öppna meny"
           >
             <Menu className="w-8 h-8 stroke-[1.5]" />
@@ -127,42 +127,42 @@ const Navbar: React.FC = () => {
       </nav>
 
       <div 
-        className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] transition-opacity duration-300 md:hidden ${
+        className={`fixed inset-0 bg-[#3D3D3D]/30 backdrop-blur-sm z-[60] transition-opacity duration-300 md:hidden ${
           isDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={() => setIsDrawerOpen(false)}
       />
 
       <div 
-        className={`fixed top-0 bottom-0 right-0 w-[85%] max-w-sm bg-[#0f172a] z-[70] shadow-2xl border-l border-white/5 transform transition-transform duration-300 ease-out md:hidden flex flex-col ${
+        className={`fixed top-0 bottom-0 right-0 w-[85%] max-w-sm bg-[#3D3D3D] z-[70] shadow-2xl border-l border-[#6B6158] transform transition-transform duration-300 ease-out md:hidden flex flex-col ${
           isDrawerOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="p-6 border-b border-white/5 bg-[#0f172a] relative">
+        <div className="p-6 border-b border-[#6B6158] bg-[#3D3D3D] relative">
             <button 
                 onClick={() => setIsDrawerOpen(false)}
-                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-white/5 rounded-full transition-colors"
+                className="absolute top-4 right-4 p-2 text-white/80 hover:text-white bg-[#3D3D3D] rounded-full transition-colors"
             >
                 <X className="w-5 h-5" />
             </button>
 
             <div className="mt-6 mb-2">
                 {isStaff ? (
-                    <div className="flex items-center justify-center w-full py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold uppercase tracking-wide">
+                    <div className="flex items-center justify-center w-full py-3 rounded-xl bg-[#E6E1D8] border border-[#E6E1D8] text-[#3D3D3D] font-bold uppercase tracking-wide">
                         <ShieldCheck className="w-4 h-4 mr-2" /> Personal
                     </div>
                 ) : !isPremium ? (
                     <Link 
                         to="/premium" 
                         onClick={() => setIsDrawerOpen(false)}
-                        className="flex items-center justify-center w-full py-4 rounded-xl bg-[#a0c81d] text-[#0f172a] font-black uppercase tracking-wide shadow-[0_0_20px_rgba(160,200,29,0.3)] hover:bg-[#b5e02e] hover:shadow-[0_0_30px_rgba(160,200,29,0.5)] transition-all group"
+                        className="flex items-center justify-center w-full py-4 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-wide shadow-[0_0_20px_rgba(160,200,29,0.28)] hover:bg-[#5C7A12] hover:shadow-[0_0_30px_rgba(160,200,29,0.45)] transition-all group"
                     >
                         <Crown className="w-5 h-5 mr-2 fill-current" />
                         Bli Medlem
                         <ArrowRight className="w-4 h-4 ml-1 opacity-50 group-hover:translate-x-1 transition-transform" />
                     </Link>
                 ) : (
-                    <div className="flex items-center justify-center w-full py-3 rounded-xl bg-slate-800 border border-slate-700 text-emerald-400 font-bold uppercase tracking-wide">
+                    <div className="flex items-center justify-center w-full py-3 rounded-xl bg-[#E6E1D8] border border-[#E6E1D8] text-emerald-600 font-bold uppercase tracking-wide">
                         <Crown className="w-4 h-4 mr-2" /> Premium Aktiv
                     </div>
                 )}
@@ -176,38 +176,38 @@ const Navbar: React.FC = () => {
               to={link.path}
               className={`flex items-center justify-between p-4 rounded-xl transition-all duration-200 group border border-transparent ${
                 isActive(link.path) 
-                  ? 'bg-[#a0c81d]/10 border-[#a0c81d]/20' 
-                  : 'hover:bg-white/5'
+                  ? 'bg-[#a0c81d]/15 border-[#a0c81d]/40' 
+                  : 'hover:bg-white/10'
               }`}
             >
               <div className="flex items-center gap-4">
-                <link.icon className={`w-5 h-5 ${isActive(link.path) ? 'text-[#a0c81d]' : 'text-slate-400 group-hover:text-white'}`} />
-                <span className={`font-heading font-semibold tracking-wide ${isActive(link.path) ? 'text-[#a0c81d]' : 'text-slate-200 group-hover:text-white'}`}>
+                <link.icon className={`w-5 h-5 ${isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'}`} />
+                <span className={`font-heading font-semibold tracking-wide ${isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'}`}>
                   {link.label}
                 </span>
               </div>
-              <ChevronRight className={`w-4 h-4 text-slate-600 transition-transform group-hover:translate-x-1 ${isActive(link.path) ? 'text-[#a0c81d]' : ''}`} />
+              <ChevronRight className={`w-4 h-4 text-white/70 transition-transform group-hover:translate-x-1 ${isActive(link.path) ? 'text-[#a0c81d]' : ''}`} />
             </Link>
           ))}
 
-          <div className="mt-6 pt-6 border-t border-white/5 px-2">
-             <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2 px-2">Konto</p>
+          <div className="mt-6 pt-6 border-t border-[#6B6158] px-2">
+             <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-2 px-2">Konto</p>
              {session ? (
                <>
-                 <Link to="/profile" className="flex items-center gap-3 p-3 text-slate-400 hover:text-white transition-colors">
+                 <Link to="/profile" className="flex items-center gap-3 p-3 text-white hover:text-[#a0c81d] transition-colors">
                     <Settings className="w-5 h-5" />
                     <span className="font-medium text-sm">Inställningar</span>
                  </Link>
                  <button 
                    onClick={handleSignOut}
-                   className="w-full flex items-center gap-3 p-3 text-red-400 hover:text-red-300 transition-colors"
+                   className="w-full flex items-center gap-3 p-3 text-white hover:text-red-400 transition-colors"
                  >
                     <LogOut className="w-5 h-5" />
                     <span className="font-medium text-sm">Logga ut</span>
                  </button>
                </>
              ) : (
-               <Link to="/auth" className="flex items-center gap-3 p-3 text-[#a0c81d] hover:text-emerald-400 transition-colors">
+               <Link to="/auth" className="flex items-center gap-3 p-3 text-white hover:text-[#a0c81d] transition-colors">
                   <User className="w-5 h-5" />
                   <span className="font-medium text-sm">Logga in</span>
                </Link>
@@ -215,14 +215,14 @@ const Navbar: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-6 border-t border-white/5 bg-[#0f172a]">
-           <div className="flex items-center justify-center gap-2 text-[10px] text-slate-600 uppercase tracking-widest font-bold">
+        <div className="p-6 border-t border-[#6B6158] bg-[#3D3D3D]">
+           <div className="flex items-center justify-center gap-2 text-[10px] text-white/70 uppercase tracking-widest font-bold">
               <ShieldCheck className="w-3 h-3" /> Säker anslutning
            </div>
         </div>
       </div>
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0f172a]/95 backdrop-blur-xl border-t border-white/10 z-40 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#3D3D3D]/95 backdrop-blur-xl border-t border-[#6B6158] z-40 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
         <div className="flex justify-around items-center h-[70px] px-2">
           {navLinks.map((link) => {
             const active = isActive(link.path);
@@ -234,14 +234,14 @@ const Navbar: React.FC = () => {
               >
                 <div className={`relative p-1.5 rounded-xl transition-all duration-300 ${active ? '-translate-y-1' : ''}`}>
                    <link.icon 
-                     className={`w-6 h-6 transition-colors duration-300 ${active ? 'text-[#a0c81d] fill-[#a0c81d]/10' : 'text-slate-400 group-hover:text-slate-200'}`} 
+                     className={`w-6 h-6 transition-colors duration-300 ${active ? 'text-[#a0c81d] fill-[#a0c81d]/10' : 'text-white/80 group-hover:text-[#a0c81d]'}`} 
                      strokeWidth={active ? 2.5 : 2}
                    />
                    {active && (
                      <span className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#a0c81d] rounded-full shadow-[0_0_5px_#a0c81d]"></span>
                    )}
                 </div>
-                <span className={`text-[9px] font-bold tracking-widest font-condensed uppercase transition-colors ${active ? 'text-[#a0c81d]' : 'text-slate-500'}`}>
+                <span className={`text-[9px] font-bold tracking-widest font-condensed uppercase transition-colors ${active ? 'text-[#a0c81d]' : 'text-white/70 group-hover:text-[#a0c81d]'}`}>
                   {link.label}
                 </span>
               </Link>

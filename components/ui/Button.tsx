@@ -25,8 +25,8 @@ export const Button: React.FC<ButtonProps> = ({
 
   const variants = {
     primary: "text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-lg shadow-emerald-500/30",
-    secondary: "text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 shadow-sm",
-    ghost: "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+    secondary: "text-[#3D3D3D] bg-white border border-slate-200 hover:bg-slate-50 shadow-sm",
+    ghost: "text-[#8A8177] hover:bg-slate-100 hover:text-[#3D3D3D]",
     danger: "text-white bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30"
   };
 

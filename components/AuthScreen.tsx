@@ -102,7 +102,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
     <div className={`relative flex flex-col items-center justify-center overflow-hidden ${
         embedded 
         ? 'w-full py-10 min-h-[600px]' 
-        : 'min-h-[calc(100vh-5rem)] w-full bg-[#0f172a] pt-24'
+        : 'min-h-[calc(100vh-5rem)] w-full bg-[#F6F1E7] pt-24'
     }`}>
       
       {/* Background Effects */}
@@ -113,16 +113,16 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
         
         {/* Header Branding */}
         <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-900 rounded-2xl border border-white/10 shadow-2xl mb-6 relative group">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-[#F6F1E7] rounded-2xl border border-[#E6E1D8] shadow-2xl mb-6 relative group">
                 <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <img src="/pto-logotyp-2026.png" alt="PTO" className="w-9 h-9 object-contain" />
+                <img src="/logotyp-glow.png" alt="PTO" className="w-11 h-11 object-contain" />
             </div>
             
             <div className="flex items-baseline justify-center leading-none mb-2">
-                <span className="text-3xl font-black text-white tracking-tight font-heading">PTO</span>
+                <span className="text-3xl font-black text-[#3D3D3D] tracking-tight font-heading">PTO</span>
                 <span className="text-3xl font-black text-[#a0c81d] font-heading ml-1">Ai</span>
             </div>
-            <p className="text-slate-400 text-sm font-medium">
+            <p className="text-[#6B6158] text-sm font-medium">
                 {isLogin ? 'Logga in för att komma åt din profil' : 'Skapa ett konto för att börja din resa'}
             </p>
         </div>
@@ -140,7 +140,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                     <button 
                         onClick={() => { setIsLogin(true); setError(null); }}
                         className={`flex-1 py-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-all z-10 ${
-                            isLogin ? 'text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                            isLogin ? 'text-[#3D3D3D] shadow-sm' : 'text-[#6B6158] hover:text-[#8A8177]'
                         }`}
                     >
                         Logga in
@@ -148,7 +148,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                     <button 
                         onClick={() => { setIsLogin(false); setError(null); }}
                         className={`flex-1 py-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-all z-10 ${
-                            !isLogin ? 'text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                            !isLogin ? 'text-[#3D3D3D] shadow-sm' : 'text-[#6B6158] hover:text-[#8A8177]'
                         }`}
                     >
                         Skapa konto
@@ -170,14 +170,14 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                         
                         {!isLogin && (
                             <div className="space-y-2 animate-fade-in">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Ditt Namn</label>
+                                <label className="text-[10px] font-bold text-[#6B6158] uppercase tracking-widest ml-1">Ditt Namn</label>
                                 <div className="relative group">
-                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-[#a0c81d] transition-colors" />
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6B6158] group-focus-within:text-[#a0c81d] transition-colors" />
                                     <input 
                                         type="text" 
                                         value={name} 
                                         onChange={(e) => setName(e.target.value)} 
-                                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:ring-0 focus:border-[#a0c81d] outline-none font-bold text-slate-800 placeholder:text-slate-300 transition-all text-sm" 
+                                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:ring-0 focus:border-[#a0c81d] outline-none font-bold text-slate-800 placeholder:text-[#6B6158] transition-all text-sm" 
                                         placeholder="Förnamn Efternamn" 
                                         required={!isLogin} 
                                     />
@@ -186,14 +186,14 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                         )}
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">E-postadress</label>
+                            <label className="text-[10px] font-bold text-[#6B6158] uppercase tracking-widest ml-1">E-postadress</label>
                             <div className="relative group">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-[#a0c81d] transition-colors" />
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6B6158] group-focus-within:text-[#a0c81d] transition-colors" />
                                 <input 
                                     type="email" 
                                     value={email} 
                                     onChange={(e) => setEmail(e.target.value)} 
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:ring-0 focus:border-[#a0c81d] outline-none font-bold text-slate-800 placeholder:text-slate-300 transition-all text-sm" 
+                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:ring-0 focus:border-[#a0c81d] outline-none font-bold text-slate-800 placeholder:text-[#6B6158] transition-all text-sm" 
                                     placeholder="namn@exempel.se" 
                                     required 
                                 />
@@ -201,14 +201,14 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Lösenord</label>
+                            <label className="text-[10px] font-bold text-[#6B6158] uppercase tracking-widest ml-1">Lösenord</label>
                             <div className="relative group">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-[#a0c81d] transition-colors" />
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6B6158] group-focus-within:text-[#a0c81d] transition-colors" />
                                 <input 
                                     type="password" 
                                     value={password} 
                                     onChange={(e) => setPassword(e.target.value)} 
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:ring-0 focus:border-[#a0c81d] outline-none font-bold text-slate-800 placeholder:text-slate-300 transition-all text-sm" 
+                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:ring-0 focus:border-[#a0c81d] outline-none font-bold text-slate-800 placeholder:text-[#6B6158] transition-all text-sm" 
                                     placeholder="••••••••" 
                                     minLength={6} 
                                     required 
@@ -233,7 +233,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                         <button
                             type="submit"
                             disabled={loading || !isConfigured}
-                            className="w-full bg-[#0f172a] hover:bg-slate-800 text-white font-black py-4 rounded-xl shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2 mt-4 text-sm uppercase tracking-wider"
+                            className="w-full bg-[#F6F1E7] hover:bg-[#E6E1D8] text-[#3D3D3D] font-black py-4 rounded-xl shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2 mt-4 text-sm uppercase tracking-wider"
                         >
                             {loading ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -249,14 +249,14 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
 
                 <div className="relative flex py-6 items-center">
                     <div className="flex-grow border-t border-slate-100"></div>
-                    <span className="flex-shrink-0 mx-4 text-[10px] font-bold text-slate-300 uppercase tracking-widest">Eller</span>
+                    <span className="flex-shrink-0 mx-4 text-[10px] font-bold text-[#6B6158] uppercase tracking-widest">Eller</span>
                     <div className="flex-grow border-t border-slate-100"></div>
                 </div>
 
                 <button
                     onClick={handleGoogleLogin}
                     disabled={googleLoading || !isConfigured}
-                    className="w-full bg-white hover:bg-slate-50 text-slate-600 font-bold py-3.5 rounded-xl border-2 border-slate-100 transition-all flex items-center justify-center gap-3 text-sm hover:border-slate-200"
+                    className="w-full bg-white hover:bg-slate-50 text-[#8A8177] font-bold py-3.5 rounded-xl border-2 border-slate-100 transition-all flex items-center justify-center gap-3 text-sm hover:border-slate-200"
                 >
                     {googleLoading ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -270,7 +270,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
         </div>
         
         {/* Footer info */}
-        <div className="mt-8 text-center text-slate-500 text-xs font-medium">
+        <div className="mt-8 text-center text-[#8A8177] text-xs font-medium">
             <p className="flex items-center justify-center gap-1">
                 <Lock className="w-3 h-3" /> Din data är krypterad och säker.
             </p>

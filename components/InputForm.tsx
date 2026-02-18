@@ -37,7 +37,7 @@ const InputForm: React.FC<InputFormProps> = ({ data, onChange, onCalculate }) =>
           className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center transition-all ${
             data.gender === Gender.MALE 
               ? 'border-emerald-500 bg-emerald-50/50 text-emerald-700 shadow-inner' 
-              : 'border-slate-100 hover:border-emerald-200 text-slate-400 hover:bg-slate-50'
+              : 'border-slate-100 hover:border-emerald-200 text-[#6B6158] hover:bg-slate-50'
           }`}
         >
           <User className="w-8 h-8 mb-2" />
@@ -48,7 +48,7 @@ const InputForm: React.FC<InputFormProps> = ({ data, onChange, onCalculate }) =>
           className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center transition-all ${
             data.gender === Gender.FEMALE 
               ? 'border-emerald-500 bg-emerald-50/50 text-emerald-700 shadow-inner' 
-              : 'border-slate-100 hover:border-emerald-200 text-slate-400 hover:bg-slate-50'
+              : 'border-slate-100 hover:border-emerald-200 text-[#6B6158] hover:bg-slate-50'
           }`}
         >
           <User className="w-8 h-8 mb-2" />
@@ -60,13 +60,13 @@ const InputForm: React.FC<InputFormProps> = ({ data, onChange, onCalculate }) =>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Age */}
         <div className="space-y-2">
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Ålder</label>
+          <label className="block text-xs font-bold text-[#8A8177] uppercase tracking-wider">Ålder</label>
           <input
             type="number"
             value={data.age || ''}
             placeholder="0"
             onChange={(e) => handleChange('age', parseInt(e.target.value) || 0)}
-            className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-lg focus:ring-0 focus:border-emerald-500 outline-none transition font-mono font-bold text-slate-800 placeholder:text-slate-300"
+            className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-lg focus:ring-0 focus:border-emerald-500 outline-none transition font-mono font-bold text-slate-800 placeholder:text-[#6B6158]"
             min="10"
             max="120"
           />
@@ -74,7 +74,7 @@ const InputForm: React.FC<InputFormProps> = ({ data, onChange, onCalculate }) =>
 
         {/* Height */}
         <div className="space-y-2">
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+          <label className="block text-xs font-bold text-[#8A8177] uppercase tracking-wider flex items-center gap-2">
             Längd (cm)
           </label>
           <input
@@ -82,7 +82,7 @@ const InputForm: React.FC<InputFormProps> = ({ data, onChange, onCalculate }) =>
             value={data.height || ''}
             placeholder="0"
             onChange={(e) => handleChange('height', parseInt(e.target.value) || 0)}
-            className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-lg focus:ring-0 focus:border-emerald-500 outline-none transition font-mono font-bold text-slate-800 placeholder:text-slate-300"
+            className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-lg focus:ring-0 focus:border-emerald-500 outline-none transition font-mono font-bold text-slate-800 placeholder:text-[#6B6158]"
             min="100"
             max="250"
           />
@@ -90,7 +90,7 @@ const InputForm: React.FC<InputFormProps> = ({ data, onChange, onCalculate }) =>
 
         {/* Weight */}
         <div className="space-y-2">
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+          <label className="block text-xs font-bold text-[#8A8177] uppercase tracking-wider flex items-center gap-2">
             Vikt (kg)
           </label>
           <input
@@ -98,7 +98,7 @@ const InputForm: React.FC<InputFormProps> = ({ data, onChange, onCalculate }) =>
             value={data.weight || ''}
             placeholder="0"
             onChange={(e) => handleChange('weight', parseInt(e.target.value) || 0)}
-            className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-lg focus:ring-0 focus:border-emerald-500 outline-none transition font-mono font-bold text-slate-800 placeholder:text-slate-300"
+            className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-lg focus:ring-0 focus:border-emerald-500 outline-none transition font-mono font-bold text-slate-800 placeholder:text-[#6B6158]"
             min="30"
             max="300"
           />
@@ -107,7 +107,7 @@ const InputForm: React.FC<InputFormProps> = ({ data, onChange, onCalculate }) =>
 
       {/* Activity Level */}
       <div className="space-y-2">
-        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+        <label className="block text-xs font-bold text-[#8A8177] uppercase tracking-wider flex items-center gap-2">
            Aktivitetsnivå
         </label>
         <div className="relative">
@@ -128,7 +128,7 @@ const InputForm: React.FC<InputFormProps> = ({ data, onChange, onCalculate }) =>
 
       {/* Goal */}
       <div className="space-y-2">
-        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+        <label className="block text-xs font-bold text-[#8A8177] uppercase tracking-wider flex items-center gap-2">
            Målsättning
         </label>
         <div className="relative">
@@ -157,9 +157,9 @@ const InputForm: React.FC<InputFormProps> = ({ data, onChange, onCalculate }) =>
               onChange={(e) => handleChange('useCustomMacros', e.target.checked)}
               className="peer sr-only" 
             />
-            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-800"></div>
+            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#E6E1D8]"></div>
           </div>
-          <span className="text-xs font-bold uppercase tracking-wide text-slate-500 flex items-center gap-2 group-hover:text-emerald-600 transition">
+          <span className="text-xs font-bold uppercase tracking-wide text-[#8A8177] flex items-center gap-2 group-hover:text-emerald-600 transition">
             <Settings2 className="w-4 h-4" /> Anpassa makrofördelning
           </span>
         </label>
@@ -208,9 +208,9 @@ const InputForm: React.FC<InputFormProps> = ({ data, onChange, onCalculate }) =>
       <button
         onClick={onCalculate}
         disabled={isMacroInvalid}
-        className={`w-full text-slate-900 font-black uppercase tracking-widest text-sm py-4 px-6 rounded-xl transition duration-300 shadow-lg transform mt-4 flex items-center justify-center gap-2 ${
+        className={`w-full text-[#3D3D3D] font-black uppercase tracking-widest text-sm py-4 px-6 rounded-xl transition duration-300 shadow-lg transform mt-4 flex items-center justify-center gap-2 ${
           isMacroInvalid 
-            ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+            ? 'bg-slate-200 text-[#6B6158] cursor-not-allowed' 
             : 'bg-emerald-400 hover:bg-emerald-300 hover:shadow-emerald-500/30 hover:-translate-y-1 active:translate-y-0'
         }`}
       >

@@ -141,26 +141,26 @@ export const Forlangning: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-200 font-sans pb-32 pt-24 px-4 overflow-x-hidden">
+    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-32 pt-24 px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px] pointer-events-none"></div>
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[100px]"></div>
       </div>
 
       <div className="max-w-6xl mx-auto relative z-10 animate-fade-in">
-        <div className="bg-[#121a2b]/80 backdrop-blur-xl rounded-[2.8rem] p-8 md:p-12 border border-white/5 shadow-2xl mb-12 overflow-hidden relative">
+        <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2.8rem] p-8 md:p-12 border border-[#E6E1D8] shadow-2xl mb-12 overflow-hidden relative">
           <div className="absolute -right-10 -top-10 w-[320px] h-[320px] bg-[#a0c81d]/10 rounded-full blur-[120px]"></div>
           <div className="relative z-10">
-            <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+            <div className="inline-flex items-center gap-3 rounded-full border border-[#E6E1D8] bg-[#ffffff]/70 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-[#6B6158]">
               <Sparkles className="w-3 h-3 text-[#a0c81d]" /> Klienterbjudande
             </div>
-            <h1 className="mt-6 text-3xl md:text-5xl font-black text-white font-heading tracking-tight">
+            <h1 className="mt-6 text-3xl md:text-5xl font-black text-[#3D3D3D] font-heading tracking-tight">
               Förläng ditt medlemskap till exklusiva priser
             </h1>
-            <p className="mt-4 text-slate-300 text-sm md:text-base font-medium max-w-2xl">
+            <p className="mt-4 text-[#6B6158] text-sm md:text-base font-medium max-w-2xl">
               Passa på att förlänga ditt medlemskap innan utgångsdatumet för att kunna nyttja dina unika klientpriser.
             </p>
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-300">
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#6B6158]">
               {[
                 'Upp till 70% förlängningsrabatt med priser som bättre än vad som erbjuds någon annan stans.',
                 'Betalning med friskvårdsbidrag.',
@@ -182,39 +182,39 @@ export const Forlangning: React.FC = () => {
               key={plan.id}
               className={`relative rounded-[2rem] border p-6 md:p-8 shadow-xl transition-all ${
                 plan.highlight
-                  ? 'border-[#a0c81d]/60 bg-[#141f33] shadow-[0_20px_60px_rgba(160,200,29,0.15)]'
-                  : 'border-white/5 bg-[#111827]/80'
+                  ? 'border-[#a0c81d]/60 bg-[#E8F1D5] shadow-[0_20px_60px_rgba(160,200,29,0.18)]'
+                  : 'border-[#E6E1D8] bg-[#eadfd9]/80'
               }`}
             >
               {plan.highlight && (
-                <div className="absolute top-5 right-5 rounded-full bg-[#a0c81d] text-[#0f172a] text-[10px] font-black uppercase tracking-widest px-3 py-1">
+                <div className="absolute top-5 right-5 rounded-full bg-[#a0c81d] text-[#F6F1E7] text-[10px] font-black uppercase tracking-widest px-3 py-1">
                   {plan.tag}
                 </div>
               )}
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#6B6158]">
                 <BadgePercent className="w-4 h-4 text-[#a0c81d]" /> Förlängning
               </div>
-              <h3 className="mt-4 text-2xl font-black text-white">{plan.label}</h3>
-              <div className="mt-3 text-slate-400 text-sm">Ordinarie: <span className="line-through">{plan.price}</span></div>
-              <div className="mt-2 text-3xl font-black text-white">{plan.discounted}</div>
-              <p className="mt-3 text-xs text-slate-400">Månader som adderas direkt på din nuvarande period.</p>
+              <h3 className="mt-4 text-2xl font-black text-[#3D3D3D]">{plan.label}</h3>
+              <div className="mt-3 text-[#6B6158] text-sm">Ordinarie: <span className="line-through">{plan.price}</span></div>
+              <div className="mt-2 text-3xl font-black text-[#3D3D3D]">{plan.discounted}</div>
+              <p className="mt-3 text-xs text-[#6B6158]">Månader som adderas direkt på din nuvarande period.</p>
             </div>
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-[#1e293b]/80 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl">
+          <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 border border-[#E6E1D8] shadow-2xl">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
                 <Wallet className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Betalningsalternativ</p>
-                <h2 className="text-2xl font-black text-white">Välj det som passar dig</h2>
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Betalningsalternativ</p>
+                <h2 className="text-2xl font-black text-[#3D3D3D]">Välj det som passar dig</h2>
               </div>
             </div>
 
-            <div className="space-y-4 text-sm text-slate-300">
+            <div className="space-y-4 text-sm text-[#6B6158]">
               {PAYMENT_OPTIONS.map((option) => (
                 <div key={option} className="flex items-start gap-3">
                   <ShieldCheck className="w-5 h-5 text-emerald-400 mt-0.5" />
@@ -222,38 +222,38 @@ export const Forlangning: React.FC = () => {
                 </div>
               ))}
               <div className="flex items-start gap-3">
-                <CreditCard className="w-5 h-5 text-slate-400 mt-0.5" />
+                <CreditCard className="w-5 h-5 text-[#6B6158] mt-0.5" />
                 <span>Alla priser är klientpriser och gäller endast befintliga medlemmar.</span>
               </div>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="bg-[#1e293b]/80 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 border border-white/5 shadow-2xl space-y-6">
+          <form onSubmit={handleSubmit} className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 border border-[#E6E1D8] shadow-2xl space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Förlängning</p>
-                <h2 className="text-2xl font-black text-white">Skicka in din förlängning</h2>
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Förlängning</p>
+                <h2 className="text-2xl font-black text-[#3D3D3D]">Skicka in din förlängning</h2>
               </div>
-              <span className="text-[10px] font-bold text-slate-500">"*" anger obligatoriska fält</span>
+              <span className="text-[10px] font-bold text-[#8A8177]">"*" anger obligatoriska fält</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Förnamn *</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Förnamn *</label>
                 <input
                   value={form.firstName}
                   onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
-                  className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-[#a0c81d] outline-none"
+                  className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
                   placeholder="Förnamn"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Efternamn *</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Efternamn *</label>
                 <input
                   value={form.lastName}
                   onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                  className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-[#a0c81d] outline-none"
+                  className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
                   placeholder="Efternamn"
                   required
                 />
@@ -261,27 +261,27 @@ export const Forlangning: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">E-postadress *</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">E-postadress *</label>
               <input
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-[#a0c81d] outline-none"
+                className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
                 placeholder="E-postadress"
                 required
               />
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Jag vill förlänga med *</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Jag vill förlänga med *</p>
               <div className="grid grid-cols-1 gap-3">
                 {PLAN_OPTIONS.map((plan) => (
                   <label key={plan.id} className={`flex items-center justify-between gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
-                    form.plan === plan.id ? 'border-[#a0c81d]/60 bg-[#0f172a]' : 'border-white/10 bg-[#0f172a]/60 hover:border-white/20'
+                    form.plan === plan.id ? 'border-[#a0c81d]/60 bg-[#F6F1E7]' : 'border-[#E6E1D8] bg-[#F6F1E7]/60 hover:border-[#E6E1D8]'
                   }`}>
                     <div>
-                      <p className="font-bold text-white">{plan.label}</p>
-                      <p className="text-xs text-slate-400">{plan.price} ({plan.discounted})</p>
+                      <p className="font-bold text-[#3D3D3D]">{plan.label}</p>
+                      <p className="text-xs text-[#6B6158]">{plan.price} ({plan.discounted})</p>
                     </div>
                     <input
                       type="radio"
@@ -298,13 +298,13 @@ export const Forlangning: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Hur vill du betala för din förlängning? *</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Hur vill du betala för din förlängning? *</p>
               <div className="grid grid-cols-1 gap-3">
                 {PAYMENT_OPTIONS.map((option) => (
                   <label key={option} className={`flex items-center justify-between gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
-                    form.payment === option ? 'border-[#a0c81d]/60 bg-[#0f172a]' : 'border-white/10 bg-[#0f172a]/60 hover:border-white/20'
+                    form.payment === option ? 'border-[#a0c81d]/60 bg-[#F6F1E7]' : 'border-[#E6E1D8] bg-[#F6F1E7]/60 hover:border-[#E6E1D8]'
                   }`}>
-                    <span className="text-sm text-slate-200">{option}</span>
+                    <span className="text-sm text-[#3D3D3D]">{option}</span>
                     <input
                       type="radio"
                       name="payment"
@@ -321,11 +321,11 @@ export const Forlangning: React.FC = () => {
 
             {isPortalRequired && (
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Ange friskvårdsportal *</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Ange friskvårdsportal *</label>
                 <select
                   value={form.portal}
                   onChange={(e) => setForm((prev) => ({ ...prev, portal: e.target.value }))}
-                  className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-[#a0c81d] outline-none"
+                  className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
                   required={isPortalRequired}
                 >
                   <option value="">Välj portal</option>
@@ -351,7 +351,7 @@ export const Forlangning: React.FC = () => {
             <button
               type="submit"
               disabled={status === 'sending'}
-              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#a0c81d] text-[#0f172a] px-6 py-4 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#b5e02e] disabled:opacity-70"
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#a0c81d] text-[#F6F1E7] px-6 py-4 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#5C7A12] disabled:opacity-70"
             >
               {status === 'sending' ? 'Skickar...' : 'Skicka förlängning'}
               <ArrowRight className="w-4 h-4" />

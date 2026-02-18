@@ -1,0 +1,11 @@
+/*\n+  Brand palette (2.0a)\n+  Usage:\n+  - Base background: --brand-sand\n+  - Section surfaces: --brand-sage\n+  - Primary actions: --brand-green (hover: --brand-green-deep)\n+  - Text: --brand-charcoal\n+  - Lines/borders: --brand-line\n+  - Accent highlights: --brand-apricot\n+*/\n+:root {
+  --brand-green: #A0C81D;
+  --brand-green-deep: #5C7A12;
+  --brand-sage: #E8F1D5;
+  --brand-sand: #F6F1E7;
+  --brand-charcoal: #3D3D3D;
+  --brand-line: #E6E1D8;
+  --brand-apricot: #F29B7B;
+  --brand-muted: #6B6158;
+  --brand-muted-light: #8A8177;
+}

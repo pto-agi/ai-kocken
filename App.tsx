@@ -13,17 +13,19 @@ import { Recipes } from './pages/Recipes';
 import { Profile } from './pages/Profile';
 import { Start } from './pages/Start';
 import { Uppfoljning } from './pages/Uppfoljning';
+import { UppfoljningTack } from './pages/UppfoljningTack';
 import { Intranet } from './pages/Intranet';
 import { Support } from './pages/Support';
 import { Forlangning } from './pages/Forlangning';
 import Refill from './pages/Refill';
+import { RefillTack } from './pages/RefillTack';
 import AuthScreen from './components/AuthScreen';
 import PremiumAccess from './components/PremiumAccess';
 
 const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/': {
     title: 'Medlemssidor',
-    description: 'Samlad översikt för medlemmar med veckomeny, uppföljning, påfyllning och support. Se medlemskap, beställningar och genvägar med snabb överblick.'
+    description: 'Samlad översikt för medlemmar med veckomeny, uppföljning, Shop och support. Se medlemskap, beställningar och genvägar med snabb överblick.'
   },
   '/recept': {
     title: 'Veckomeny',
@@ -45,13 +47,21 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
     title: 'Uppföljning',
     description: 'Skicka in uppföljning av din period. Dela feedback, mål och träningsrutin så att nästa plan blir bättre och mer personlig, snabbt och enkelt. Tar bara någon minut.'
   },
+  '/uppfoljning/tack': {
+    title: 'Uppföljning Mottagen',
+    description: 'Bekräftelse på mottagen uppföljning. Vi använder din feedback i nästa planering och återkopplar när allt är klart.'
+  },
   '/forlangning': {
     title: 'Förlängning',
     description: 'Förläng medlemskapet till klientpris. Välj period och betalningssätt, få tillgång till premium utan avbrott och fortsätt resan tryggt. Klientpris utan krångel.'
   },
   '/refill': {
-    title: 'Påfyllning',
+    title: 'Shop',
     description: 'Beställ kosttillskott till medlemspris. Välj produkter, ange leveransuppgifter och skicka beställning direkt, vi hanterar leveransen åt dig. Snabbt och smidigt.'
+  },
+  '/refill/tack': {
+    title: 'Beställning Mottagen',
+    description: 'Bekräftelse på mottagen beställning med summering och leveransinformation.'
   },
   '/premium': {
     title: 'Premium',
@@ -114,7 +124,7 @@ const StaffRedirect = () => {
 };
 
 const PageContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="max-w-7xl mx-auto px-4 md:px-8 pb-24 text-slate-50 min-h-[60vh]">
+  <div className="max-w-7xl mx-auto px-4 md:px-8 pb-24 text-[#3D3D3D] min-h-[60vh]">
     {children}
   </div>
 );
@@ -128,7 +138,7 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F6F1E7]">
         <Loader2 className="w-12 h-12 animate-spin text-[#a0c81d]" />
       </div>
     );
@@ -139,7 +149,7 @@ function App() {
       <MetaManager />
       <ScrollToTop />
       <StaffRedirect />
-      <div className="min-h-screen bg-[#0f172a] text-slate-50 font-sans selection:bg-[#a0c81d] selection:text-[#0f172a] flex flex-col">
+      <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans selection:bg-[#a0c81d] selection:text-[#F6F1E7] flex flex-col">
         
         <Navbar />
 
@@ -198,6 +208,14 @@ function App() {
                 </AuthGuard>
               }
             />
+            <Route
+              path="/uppfoljning/tack"
+              element={
+                <AuthGuard requirePremium={false}>
+                  <UppfoljningTack />
+                </AuthGuard>
+              }
+            />
 
             <Route
               path="/forlangning"
@@ -209,6 +227,14 @@ function App() {
               element={
                 <AuthGuard requirePremium={false}>
                   <Refill />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/refill/tack"
+              element={
+                <AuthGuard requirePremium={false}>
+                  <RefillTack />
                 </AuthGuard>
               }
             />

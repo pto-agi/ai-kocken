@@ -103,8 +103,8 @@ const truncate = (value?: string | null, maxLength = 160) => {
 
 const InfoRow: React.FC<InfoRowProps> = ({ label, value }) => (
   <div className="flex flex-col gap-1">
-    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</span>
-    <span className="text-sm text-slate-200">{value}</span>
+    <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">{label}</span>
+    <span className="text-sm text-[#3D3D3D]">{value}</span>
   </div>
 );
 
@@ -321,7 +321,7 @@ const Intranet: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-200 font-sans pb-32 pt-24 px-4 overflow-x-hidden">
+    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-32 pt-24 px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px]" />
@@ -334,15 +334,15 @@ const Intranet: React.FC = () => {
               <div className="w-11 h-11 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
                 <ClipboardList className="w-6 h-6" />
               </div>
-              <span className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Intranät</span>
+              <span className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Intranät</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">Samlad översikt över inlämningar</h1>
-            <p className="text-slate-400 mt-3 max-w-2xl">Öppna en rad för att se hela inlämningen. Klarmarkera när uppföljningen är hanterad.</p>
+            <h1 className="text-3xl md:text-4xl font-black text-[#3D3D3D] tracking-tight">Samlad översikt över inlämningar</h1>
+            <p className="text-[#6B6158] mt-3 max-w-2xl">Öppna en rad för att se hela inlämningen. Klarmarkera när uppföljningen är hanterad.</p>
           </div>
           <button
             type="button"
             onClick={loadSubmissions}
-            className="px-5 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-black uppercase tracking-widest text-slate-200 hover:bg-[#a0c81d]/20 hover:border-[#a0c81d]/40 transition flex items-center gap-2"
+            className="px-5 py-3 rounded-xl bg-[#ffffff]/70 border border-[#E6E1D8] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:bg-[#a0c81d]/20 hover:border-[#a0c81d]/40 transition flex items-center gap-2"
             disabled={isLoading}
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
@@ -362,7 +362,7 @@ const Intranet: React.FC = () => {
           </div>
         )}
 
-        <div className="bg-[#1e293b]/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-white/5 shadow-2xl mb-8">
+        <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-[#E6E1D8] shadow-2xl mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex flex-wrap gap-2">
               {filterOptions.map((option) => (
@@ -373,7 +373,7 @@ const Intranet: React.FC = () => {
                   className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border transition ${
                     filter === option.value
                       ? 'bg-[#a0c81d]/20 border-[#a0c81d]/40 text-[#a0c81d]'
-                      : 'bg-white/5 border-white/10 text-slate-300 hover:border-white/20'
+                      : 'bg-[#ffffff]/70 border-[#E6E1D8] text-[#6B6158] hover:border-[#E6E1D8]'
                   }`}
                 >
                   {option.label} ({option.count})
@@ -381,7 +381,7 @@ const Intranet: React.FC = () => {
               ))}
             </div>
             {lastUpdated && (
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-[#8A8177]">
                 Senast uppdaterad: {formatTimestamp(lastUpdated)}
               </div>
             )}
@@ -395,7 +395,7 @@ const Intranet: React.FC = () => {
         ) : (
           <div className="space-y-4">
             {filtered.length === 0 ? (
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-slate-400">
+              <div className="rounded-3xl border border-[#E6E1D8] bg-[#ffffff]/70 p-8 text-center text-[#6B6158]">
                 Inga inlämningar matchar filtret.
               </div>
             ) : (
@@ -412,7 +412,7 @@ const Intranet: React.FC = () => {
                   : 'bg-amber-500/10 text-amber-200 border-amber-500/30';
 
                 return (
-                  <div key={key} className="bg-[#0b1220]/80 backdrop-blur-xl rounded-2xl border border-white/5 shadow-2xl">
+                  <div key={key} className="bg-[#0b1220]/80 backdrop-blur-xl rounded-2xl border border-[#E6E1D8] shadow-2xl">
                     <button
                       type="button"
                       onClick={() => toggleExpanded(key)}
@@ -426,27 +426,27 @@ const Intranet: React.FC = () => {
                           <span className={`text-[10px] font-black uppercase tracking-[0.3em] border rounded-full px-3 py-1 ${statusStyle}`}>
                             {data.is_done ? 'Genomförd' : 'Pågående'}
                           </span>
-                          <span className="text-xs text-slate-500">{formatTimestamp(data.created_at)}</span>
+                          <span className="text-xs text-[#8A8177]">{formatTimestamp(data.created_at)}</span>
                         </div>
                         <div>
-                          <h3 className="text-lg font-black text-white">{fullName || 'Okänt namn'}</h3>
-                          <p className="text-sm text-slate-400">{data.email || 'Ingen e-post'}</p>
+                          <h3 className="text-lg font-black text-[#3D3D3D]">{fullName || 'Okänt namn'}</h3>
+                          <p className="text-sm text-[#6B6158]">{data.email || 'Ingen e-post'}</p>
                         </div>
-                        <p className="text-sm text-slate-400">
+                        <p className="text-sm text-[#6B6158]">
                           {submission.kind === 'start'
                             ? `Fokus: ${truncate(formatList((data as StartFormEntry).focus_areas), 120)}`
                             : truncate((data as UppfoljningEntry).summary_feedback, 140)}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <ChevronDown className={`w-5 h-5 text-slate-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-5 h-5 text-[#8A8177] transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                       </div>
                     </button>
 
                     {isExpanded && (
-                      <div className="px-6 pb-6 border-t border-white/5">
+                      <div className="px-6 pb-6 border-t border-[#E6E1D8]">
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pt-4">
-                          <div className="text-xs text-slate-500">
+                          <div className="text-xs text-[#8A8177]">
                             {data.is_done
                               ? `Klarmarkerad: ${formatTimestamp(data.done_at)}`
                               : 'Ej klarmarkerad'}
@@ -459,7 +459,7 @@ const Intranet: React.FC = () => {
                             }}
                             className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border transition flex items-center gap-2 ${
                               data.is_done
-                                ? 'bg-white/5 border-white/10 text-slate-200 hover:border-emerald-400/40'
+                                ? 'bg-[#ffffff]/70 border-[#E6E1D8] text-[#3D3D3D] hover:border-emerald-400/40'
                                 : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200 hover:border-emerald-400/60'
                             }`}
                             disabled={updatingId === key}
@@ -471,8 +471,8 @@ const Intranet: React.FC = () => {
 
                         {submission.kind === 'start' ? (
                           <div className="mt-6 space-y-6">
-                            <section className="rounded-2xl border border-white/5 bg-white/5 p-4">
-                              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Nyckelinfo</h4>
+                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Nyckelinfo</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Önskat startdatum" value={formatDateOnly(data.desired_start_date)} />
                                 <InfoRow label="Pass per vecka" value={data.sessions_per_week || '—'} />
@@ -480,8 +480,8 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-white/5 bg-white/5 p-4">
-                              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Grunddata</h4>
+                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Grunddata</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Vikt" value={formatNumber(data.weight_kg, ' kg')} />
                                 <InfoRow label="Längd" value={formatNumber(data.height_cm, ' cm')} />
@@ -489,8 +489,8 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-white/5 bg-white/5 p-4">
-                              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Mål & bakgrund</h4>
+                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Mål & bakgrund</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Målbeskrivning" value={data.goal_description || '—'} />
                                 <InfoRow label="Skador" value={data.injuries || '—'} />
@@ -500,8 +500,8 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-white/5 bg-white/5 p-4">
-                              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Träningsupplägg</h4>
+                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träningsupplägg</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Träningsformer" value={formatList(data.training_forms)} />
                                 <InfoRow label="Träningsformer annat" value={data.training_forms_other || '—'} />
@@ -511,8 +511,8 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-white/5 bg-white/5 p-4">
-                              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Kroppsmått</h4>
+                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kroppsmått</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Mått (cm)" value={buildMeasurements(data)} />
                               </div>
@@ -520,8 +520,8 @@ const Intranet: React.FC = () => {
                           </div>
                         ) : (
                           <div className="mt-6 space-y-6">
-                            <section className="rounded-2xl border border-white/5 bg-white/5 p-4">
-                              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Översikt</h4>
+                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Översikt</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Mål" value={data.goal || '—'} />
                                 <InfoRow label="Pass per vecka" value={formatNumber(data.sessions_per_week)} />
@@ -529,15 +529,15 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-white/5 bg-white/5 p-4">
-                              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Summering & feedback</h4>
+                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Summering & feedback</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Sammanfattning" value={data.summary_feedback || '—'} />
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-white/5 bg-white/5 p-4">
-                              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Träning</h4>
+                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träning</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Övrig aktivitet" value={formatList(data.other_activity)} />
                                 <InfoRow label="Träningsplatser" value={formatList(data.training_places)} />
@@ -545,8 +545,8 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-white/5 bg-white/5 p-4">
-                              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Produkter & fortsättning</h4>
+                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Produkter & fortsättning</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Påfyllnad" value={formatList(data.refill_products)} />
                                 <InfoRow label="Auto fortsätt" value={data.auto_continue || '—'} />

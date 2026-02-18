@@ -38,7 +38,7 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onNavigate(AppRoute.HOME)}>
-              <div className="bg-slate-900 rounded-lg p-1.5 shadow-md group-hover:scale-105 transition-transform">
+              <div className="bg-[#e9dcd7] rounded-lg p-1.5 shadow-md group-hover:scale-105 transition-transform">
                 <div className="relative">
                    <Cpu className="w-6 h-6 text-emerald-400" />
                    <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white rounded-full flex items-center justify-center">
@@ -46,7 +46,7 @@ export const Layout: React.FC<LayoutProps> = ({
                    </div>
                 </div>
               </div>
-              <span className="text-xl font-bold tracking-tighter text-slate-900 font-heading">PTO <span className="text-emerald-500">Ai</span></span>
+              <span className="text-xl font-bold tracking-tighter text-[#3D3D3D] font-heading">PTO <span className="text-emerald-500">Ai</span></span>
             </div>
 
             {/* Desktop Nav */}
@@ -58,7 +58,7 @@ export const Layout: React.FC<LayoutProps> = ({
                   className={`flex items-center px-3 py-2 text-sm font-medium transition-colors duration-200 ${
                     currentRoute === item.id 
                       ? 'text-emerald-600' 
-                      : 'text-slate-500 hover:text-slate-900'
+                      : 'text-[#8A8177] hover:text-[#3D3D3D]'
                   }`}
                 >
                   <item.icon className="w-4 h-4 mr-2" />
@@ -82,7 +82,7 @@ export const Layout: React.FC<LayoutProps> = ({
       {/* Footer */}
       <footer className="bg-slate-100 border-t border-slate-200 mt-auto pb-24 md:pb-8">
         <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col items-center justify-center text-center">
-           <p className="text-slate-400 text-sm font-medium mb-2">
+           <p className="text-[#6B6158] text-sm font-medium mb-2">
              &copy; {new Date().getFullYear()} Private Training Online. Alla rättigheter förbehållna.
            </p>
            <a 
@@ -103,7 +103,7 @@ export const Layout: React.FC<LayoutProps> = ({
             key={item.id}
             onClick={() => onNavigate(item.id)}
             className={`flex flex-col items-center gap-1 ${
-              currentRoute === item.id ? 'text-emerald-600' : 'text-slate-400'
+              currentRoute === item.id ? 'text-emerald-600' : 'text-[#6B6158]'
             }`}
           >
             <item.icon className={`w-6 h-6 ${currentRoute === item.id ? 'fill-current opacity-20' : ''}`} />

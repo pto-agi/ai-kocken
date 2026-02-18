@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Minus, Plus, ShoppingBasket, Sparkles, X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
@@ -75,6 +75,7 @@ const Refill: React.FC = () => {
   const [country, setCountry] = useState('Sverige');
   const [phone, setPhone] = useState('');
   const [addressStatus, setAddressStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const navigate = useNavigate();
 
   const selectedItems = useMemo(() => (
     PRODUCTS.filter((product) => (quantities[product.id] || 0) > 0).map((product) => ({
@@ -213,6 +214,21 @@ const Refill: React.FC = () => {
 
     setStatus('sending');
 
+    const orderSnapshot = {
+      items: selectedItems,
+      total,
+      createdAt: new Date().toISOString(),
+      shipping: {
+        name: profile?.full_name || '',
+        line1: profileShipping.line1,
+        line2: profileShipping.line2,
+        postalCode: profileShipping.postalCode,
+        city: profileShipping.city,
+        country: profileShipping.country,
+        phone: profileShipping.phone
+      }
+    };
+
     const payload = {
       user_id: session.user.id,
       email: session.user.email,
@@ -260,6 +276,7 @@ const Refill: React.FC = () => {
       setStatus('success');
       setShippingError(null);
       setQuantities({});
+      navigate('/refill/tack', { state: orderSnapshot });
     } catch (err) {
       console.error('Refill webhook error:', err);
       setStatus('error');
@@ -268,26 +285,27 @@ const Refill: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-200 font-sans pb-32 pt-24 px-4 overflow-x-hidden">
+    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-32 pt-24 px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px] pointer-events-none"></div>
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px]"></div>
       </div>
 
       <div className="max-w-6xl mx-auto relative z-10 animate-fade-in">
-        <div className="bg-[#121a2b]/80 backdrop-blur-xl rounded-[2.8rem] p-8 md:p-12 border border-white/5 shadow-2xl mb-12 overflow-hidden relative">
+        <div className="bg-white rounded-[2.8rem] p-8 md:p-12 border border-[#DAD1C5] shadow-[0_35px_90px_rgba(61,61,61,0.2)] mb-12 overflow-hidden relative ring-1 ring-black/5">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#E8F1D5] via-[#F6F1E7] to-white opacity-90"></div>
           <div className="absolute -right-10 -top-10 w-[320px] h-[320px] bg-[#a0c81d]/10 rounded-full blur-[120px]"></div>
           <div className="relative z-10">
-            <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+            <div className="inline-flex items-center gap-3 rounded-full border border-[#DAD1C5] bg-white/80 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-[#6B6158]">
               <Sparkles className="w-3 h-3 text-[#a0c81d]" /> Medlemspris
             </div>
-            <h1 className="mt-6 text-3xl md:text-5xl font-black text-white font-heading tracking-tight">
-              Påfyllning till medlemspris
+            <h1 className="mt-6 text-3xl md:text-5xl font-black text-[#3D3D3D] font-heading tracking-tight">
+              Shop till medlemspris
             </h1>
-            <p className="mt-4 text-slate-300 text-sm md:text-base font-medium max-w-2xl">
+            <p className="mt-4 text-[#6B6158] text-sm md:text-base font-medium max-w-2xl">
               Beställ dina favoriter till medlemspris med ett klick. Vi tar hand om resten.
             </p>
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-300">
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#6B6158]">
               {[
                 'Snabb beställning utan krångel.',
                 'Klientpris och fri frakt.',
@@ -308,40 +326,40 @@ const Refill: React.FC = () => {
             {PRODUCTS.map((product) => (
               <div
                 key={product.id}
-                className="relative rounded-[2rem] border border-white/5 bg-[#111827]/80 p-6 md:p-8 shadow-xl"
+                className="relative rounded-[2rem] border border-[#DAD1C5] bg-white p-6 md:p-8 shadow-[0_18px_50px_rgba(61,61,61,0.16)] ring-1 ring-black/5 transition-all hover:-translate-y-1 hover:shadow-[0_26px_70px_rgba(61,61,61,0.2)] before:absolute before:inset-0 before:rounded-[2rem] before:shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] before:pointer-events-none"
               >
                 {product.tag && (
-                  <div className="absolute top-5 right-5 rounded-full bg-[#a0c81d] text-[#0f172a] text-[10px] font-black uppercase tracking-widest px-3 py-1">
+                  <div className="absolute top-5 right-5 rounded-full bg-[#a0c81d] text-[#F6F1E7] text-[10px] font-black uppercase tracking-widest px-3 py-1 shadow-[0_8px_20px_rgba(160,200,29,0.35)]">
                     {product.tag}
                   </div>
                 )}
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400">
-                  <ShoppingBasket className="w-4 h-4 text-[#a0c81d]" /> Påfyllning
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#6B6158]">
+                  <ShoppingBasket className="w-4 h-4 text-[#a0c81d]" /> Shop
                 </div>
-                <h3 className="mt-4 text-2xl font-black text-white">{product.title}</h3>
-                <p className="mt-3 text-slate-400 text-sm">{product.description}</p>
-                <div className="mt-4 text-slate-500 text-sm">Ordinarie: <span className="line-through">{product.price} kr</span></div>
-                <div className="mt-2 text-3xl font-black text-white">{product.memberPrice} kr</div>
+                <h3 className="mt-4 text-2xl font-black text-[#3D3D3D]">{product.title}</h3>
+                <p className="mt-3 text-[#6B6158] text-sm">{product.description}</p>
+                <div className="mt-4 text-[#8A8177] text-sm">Ordinarie: <span className="line-through">{product.price} kr</span></div>
+                <div className="mt-2 text-3xl font-black text-[#3D3D3D]">{product.memberPrice} kr</div>
 
                 <div className="mt-6 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => updateQty(product.id, -1)}
-                      className="w-9 h-9 rounded-xl bg-[#0f172a] border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition"
+                      className="w-9 h-9 rounded-xl bg-[#F4F0E6] border border-[#DAD1C5] text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#DAD1C5] transition"
                     >
                       <Minus className="w-4 h-4 mx-auto" />
                     </button>
-                    <span className="text-lg font-black text-white w-6 text-center">{quantities[product.id] || 0}</span>
+                    <span className="text-lg font-black text-[#3D3D3D] w-6 text-center">{quantities[product.id] || 0}</span>
                     <button
                       onClick={() => updateQty(product.id, 1)}
-                      className="w-9 h-9 rounded-xl bg-[#0f172a] border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition"
+                      className="w-9 h-9 rounded-xl bg-[#F4F0E6] border border-[#DAD1C5] text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#DAD1C5] transition"
                     >
                       <Plus className="w-4 h-4 mx-auto" />
                     </button>
                   </div>
                   <button
                     onClick={() => updateQty(product.id, 1)}
-                    className="text-[10px] font-black uppercase tracking-widest text-[#a0c81d] hover:text-[#b5e02e] transition"
+                    className="text-[10px] font-black uppercase tracking-widest text-[#a0c81d] hover:text-[#5C7A12] transition"
                   >
                     Lägg till
                   </button>
@@ -350,34 +368,34 @@ const Refill: React.FC = () => {
             ))}
           </div>
 
-          <div className="bg-[#1e293b] rounded-[2.5rem] p-6 md:p-8 border border-white/5 shadow-2xl h-fit">
+          <div className="bg-[#F4F0E6] rounded-[2.5rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_20px_60px_rgba(61,61,61,0.18)] h-fit">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
                 <ShoppingBasket className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Din beställning</p>
-                <h2 className="text-2xl font-black text-white">Sammanfattning</h2>
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Din beställning</p>
+                <h2 className="text-2xl font-black text-[#3D3D3D]">Sammanfattning</h2>
               </div>
             </div>
 
             <div className="space-y-3">
               {selectedItems.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-[#0f172a]/60 px-4 py-4 text-sm text-slate-500">
+                <div className="rounded-2xl border border-[#DAD1C5] bg-white/80 px-4 py-4 text-sm text-[#8A8177]">
                   Välj produkter till vänster för att bygga din beställning.
                 </div>
               ) : (
                 selectedItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#0f172a]/60 px-4 py-3">
+                  <div key={item.id} className="flex items-center justify-between rounded-2xl border border-[#DAD1C5] bg-white/90 px-4 py-3">
                     <div>
-                      <p className="text-sm font-bold text-white">{item.title}</p>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Antal: {item.qty}</p>
+                      <p className="text-sm font-bold text-[#3D3D3D]">{item.title}</p>
+                      <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">Antal: {item.qty}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="text-sm font-black text-white">{item.qty * item.price} kr</div>
+                      <div className="text-sm font-black text-[#3D3D3D]">{item.qty * item.price} kr</div>
                       <button
                         onClick={() => setQuantities((prev) => ({ ...prev, [item.id]: 0 }))}
-                        className="w-7 h-7 rounded-full border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition"
+                        className="w-7 h-7 rounded-full border border-[#DAD1C5] text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#DAD1C5] transition"
                         aria-label={`Ta bort ${item.title}`}
                       >
                         <X className="w-3 h-3 mx-auto" />
@@ -388,18 +406,18 @@ const Refill: React.FC = () => {
               )}
             </div>
 
-            <div className="mt-6 border-t border-white/10 pt-4 flex items-center justify-between text-sm font-bold text-slate-300">
+            <div className="mt-6 border-t border-[#DAD1C5] pt-4 flex items-center justify-between text-sm font-bold text-[#6B6158]">
               <span>Total</span>
-              <span className="text-white text-lg">{total} kr</span>
+              <span className="text-[#3D3D3D] text-lg">{total} kr</span>
             </div>
 
-            <div className={`mt-6 rounded-2xl border bg-[#0f172a]/60 px-4 py-4 text-sm text-slate-300 ${
-              shippingAttention ? 'border-red-400/60 ring-1 ring-red-400/30' : 'border-white/10'
+            <div className={`mt-6 rounded-2xl border bg-white/80 px-4 py-4 text-sm text-[#6B6158] ${
+              shippingAttention ? 'border-red-400/60 ring-1 ring-red-400/30' : 'border-[#DAD1C5]'
             }`}>
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Leveransuppgifter</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Leveransuppgifter</div>
               {hasProfileShipping ? (
                 <div className="space-y-1">
-                  <div className="text-sm font-semibold text-white">{profile?.full_name || 'Kund'}</div>
+                  <div className="text-sm font-semibold text-[#3D3D3D]">{profile?.full_name || 'Kund'}</div>
                   <div>{profileShipping.line1}</div>
                   {profileShipping.line2 && <div>{profileShipping.line2}</div>}
                   <div>{profileShipping.postalCode} {profileShipping.city}</div>
@@ -407,14 +425,14 @@ const Refill: React.FC = () => {
                   <div>{profileShipping.phone}</div>
                   <Link
                     to="/profile?tab=settings"
-                    className="inline-flex mt-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition"
+                    className="inline-flex mt-2 text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition"
                   >
                     Redigera adressuppgifter
                   </Link>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-slate-400 text-sm">
+                  <p className="text-[#6B6158] text-sm">
                     Lägg till adress och telefon för att kunna beställa.
                   </p>
                   <div className="space-y-2">
@@ -422,26 +440,26 @@ const Refill: React.FC = () => {
                       value={addressLine1}
                       onChange={(e) => setAddressLine1(e.target.value)}
                       placeholder="Adressrad 1"
-                      className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-3 py-3 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600"
+                      className="w-full bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-3 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600"
                     />
                     <input
                       value={addressLine2}
                       onChange={(e) => setAddressLine2(e.target.value)}
                       placeholder="Adressrad 2 (valfritt)"
-                      className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-3 py-3 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600"
+                      className="w-full bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-3 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600"
                     />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <input
                         value={postalCode}
                         onChange={(e) => setPostalCode(e.target.value)}
                         placeholder="Postnummer"
-                        className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-3 py-3 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600"
+                        className="w-full bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-3 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600"
                       />
                       <input
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                         placeholder="Stad"
-                        className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-3 py-3 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600"
+                        className="w-full bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-3 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600"
                       />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -449,13 +467,13 @@ const Refill: React.FC = () => {
                         value={country}
                         onChange={(e) => setCountry(e.target.value)}
                         placeholder="Land"
-                        className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-3 py-3 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600"
+                        className="w-full bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-3 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600"
                       />
                       <input
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="Telefon (SMS‑avi)"
-                        className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-3 py-3 text-sm text-white focus:border-[#a0c81d] outline-none placeholder-slate-600"
+                        className="w-full bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-3 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600"
                       />
                       {!isFormPhoneValid && phone && (
                         <p className="text-xs text-red-400 font-bold">Ange ett giltigt telefonnummer.</p>
@@ -465,7 +483,7 @@ const Refill: React.FC = () => {
                       type="button"
                       onClick={handleSaveShipping}
                       disabled={addressStatus === 'loading'}
-                      className="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white py-3 hover:bg-white/20 transition disabled:opacity-60"
+                      className="mt-2 w-full rounded-xl bg-white/90 border border-[#DAD1C5] text-[10px] font-black uppercase tracking-widest text-[#3D3D3D] py-3 hover:border-[#a0c81d]/40 hover:text-[#a0c81d] transition disabled:opacity-60"
                     >
                       {addressStatus === 'loading' ? 'Sparar...' : addressStatus === 'success' ? 'Sparat' : 'Spara uppgifter'}
                     </button>
@@ -499,18 +517,18 @@ const Refill: React.FC = () => {
               type="button"
               onClick={handleSubmit}
               disabled={status === 'sending' || !hasProfileShipping}
-              className="mt-6 w-full flex items-center justify-center gap-2 rounded-2xl bg-[#a0c81d] text-[#0f172a] px-6 py-4 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#b5e02e] disabled:opacity-70"
+              className="mt-6 w-full flex items-center justify-center gap-2 rounded-2xl bg-[#a0c81d] text-[#F6F1E7] px-6 py-4 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#5C7A12] disabled:opacity-70"
             >
               {status === 'sending' ? 'Skickar...' : 'Skicka beställning'}
             </button>
 
-            <p className="mt-4 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+            <p className="mt-4 text-[10px] text-[#8A8177] font-bold uppercase tracking-widest">
               Vi kontaktar dig om leveransdetaljer
             </p>
 
             <Link
               to="/uppfoljning"
-              className="mt-6 inline-flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition"
+              className="mt-6 inline-flex items-center text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition"
             >
               Tillbaka till uppföljning
             </Link>

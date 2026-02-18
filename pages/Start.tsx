@@ -104,7 +104,7 @@ const emptyState: StartFormState = {
   }
 };
 
-const inputClass = 'w-full p-3 rounded-xl bg-[#0f172a]/70 border border-white/10 text-slate-100 placeholder:text-slate-500 focus:border-[#a0c81d] focus:ring-0 outline-none transition';
+const inputClass = 'w-full p-3 rounded-xl bg-[#F6F1E7]/70 border border-[#E6E1D8] text-[#3D3D3D] placeholder:text-[#8A8177] focus:border-[#a0c81d] focus:ring-0 outline-none transition';
 const textareaClass = `${inputClass} min-h-[120px]`;
 const WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uctkcj5/';
 
@@ -326,7 +326,7 @@ const Start: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-200 font-sans pb-32 pt-24 px-4 overflow-x-hidden">
+    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-32 pt-24 px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px] pointer-events-none"></div>
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px]"></div>
@@ -339,21 +339,21 @@ const Start: React.FC = () => {
               <div className="w-11 h-11 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
                 <ClipboardList className="w-6 h-6" />
               </div>
-              <span className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Startformulär</span>
+              <span className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Startformulär</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">Nu är det dags att inleda planeringsarbetet</h1>
-            <p className="text-slate-400 mt-3 max-w-2xl">Fyll i uppgifter kring mål, träningserfarenheter, skador och annan information som ligger till grund för din planering.</p>
+            <h1 className="text-3xl md:text-4xl font-black text-[#3D3D3D] tracking-tight">Nu är det dags att inleda planeringsarbetet</h1>
+            <p className="text-[#6B6158] mt-3 max-w-2xl">Fyll i uppgifter kring mål, träningserfarenheter, skador och annan information som ligger till grund för din planering.</p>
           </div>
           <button
             type="button"
             onClick={fillExample}
-            className="px-5 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-black uppercase tracking-widest text-slate-200 hover:bg-[#a0c81d]/20 hover:border-[#a0c81d]/40 transition"
+            className="px-5 py-3 rounded-xl bg-[#ffffff]/70 border border-[#E6E1D8] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:bg-[#a0c81d]/20 hover:border-[#a0c81d]/40 transition"
           >
             Exempeldata
           </button>
         </div>
 
-        <div className="bg-[#1e293b]/80 backdrop-blur-xl rounded-[2.5rem] p-6 md:p-10 border border-white/5 shadow-2xl">
+        <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2.5rem] p-6 md:p-10 border border-[#E6E1D8] shadow-2xl">
           {!isConfigured && (
             <div className="mb-8 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-amber-200 text-sm">
               Supabase är inte konfigurerat ännu. Lägg in dina nycklar i <code className="text-amber-100">.env.local</code> för att kunna skicka formulär.
@@ -364,12 +364,12 @@ const Start: React.FC = () => {
             <section className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
-                <h2 className="text-xl font-black text-white uppercase tracking-wide">Kontaktuppgifter</h2>
+                <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Kontaktuppgifter</h2>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Förnamn<span className="text-[#a0c81d]">*</span></label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Förnamn<span className="text-[#a0c81d]">*</span></label>
                   <input
                     type="text"
                     required
@@ -380,7 +380,7 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Efternamn<span className="text-[#a0c81d]">*</span></label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Efternamn<span className="text-[#a0c81d]">*</span></label>
                   <input
                     type="text"
                     required
@@ -394,7 +394,7 @@ const Start: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">E-post<span className="text-[#a0c81d]">*</span></label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">E-post<span className="text-[#a0c81d]">*</span></label>
                   <input
                     type="email"
                     required
@@ -405,7 +405,7 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Önskat startdatum</label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Önskat startdatum</label>
                   <input
                     type="date"
                     value={form.desiredStartDate}
@@ -419,11 +419,11 @@ const Start: React.FC = () => {
             <section className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
-                <h2 className="text-xl font-black text-white uppercase tracking-wide">Grunddata</h2>
+                <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Grunddata</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Kroppsvikt (kg)<span className="text-[#a0c81d]">*</span></label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Kroppsvikt (kg)<span className="text-[#a0c81d]">*</span></label>
                   <input
                     type="number"
                     required
@@ -436,7 +436,7 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Längd (cm)<span className="text-[#a0c81d]">*</span></label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Längd (cm)<span className="text-[#a0c81d]">*</span></label>
                   <input
                     type="number"
                     required
@@ -449,7 +449,7 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Ålder<span className="text-[#a0c81d]">*</span></label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Ålder<span className="text-[#a0c81d]">*</span></label>
                   <input
                     type="number"
                     required
@@ -467,14 +467,14 @@ const Start: React.FC = () => {
             <section className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
-                <h2 className="text-xl font-black text-white uppercase tracking-wide">Fokusområden</h2>
+                <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Fokusområden</h2>
               </div>
-              <p className="text-sm text-slate-400">Din målsättning och vad du vill fokusera på. Det är möjligt att välja flera alternativ.</p>
+              <p className="text-sm text-[#6B6158]">Din målsättning och vad du vill fokusera på. Det är möjligt att välja flera alternativ.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {focusOptions.map((option) => (
                   <label
                     key={option}
-                    className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.focusAreas.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-white/10 hover:border-white/20'}`}
+                    className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.focusAreas.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'}`}
                   >
                     <input
                       type="checkbox"
@@ -482,7 +482,7 @@ const Start: React.FC = () => {
                       onChange={() => setForm((prev) => ({ ...prev, focusAreas: toggleArrayValue(prev.focusAreas, option) }))}
                       className="accent-[#a0c81d]"
                     />
-                    <span className="text-sm font-semibold text-slate-200">{option}</span>
+                    <span className="text-sm font-semibold text-[#3D3D3D]">{option}</span>
                   </label>
                 ))}
               </div>
@@ -491,11 +491,11 @@ const Start: React.FC = () => {
             <section className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
-                <h2 className="text-xl font-black text-white uppercase tracking-wide">Mål & bakgrund</h2>
+                <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Mål & bakgrund</h2>
               </div>
               <div className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Målbeskrivning</label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Målbeskrivning</label>
                   <textarea
                     value={form.goalDescription}
                     onChange={(e) => setForm((prev) => ({ ...prev, goalDescription: e.target.value }))}
@@ -504,7 +504,7 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Eventuella skador</label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Eventuella skador</label>
                   <textarea
                     value={form.injuries}
                     onChange={(e) => setForm((prev) => ({ ...prev, injuries: e.target.value }))}
@@ -513,7 +513,7 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Träningserfarenheter</label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Träningserfarenheter</label>
                   <textarea
                     value={form.trainingExperience}
                     onChange={(e) => setForm((prev) => ({ ...prev, trainingExperience: e.target.value }))}
@@ -522,7 +522,7 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Aktivitet senaste 6 månaderna</label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Aktivitet senaste 6 månaderna</label>
                   <textarea
                     value={form.activityLast6Months}
                     onChange={(e) => setForm((prev) => ({ ...prev, activityLast6Months: e.target.value }))}
@@ -531,7 +531,7 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Kosthållning senaste 6 månaderna</label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Kosthållning senaste 6 månaderna</label>
                   <textarea
                     value={form.dietLast6Months}
                     onChange={(e) => setForm((prev) => ({ ...prev, dietLast6Months: e.target.value }))}
@@ -545,16 +545,16 @@ const Start: React.FC = () => {
             <section className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
-                <h2 className="text-xl font-black text-white uppercase tracking-wide">Träningsupplägg</h2>
+                <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Träningsupplägg</h2>
               </div>
               <div className="space-y-5">
                 <div className="space-y-3">
-                  <p className="text-sm text-slate-400">Vilka träningsformer vill du att vi planerar för? Det är möjligt att välja flera alternativ.</p>
+                  <p className="text-sm text-[#6B6158]">Vilka träningsformer vill du att vi planerar för? Det är möjligt att välja flera alternativ.</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {trainingFormOptions.map((option) => (
                       <label
                         key={option}
-                        className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.trainingForms.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-white/10 hover:border-white/20'}`}
+                        className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.trainingForms.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'}`}
                       >
                         <input
                           type="checkbox"
@@ -562,7 +562,7 @@ const Start: React.FC = () => {
                           onChange={() => setForm((prev) => ({ ...prev, trainingForms: toggleArrayValue(prev.trainingForms, option) }))}
                           className="accent-[#a0c81d]"
                         />
-                        <span className="text-sm font-semibold text-slate-200">{option}</span>
+                        <span className="text-sm font-semibold text-[#3D3D3D]">{option}</span>
                       </label>
                     ))}
                   </div>
@@ -578,12 +578,12 @@ const Start: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-sm text-slate-400">Välj om du vill träna primärt på gym, hemma eller utomhus. Det är möjligt att välja flera alternativ.</p>
+                  <p className="text-sm text-[#6B6158]">Välj om du vill träna primärt på gym, hemma eller utomhus. Det är möjligt att välja flera alternativ.</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {trainingPlaceOptions.map((option) => (
                       <label
                         key={option}
-                        className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.trainingPlaces.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-white/10 hover:border-white/20'}`}
+                        className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.trainingPlaces.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'}`}
                       >
                         <input
                           type="checkbox"
@@ -591,7 +591,7 @@ const Start: React.FC = () => {
                           onChange={() => setForm((prev) => ({ ...prev, trainingPlaces: toggleArrayValue(prev.trainingPlaces, option) }))}
                           className="accent-[#a0c81d]"
                         />
-                        <span className="text-sm font-semibold text-slate-200">{option}</span>
+                        <span className="text-sm font-semibold text-[#3D3D3D]">{option}</span>
                       </label>
                     ))}
                   </div>
@@ -607,12 +607,12 @@ const Start: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-sm text-slate-400">Hur många pass per vecka vill du träna?<span className="text-[#a0c81d]">*</span></p>
+                  <p className="text-sm text-[#6B6158]">Hur många pass per vecka vill du träna?<span className="text-[#a0c81d]">*</span></p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {sessionsOptions.map((option) => (
                       <label
                         key={option.value}
-                        className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.sessionsPerWeek === option.value ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-white/10 hover:border-white/20'}`}
+                        className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.sessionsPerWeek === option.value ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'}`}
                       >
                         <input
                           type="radio"
@@ -622,7 +622,7 @@ const Start: React.FC = () => {
                           onChange={() => setForm((prev) => ({ ...prev, sessionsPerWeek: option.value }))}
                           className="accent-[#a0c81d]"
                         />
-                        <span className="text-sm font-semibold text-slate-200">{option.label}</span>
+                        <span className="text-sm font-semibold text-[#3D3D3D]">{option.label}</span>
                       </label>
                     ))}
                   </div>
@@ -642,12 +642,12 @@ const Start: React.FC = () => {
             <section className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
-                <h2 className="text-xl font-black text-white uppercase tracking-wide">Kroppsmått (valfritt)</h2>
+                <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Kroppsmått (valfritt)</h2>
               </div>
               <button
                 type="button"
                 onClick={() => setForm((prev) => ({ ...prev, showMeasurements: !prev.showMeasurements }))}
-                className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-white"
+                className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D]"
               >
                 <Sparkles className="w-4 h-4" /> {form.showMeasurements ? 'Dölj kroppsmått' : 'Fyll i kroppsmått'}
               </button>
@@ -655,7 +655,7 @@ const Start: React.FC = () => {
               {form.showMeasurements && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Bröst/Rygg</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Bröst/Rygg</label>
                     <input
                       type="number"
                       value={form.bodyMeasurements.chestBack}
@@ -665,7 +665,7 @@ const Start: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Arm (Höger)</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Arm (Höger)</label>
                     <input
                       type="number"
                       value={form.bodyMeasurements.armRight}
@@ -675,7 +675,7 @@ const Start: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Arm (Vänster)</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Arm (Vänster)</label>
                     <input
                       type="number"
                       value={form.bodyMeasurements.armLeft}
@@ -685,7 +685,7 @@ const Start: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Axlar</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Axlar</label>
                     <input
                       type="number"
                       value={form.bodyMeasurements.shoulders}
@@ -695,7 +695,7 @@ const Start: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Midja</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Midja</label>
                     <input
                       type="number"
                       value={form.bodyMeasurements.waist}
@@ -705,7 +705,7 @@ const Start: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Lår (Höger)</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Lår (Höger)</label>
                     <input
                       type="number"
                       value={form.bodyMeasurements.thighRight}
@@ -715,7 +715,7 @@ const Start: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Lår (Vänster)</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Lår (Vänster)</label>
                     <input
                       type="number"
                       value={form.bodyMeasurements.thighLeft}
@@ -725,7 +725,7 @@ const Start: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Vader (Höger)</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Vader (Höger)</label>
                     <input
                       type="number"
                       value={form.bodyMeasurements.calfRight}
@@ -735,7 +735,7 @@ const Start: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Vader (Vänster)</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Vader (Vänster)</label>
                     <input
                       type="number"
                       value={form.bodyMeasurements.calfLeft}
@@ -764,7 +764,7 @@ const Start: React.FC = () => {
               <button
                 type="submit"
                 disabled={status === 'submitting'}
-                className="w-full md:w-auto px-8 py-4 rounded-2xl bg-[#a0c81d] text-[#0f172a] font-black uppercase tracking-widest text-sm shadow-xl shadow-[#a0c81d]/20 hover:bg-[#b5e02e] transition flex items-center justify-center gap-2"
+                className="w-full md:w-auto px-8 py-4 rounded-2xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-sm shadow-xl shadow-[#a0c81d]/20 hover:bg-[#5C7A12] transition flex items-center justify-center gap-2"
               >
                 {status === 'submitting' ? (
                   <>
@@ -776,7 +776,7 @@ const Start: React.FC = () => {
               </button>
               <Link
                 to="/uppfoljning"
-                className="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white"
+                className="text-xs font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D]"
               >
                 Gå till uppföljning
               </Link>
