@@ -51,6 +51,22 @@ const PORTAL_OPTIONS = [
 ];
 
 const WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uc2oeq2/';
+const STRIPE_PAYMENT_LINKS: Record<string, string> = {
+  '3': 'https://betalning.privatetrainingonline.se/b/3cIfZg8s37dt9mK8ITcfK0w?locale=sv',
+  '6': 'https://betalning.privatetrainingonline.se/b/6oU4gy4bN41hcyW4sDcfK0x?locale=sv',
+  '12': 'https://betalning.privatetrainingonline.se/b/14A6oG7nZ0P56aycZ9cfK0y?locale=sv'
+};
+
+const buildStripeLink = (baseUrl: string, email: string) => {
+  try {
+    const url = new URL(baseUrl);
+    if (email) url.searchParams.set('prefilled_email', email);
+    return url.toString();
+  } catch (err) {
+    console.warn('Invalid Stripe payment link URL', err);
+    return baseUrl;
+  }
+};
 
 export const Forlangning: React.FC = () => {
   const [form, setForm] = useState({
@@ -97,6 +113,19 @@ export const Forlangning: React.FC = () => {
     }
 
     setStatus('sending');
+
+    if (!isPortalRequired) {
+      const stripeBaseUrl = STRIPE_PAYMENT_LINKS[form.plan];
+      if (!stripeBaseUrl) {
+        setStatus('error');
+        setError('Kunde inte hitta betalningslänk för vald period.');
+        return;
+      }
+
+      const redirectUrl = buildStripeLink(stripeBaseUrl, form.email.trim());
+      window.location.href = redirectUrl;
+      return;
+    }
 
     try {
       const payload = {
@@ -374,6 +403,13 @@ export const Forlangning: React.FC = () => {
               <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                 {error}
               </div>
+            )}
+
+            {!isPortalRequired && (
+              <p className="text-[11px] text-[#8A8177] leading-relaxed">
+                Vid kort, Swish, faktura eller delbetalning skickas du vidare till säker betalning hos Stripe.
+                Där kan du betala med Klarna, Apple Pay, kort eller Swish.
+              </p>
             )}
 
             <button

@@ -17,6 +17,7 @@ import { UppfoljningTack } from './pages/UppfoljningTack';
 import { Intranet } from './pages/Intranet';
 import { Support } from './pages/Support';
 import { Forlangning } from './pages/Forlangning';
+import { ForlangningTack } from './pages/ForlangningTack';
 import Refill from './pages/Refill';
 import { RefillTack } from './pages/RefillTack';
 import AuthScreen from './components/AuthScreen';
@@ -54,6 +55,10 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/forlangning': {
     title: 'Förlängning',
     description: 'Förläng medlemskapet till klientpris. Välj period och betalningssätt, få tillgång till premium utan avbrott och fortsätt resan tryggt. Klientpris utan krångel.'
+  },
+  '/tack-forlangning': {
+    title: 'Förlängning Mottagen',
+    description: 'Bekräftelse på mottagen förlängning. Ditt medlemskap uppdateras och du behåller klientpriser utan avbrott.'
   },
   '/refill': {
     title: 'Shop',
@@ -220,6 +225,10 @@ function App() {
             <Route
               path="/forlangning"
               element={<Forlangning />}
+            />
+            <Route
+              path="/tack-forlangning"
+              element={<ForlangningTack />}
             />
 
             <Route
