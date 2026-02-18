@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ClipboardList, Loader2, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
@@ -141,6 +141,7 @@ const Start: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isConfigured = isSupabaseConfigured();
+  const navigate = useNavigate();
 
   const fullName = useMemo(() => {
     const candidate = profile?.full_name || session?.user?.user_metadata?.full_name || '';
@@ -160,45 +161,6 @@ const Start: React.FC = () => {
       lastName: prev.lastName || last
     }));
   }, [session?.user?.email, fullName]);
-
-  const fillExample = () => {
-    setForm({
-      firstName: 'Anna',
-      lastName: 'Svensson',
-      email: session?.user?.email || 'anna.svensson@example.com',
-      desiredStartDate: '2026-03-01',
-      weightKg: '68',
-      heightCm: '170',
-      age: '32',
-      focusAreas: [
-        'Viktminskning/minskat kroppsfett',
-        'Förbättrad hälsa/välmående'
-      ],
-      goalDescription: 'Vill gå ner 5 kg och få bättre energi i vardagen.',
-      injuries: 'Stel ländrygg, undviker tunga marklyft.',
-      trainingExperience: 'Styrketränat 2-3 år, paus senaste året.',
-      activityLast6Months: 'Promenader 2-3 gånger/vecka samt lätt styrka.',
-      dietLast6Months: 'Blandkost, ibland oregelbundna måltider.',
-      trainingForms: ['Styrketräning', 'Konditionsträning', 'Annat'],
-      trainingFormsOther: 'Yoga',
-      trainingPlaces: ['Gym', 'Hemma', 'Annat'],
-      trainingPlacesOther: 'Utomhuspark',
-      sessionsPerWeek: '3',
-      sessionsPerWeekOther: '',
-      showMeasurements: true,
-      bodyMeasurements: {
-        chestBack: '92',
-        armRight: '30',
-        armLeft: '29',
-        shoulders: '105',
-        waist: '78',
-        thighRight: '56',
-        thighLeft: '55',
-        calfRight: '37',
-        calfLeft: '36'
-      }
-    });
-  };
 
   const validate = () => {
     if (!form.firstName.trim() || !form.lastName.trim()) {
@@ -323,6 +285,7 @@ const Start: React.FC = () => {
     }
 
     setStatus('success');
+    navigate('/start/tack');
   };
 
   return (
@@ -344,13 +307,6 @@ const Start: React.FC = () => {
             <h1 className="text-3xl md:text-4xl font-black text-[#3D3D3D] tracking-tight">Nu är det dags att inleda planeringsarbetet</h1>
             <p className="text-[#6B6158] mt-3 max-w-2xl">Fyll i uppgifter kring mål, träningserfarenheter, skador och annan information som ligger till grund för din planering.</p>
           </div>
-          <button
-            type="button"
-            onClick={fillExample}
-            className="px-5 py-3 rounded-xl bg-[#ffffff]/70 border border-[#E6E1D8] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:bg-[#a0c81d]/20 hover:border-[#a0c81d]/40 transition"
-          >
-            Exempeldata
-          </button>
         </div>
 
         <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2.5rem] p-6 md:p-10 border border-[#E6E1D8] shadow-2xl">

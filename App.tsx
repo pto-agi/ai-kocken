@@ -12,11 +12,13 @@ import { Home } from './pages/Home';
 import { Recipes } from './pages/Recipes';
 import { Profile } from './pages/Profile';
 import { Start } from './pages/Start';
+import { StartTack } from './pages/StartTack';
 import { Uppfoljning } from './pages/Uppfoljning';
 import { UppfoljningTack } from './pages/UppfoljningTack';
 import { Intranet } from './pages/Intranet';
 import { Support } from './pages/Support';
 import { Forlangning } from './pages/Forlangning';
+import { ForlangningFriskvardTack } from './pages/ForlangningFriskvardTack';
 import { ForlangningTack } from './pages/ForlangningTack';
 import Refill from './pages/Refill';
 import { RefillTack } from './pages/RefillTack';
@@ -44,6 +46,10 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
     title: 'Startformulär',
     description: 'Fyll i startformuläret för att kalibrera mål, träningsnivå och preferenser. Ger mer relevanta veckomenyer och rekommendationer från dag ett. Tar bara några minuter.'
   },
+  '/start/tack': {
+    title: 'Startformulär Mottaget',
+    description: 'Bekräftelse på mottagen startinlämning. Vi återkopplar med planering och inbjudan via e-post.'
+  },
   '/uppfoljning': {
     title: 'Uppföljning',
     description: 'Skicka in uppföljning av din period. Dela feedback, mål och träningsrutin så att nästa plan blir bättre och mer personlig, snabbt och enkelt. Tar bara någon minut.'
@@ -59,6 +65,10 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/tack-forlangning': {
     title: 'Förlängning Mottagen',
     description: 'Bekräftelse på mottagen förlängning. Ditt medlemskap uppdateras och du behåller klientpriser utan avbrott.'
+  },
+  '/tack-forlangning-friskvard': {
+    title: 'Friskvårdsbetalning',
+    description: 'Instruktioner för att slutföra betalningen via friskvårdsportal och aktivera förlängningen.'
   },
   '/refill': {
     title: 'Shop',
@@ -204,6 +214,14 @@ function App() {
                 </AuthGuard>
               }
             />
+            <Route
+              path="/start/tack"
+              element={
+                <AuthGuard requirePremium={false}>
+                  <StartTack />
+                </AuthGuard>
+              }
+            />
 
             <Route
               path="/uppfoljning"
@@ -229,6 +247,10 @@ function App() {
             <Route
               path="/tack-forlangning"
               element={<ForlangningTack />}
+            />
+            <Route
+              path="/tack-forlangning-friskvard"
+              element={<ForlangningFriskvardTack />}
             />
 
             <Route

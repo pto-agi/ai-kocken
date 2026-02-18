@@ -17,7 +17,6 @@ type UppfoljningFormState = {
   homeEquipment: string[];
   homeEquipmentOther: string;
   sessionsPerWeek: string;
-  autoContinue: string;
 };
 
 const goalOptions = [
@@ -52,8 +51,6 @@ const homeEquipmentOptions = [
   'Roddmaskin'
 ];
 
-const autoContinueOptions = ['Ja', 'Nej', 'Kanske'];
-
 const emptyState: UppfoljningFormState = {
   firstName: '',
   lastName: '',
@@ -66,8 +63,7 @@ const emptyState: UppfoljningFormState = {
   trainingPlacesOther: '',
   homeEquipment: [],
   homeEquipmentOther: '',
-  sessionsPerWeek: '',
-  autoContinue: ''
+  sessionsPerWeek: ''
 };
 
 const inputClass = 'w-full p-3 rounded-xl bg-[#F6F1E7]/70 border border-[#E6E1D8] text-[#3D3D3D] placeholder:text-[#8A8177] focus:border-[#a0c81d] focus:ring-0 outline-none transition';
@@ -220,8 +216,7 @@ const Uppfoljning: React.FC = () => {
       training_places_other: form.trainingPlaces.includes('Annat') ? (form.trainingPlacesOther.trim() || null) : null,
       home_equipment: form.trainingPlaces.includes('Hemma') ? form.homeEquipment : [],
       home_equipment_other: form.trainingPlaces.includes('Hemma') ? (form.homeEquipmentOther.trim() || null) : null,
-      sessions_per_week: parseIntSafe(form.sessionsPerWeek),
-      auto_continue: form.autoContinue || null
+      sessions_per_week: parseIntSafe(form.sessionsPerWeek)
     };
 
     const { error } = await supabase
@@ -510,32 +505,6 @@ const Uppfoljning: React.FC = () => {
                   className={inputClass}
                   placeholder="Ange antalet träningspass per vecka"
                 />
-              </div>
-            </section>
-
-            <section className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
-                <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Automatisk fortsättning</h2>
-              </div>
-              <p className="text-sm text-[#6B6158]">Du slipper avbrott i tjänsten. Fortsätt en månad i taget efter det att din tid tagit slut.</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {autoContinueOptions.map((option) => (
-                  <label
-                    key={option}
-                    className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.autoContinue === option ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'}`}
-                  >
-                    <input
-                      type="radio"
-                      name="autoContinue"
-                      value={option}
-                      checked={form.autoContinue === option}
-                      onChange={() => setForm((prev) => ({ ...prev, autoContinue: option }))}
-                      className="accent-[#a0c81d]"
-                    />
-                    <span className="text-sm font-semibold text-[#3D3D3D]">{option}</span>
-                  </label>
-                ))}
               </div>
             </section>
 

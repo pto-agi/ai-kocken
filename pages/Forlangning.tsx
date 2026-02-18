@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   BadgePercent,
@@ -79,6 +80,7 @@ export const Forlangning: React.FC = () => {
   });
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const isPortalRequired = form.payment === 'Jag betalar via friskvårdsportal';
 
@@ -166,6 +168,7 @@ export const Forlangning: React.FC = () => {
 
       setStatus('success');
       setForm({ firstName: '', lastName: '', email: '', plan: '', payment: '', portal: '' });
+      navigate('/tack-forlangning-friskvard');
     } catch (err) {
       console.error('Forlangning webhook error:', err);
       setStatus('error');
@@ -394,12 +397,6 @@ export const Forlangning: React.FC = () => {
                     <option key={portal} value={portal}>{portal}</option>
                   ))}
                 </select>
-              </div>
-            )}
-
-            {status === 'success' && (
-              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-                Tack! Din förlängning är skickad. Vi återkommer med nästa steg.
               </div>
             )}
 
