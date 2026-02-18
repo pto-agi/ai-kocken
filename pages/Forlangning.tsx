@@ -168,7 +168,14 @@ export const Forlangning: React.FC = () => {
 
       setStatus('success');
       setForm({ firstName: '', lastName: '', email: '', plan: '', payment: '', portal: '' });
-      navigate('/tack-forlangning-friskvard');
+      navigate('/tack-forlangning-friskvard', {
+        state: {
+          planId: form.plan,
+          planLabel: selectedPlan?.label || form.plan,
+          planPrice: selectedPlan?.discounted || '',
+          portal: form.portal
+        }
+      });
     } catch (err) {
       console.error('Forlangning webhook error:', err);
       setStatus('error');

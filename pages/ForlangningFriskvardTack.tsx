@@ -1,8 +1,22 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2, ArrowRight, Sparkles, ShieldCheck } from 'lucide-react';
 
+type FriskvardState = {
+  planId?: string;
+  planLabel?: string;
+  planPrice?: string;
+  portal?: string;
+};
+
 export const ForlangningFriskvardTack: React.FC = () => {
+  const location = useLocation();
+  const state = location.state as FriskvardState | null;
+  const portalName = state?.portal?.trim();
+  const planLabel = state?.planLabel?.trim();
+  const planPrice = state?.planPrice?.trim();
+  const priceText = planPrice ? ` (t.ex. ${planPrice.replace(':-', ' kr')})` : '';
+
   return (
     <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-24 pt-24 px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
@@ -50,9 +64,12 @@ export const ForlangningFriskvardTack: React.FC = () => {
                 <Sparkles className="w-4 h-4" /> Så gör du
               </div>
               <ul className="space-y-3 text-sm text-[#6B6158]">
-                <li>Logga in i din friskvårdsportal.</li>
+                <li>Logga in i din friskvårdsportal{portalName ? ` (${portalName})` : ''}.</li>
                 <li>Sök efter <strong>Private Training Online</strong>.</li>
-                <li>Välj ett paket med samma pris som din förlängning (t.ex. 1995 kr för 6 månader).</li>
+                <li>
+                  Välj ett paket med samma pris som din förlängning
+                  {planLabel ? ` för ${planLabel.toLowerCase()}` : ''}{priceText}.
+                </li>
                 <li>När betalningen är klar kopplar vi den till din förlängning.</li>
               </ul>
             </div>
