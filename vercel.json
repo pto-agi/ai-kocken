@@ -1,7 +1,9 @@
 {
-  "rewrites": [
-    { "source": "/api-proxy/:path*", "destination": "https://generativelanguage.googleapis.com/:path*" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/api-proxy/(.*)", "dest": "https://generativelanguage.googleapis.com/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "trailingSlash": false
 }
