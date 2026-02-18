@@ -342,7 +342,7 @@ const Intranet: React.FC = () => {
           <button
             type="button"
             onClick={loadSubmissions}
-            className="px-5 py-3 rounded-xl bg-[#ffffff]/70 border border-[#E6E1D8] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:bg-[#a0c81d]/20 hover:border-[#a0c81d]/40 transition flex items-center gap-2"
+            className="px-5 py-3 rounded-xl bg-white border border-[#DAD1C5] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:border-[#a0c81d]/40 hover:text-[#5C7A12] transition flex items-center gap-2 shadow-[0_10px_26px_rgba(61,61,61,0.12)]"
             disabled={isLoading}
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
@@ -351,18 +351,18 @@ const Intranet: React.FC = () => {
         </div>
 
         {!isConfigured && (
-          <div className="mb-8 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-amber-200 text-sm">
-            Supabase är inte konfigurerat ännu. Lägg in dina nycklar i <code className="text-amber-100">.env.local</code> för att kunna hämta inlämningar.
+          <div className="mb-8 rounded-2xl border border-amber-400/40 bg-amber-100/70 p-4 text-amber-800 text-sm">
+            Supabase är inte konfigurerat ännu. Lägg in dina nycklar i <code className="text-amber-900">.env.local</code> för att kunna hämta inlämningar.
           </div>
         )}
 
         {errorMessage && (
-          <div className="mb-8 rounded-2xl border border-rose-400/30 bg-rose-500/10 p-4 text-rose-200 text-sm">
+          <div className="mb-8 rounded-2xl border border-rose-400/40 bg-rose-100/70 p-4 text-rose-800 text-sm">
             {errorMessage}
           </div>
         )}
 
-        <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-[#E6E1D8] shadow-2xl mb-8">
+        <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_20px_60px_rgba(61,61,61,0.18)] mb-8 ring-1 ring-black/5">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex flex-wrap gap-2">
               {filterOptions.map((option) => (
@@ -372,8 +372,8 @@ const Intranet: React.FC = () => {
                   onClick={() => setFilter(option.value)}
                   className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border transition ${
                     filter === option.value
-                      ? 'bg-[#a0c81d]/20 border-[#a0c81d]/40 text-[#a0c81d]'
-                      : 'bg-[#ffffff]/70 border-[#E6E1D8] text-[#6B6158] hover:border-[#E6E1D8]'
+                      ? 'bg-[#a0c81d]/20 border-[#a0c81d]/40 text-[#5C7A12]'
+                      : 'bg-white border-[#DAD1C5] text-[#6B6158] hover:border-[#a0c81d]/40'
                   }`}
                 >
                   {option.label} ({option.count})
@@ -395,7 +395,7 @@ const Intranet: React.FC = () => {
         ) : (
           <div className="space-y-4">
             {filtered.length === 0 ? (
-              <div className="rounded-3xl border border-[#E6E1D8] bg-[#ffffff]/70 p-8 text-center text-[#6B6158]">
+              <div className="rounded-3xl border border-[#DAD1C5] bg-white p-8 text-center text-[#6B6158] shadow-[0_12px_30px_rgba(61,61,61,0.12)]">
                 Inga inlämningar matchar filtret.
               </div>
             ) : (
@@ -405,14 +405,14 @@ const Intranet: React.FC = () => {
                 const key = `${submission.kind}-${data.id}`;
                 const isExpanded = expandedId === key;
                 const badgeStyle = submission.kind === 'start'
-                  ? 'bg-emerald-500/10 text-emerald-200 border-emerald-500/30'
-                  : 'bg-cyan-500/10 text-cyan-200 border-cyan-500/30';
+                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30'
+                  : 'bg-cyan-500/10 text-cyan-700 border-cyan-500/30';
                 const statusStyle = data.is_done
-                  ? 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30'
-                  : 'bg-amber-500/10 text-amber-200 border-amber-500/30';
+                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30'
+                  : 'bg-amber-500/10 text-amber-700 border-amber-500/30';
 
                 return (
-                  <div key={key} className="bg-[#0b1220]/80 backdrop-blur-xl rounded-2xl border border-[#E6E1D8] shadow-2xl">
+                  <div key={key} className="bg-white rounded-2xl border border-[#DAD1C5] shadow-[0_16px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
                     <button
                       type="button"
                       onClick={() => toggleExpanded(key)}
@@ -444,7 +444,7 @@ const Intranet: React.FC = () => {
                     </button>
 
                     {isExpanded && (
-                      <div className="px-6 pb-6 border-t border-[#E6E1D8]">
+                      <div className="px-6 pb-6 border-t border-[#DAD1C5]">
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pt-4">
                           <div className="text-xs text-[#8A8177]">
                             {data.is_done
@@ -459,8 +459,8 @@ const Intranet: React.FC = () => {
                             }}
                             className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border transition flex items-center gap-2 ${
                               data.is_done
-                                ? 'bg-[#ffffff]/70 border-[#E6E1D8] text-[#3D3D3D] hover:border-emerald-400/40'
-                                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200 hover:border-emerald-400/60'
+                                ? 'bg-white border-[#DAD1C5] text-[#3D3D3D] hover:border-emerald-400/40'
+                                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 hover:border-emerald-400/60'
                             }`}
                             disabled={updatingId === key}
                           >
@@ -471,7 +471,7 @@ const Intranet: React.FC = () => {
 
                         {submission.kind === 'start' ? (
                           <div className="mt-6 space-y-6">
-                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                            <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                               <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Nyckelinfo</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Önskat startdatum" value={formatDateOnly(data.desired_start_date)} />
@@ -480,7 +480,7 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                            <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                               <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Grunddata</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Vikt" value={formatNumber(data.weight_kg, ' kg')} />
@@ -489,7 +489,7 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                            <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                               <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Mål & bakgrund</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Målbeskrivning" value={data.goal_description || '—'} />
@@ -500,7 +500,7 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                            <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                               <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träningsupplägg</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Träningsformer" value={formatList(data.training_forms)} />
@@ -511,7 +511,7 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                            <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                               <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kroppsmått</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Mått (cm)" value={buildMeasurements(data)} />
@@ -520,7 +520,7 @@ const Intranet: React.FC = () => {
                           </div>
                         ) : (
                           <div className="mt-6 space-y-6">
-                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                            <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                               <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Översikt</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Mål" value={data.goal || '—'} />
@@ -529,14 +529,14 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                            <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                               <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Summering & feedback</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Sammanfattning" value={data.summary_feedback || '—'} />
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                            <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                               <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träning</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Övrig aktivitet" value={formatList(data.other_activity)} />
@@ -545,7 +545,7 @@ const Intranet: React.FC = () => {
                               </div>
                             </section>
 
-                            <section className="rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 p-4">
+                            <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                               <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Produkter & fortsättning</h4>
                               <div className="space-y-3">
                                 <InfoRow label="Påfyllnad" value={formatList(data.refill_products)} />

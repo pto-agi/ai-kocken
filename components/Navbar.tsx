@@ -70,8 +70,8 @@ const Navbar: React.FC = () => {
       >
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-full flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group relative z-50">
-            <div className="relative flex items-center justify-center w-10 h-10 rounded-xl border border-[#6B6158] shadow-lg bg-[#3D3D3D] group-hover:border-[#a0c81d]/30 transition-all duration-300 overflow-hidden">
-                <img src="/logotyp-glow.png" alt="PTO" className="w-7 h-7 object-contain" />
+            <div className="relative flex items-center justify-center w-12 h-12 rounded-xl border border-[#6B6158] shadow-lg bg-[#3D3D3D] group-hover:border-[#a0c81d]/30 transition-all duration-300 overflow-hidden">
+                <img src="/pto-logotyp-2026.png" alt="PTO" className="w-9 h-9 object-contain" />
             </div>
             <div className="flex flex-col">
                 <div className="flex items-baseline leading-none">
