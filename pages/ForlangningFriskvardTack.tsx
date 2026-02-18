@@ -16,6 +16,7 @@ export const ForlangningFriskvardTack: React.FC = () => {
   const planLabel = state?.planLabel?.trim();
   const planPrice = state?.planPrice?.trim();
   const priceText = planPrice ? ` (t.ex. ${planPrice.replace(':-', ' kr')})` : '';
+  const planText = planLabel ? ` för ${planLabel.toLowerCase()}` : '';
 
   return (
     <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-24 pt-24 px-4 overflow-x-hidden">
@@ -67,8 +68,7 @@ export const ForlangningFriskvardTack: React.FC = () => {
                 <li>Logga in i din friskvårdsportal{portalName ? ` (${portalName})` : ''}.</li>
                 <li>Sök efter <strong>Private Training Online</strong>.</li>
                 <li>
-                  Välj ett paket med samma pris som din förlängning
-                  {planLabel ? ` för ${planLabel.toLowerCase()}` : ''}{priceText}.
+                  Välj ett paket med samma pris som din förlängning{planText}{priceText || ' (t.ex. 1995 kr för 6 månader)'}.
                 </li>
                 <li>När betalningen är klar kopplar vi den till din förlängning.</li>
               </ul>
