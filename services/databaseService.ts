@@ -118,6 +118,34 @@ export const databaseService = {
     return data || null;
   },
 
+  async getUserStartformular(userId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('startformular')
+      .select('id, created_at, is_done, done_at, desired_start_date, goal_description, focus_areas')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching startformular:', error);
+      return [];
+    }
+    return data || [];
+  },
+
+  async getUserUppfoljningar(userId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('uppfoljningar')
+      .select('id, created_at, is_done, done_at, summary_feedback, goal')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching uppfoljningar:', error);
+      return [];
+    }
+    return data || [];
+  },
+
   // --- SHOPPING LIST ---
   async getShoppingList(userId: string): Promise<ShoppingItem[]> {
     const { data, error } = await supabase

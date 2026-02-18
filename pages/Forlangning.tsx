@@ -178,17 +178,26 @@ export const Forlangning: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
           {PLAN_OPTIONS.map((plan) => (
-            <div
+            <button
               key={plan.id}
-              className={`relative rounded-[2rem] border p-6 md:p-8 shadow-xl transition-all ${
-                plan.highlight
-                  ? 'border-[#a0c81d]/60 bg-[#E8F1D5] shadow-[0_20px_60px_rgba(160,200,29,0.18)]'
-                  : 'border-[#E6E1D8] bg-[#eadfd9]/80'
+              type="button"
+              onClick={() => setForm((prev) => ({ ...prev, plan: plan.id }))}
+              aria-pressed={form.plan === plan.id}
+              className={`relative text-left rounded-[2rem] border p-6 md:p-8 shadow-xl transition-all focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/40 ${
+                form.plan === plan.id
+                  ? 'border-[#a0c81d] bg-[#E8F1D5] shadow-[0_20px_60px_rgba(160,200,29,0.2)]'
+                  : plan.highlight
+                    ? 'border-[#a0c81d]/60 bg-[#E8F1D5] shadow-[0_20px_60px_rgba(160,200,29,0.18)]'
+                    : 'border-[#E6E1D8] bg-[#eadfd9]/80'
               }`}
             >
-              {plan.highlight && (
-                <div className="absolute top-5 right-5 rounded-full bg-[#a0c81d] text-[#F6F1E7] text-[10px] font-black uppercase tracking-widest px-3 py-1">
-                  {plan.tag}
+              {(plan.highlight || form.plan === plan.id) && (
+                <div className={`absolute top-5 right-5 rounded-full text-[10px] font-black uppercase tracking-widest px-3 py-1 ${
+                  form.plan === plan.id
+                    ? 'bg-[#3D3D3D] text-[#F6F1E7]'
+                    : 'bg-[#a0c81d] text-[#F6F1E7]'
+                }`}>
+                  {form.plan === plan.id ? 'Vald' : plan.tag}
                 </div>
               )}
               <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#6B6158]">
@@ -198,7 +207,7 @@ export const Forlangning: React.FC = () => {
               <div className="mt-3 text-[#6B6158] text-sm">Ordinarie: <span className="line-through">{plan.price}</span></div>
               <div className="mt-2 text-3xl font-black text-[#3D3D3D]">{plan.discounted}</div>
               <p className="mt-3 text-xs text-[#6B6158]">Månader som adderas direkt på din nuvarande period.</p>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -215,16 +224,35 @@ export const Forlangning: React.FC = () => {
             </div>
 
             <div className="space-y-4 text-sm text-[#6B6158]">
-              {PAYMENT_OPTIONS.map((option) => (
-                <div key={option} className="flex items-start gap-3">
+              {[
+                'Betala med ditt friskvårdsbidrag',
+                'Månaderna adderas ovanpå ditt aktiva medlemskap',
+                'Faktura utan extra kostnad',
+                'Swish (123 003 73 17)',
+                'Delbetalning',
+                'Du kan pausa när som helst – månaderna sparas'
+              ].map((text) => (
+                <div key={text} className="flex items-start gap-3">
                   <ShieldCheck className="w-5 h-5 text-emerald-400 mt-0.5" />
-                  <span>{option}</span>
+                  <span>{text}</span>
                 </div>
               ))}
               <div className="flex items-start gap-3">
                 <CreditCard className="w-5 h-5 text-[#6B6158] mt-0.5" />
                 <span>Alla priser är klientpriser och gäller endast befintliga medlemmar.</span>
               </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-[#E6E1D8] bg-white/70 p-5 text-sm text-[#6B6158] space-y-2">
+              <p className="text-[11px] font-black uppercase tracking-widest text-[#8A8177]">Mer info om friskvårdsportal</p>
+              <p>
+                Betala hela beloppet direkt via din friskvårdsportal. Efter att du skickat in förlängningen
+                går du in i portalen, söker efter <strong>Private Training Online</strong> och genomför betalningen där.
+              </p>
+              <p>
+                Vill du delbetala? Använd friskvårdsbidraget i portalen så skickar vi faktura utan extra kostnad
+                på mellanskillnaden.
+              </p>
             </div>
           </div>
 
