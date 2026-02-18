@@ -50,7 +50,7 @@ const PORTAL_OPTIONS = [
   'Edenred'
 ];
 
-const WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uc2oeq2/';
+const FRISKVARD_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uc9x2zz/';
 const STRIPE_PAYMENT_LINKS: Record<string, string> = {
   '3': 'https://betalning.privatetrainingonline.se/b/3cIfZg8s37dt9mK8ITcfK0w?locale=sv',
   '6': 'https://betalning.privatetrainingonline.se/b/6oU4gy4bN41hcyW4sDcfK0x?locale=sv',
@@ -141,7 +141,7 @@ export const Forlangning: React.FC = () => {
 
       let res: Response | null = null;
       try {
-        res = await fetch(WEBHOOK_URL, {
+        res = await fetch(FRISKVARD_WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -149,7 +149,7 @@ export const Forlangning: React.FC = () => {
       } catch (err) {
         // Likely CORS/network; retry with no-cors to still deliver to Zapier
         console.warn('Webhook primary failed, retrying no-cors:', err);
-        await fetch(WEBHOOK_URL, {
+        await fetch(FRISKVARD_WEBHOOK_URL, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain' },
