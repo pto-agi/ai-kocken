@@ -1,0 +1,96 @@
+{
+  "last_commit": null,
+  "entries": [
+    {
+      "id": "baseline-flows-2026-02-19",
+      "date": "2026-02-19T12:00:00.000Z",
+      "range": null,
+      "head": "baseline",
+      "commit_count": 0,
+      "commits": [],
+      "files_changed": [],
+      "stats": {
+        "files": 0,
+        "insertions": 0,
+        "deletions": 0
+      },
+      "title": "Baselineflöden",
+      "notes": "Nulägesbeskrivning av viktiga flöden för att kunna spåra och optimera framåt.",
+      "flows": [
+        {
+          "name": "Bli Premium (Aktivera medlemskap)",
+          "entry_points": ["/profile (Mina sidor)", "/premium"],
+          "steps": [
+            "Användare klickar \"Aktivera Premium\" på Mina sidor.",
+            "Användaren skickas till Stripe Payment Link för köp.",
+            "Stripe bekräftar betalning och Zapier uppdaterar medlemskap i appen."
+          ]
+        },
+        {
+          "name": "Förlängning (betalning via Stripe)",
+          "entry_points": ["/forlangning"],
+          "steps": [
+            "Användaren väljer 3/6/12 månader och betalningsmetod (ej friskvård).",
+            "Användaren skickas till Stripe Payment Link med förifylld e‑post.",
+            "Stripe bekräftar betalning och Zapier lägger förlängningen."
+          ]
+        },
+        {
+          "name": "Förlängning (friskvårdsportal)",
+          "entry_points": ["/forlangning"],
+          "steps": [
+            "Användaren väljer friskvårdsportal och skickar formuläret.",
+            "Webhook skickas till Zapier (\"pausade\" flöde för friskvård).",
+            "Tack‑sida visar instruktioner för betalning i portalen."
+          ]
+        },
+        {
+          "name": "Pausa medlemskap",
+          "entry_points": ["/profile (flik Medlemskap)"],
+          "steps": [
+            "Användaren klickar \"Pausa medlemskap\".",
+            "Webhook skickas till Zapier (sheet \"pausade\").",
+            "Script matchar mot aktiva, räknar kvarvarande månader och flyttar till paus.",
+            "Zapier deaktiverar medlemskap i appen och skickar avslutsmail."
+          ]
+        },
+        {
+          "name": "Avsluta medlemskap",
+          "entry_points": ["/profile (Översikt/Medlemskap)"],
+          "steps": [
+            "Användaren klickar \"Avsluta prenumeration\".",
+            "Webhook skickas till Zapier och medlemskap deaktiveras.",
+            "Avslutsmail skickas."
+          ]
+        },
+        {
+          "name": "Startformulär",
+          "entry_points": ["/start"],
+          "steps": [
+            "Användaren fyller i startformuläret och skickar in.",
+            "Supabase lagrar svar och webhook går till Zapier.",
+            "Tack‑sida informerar om leveranstid och e‑postinbjudan."
+          ]
+        },
+        {
+          "name": "Uppföljning",
+          "entry_points": ["/uppfoljning"],
+          "steps": [
+            "Användaren fyller i uppföljning och skickar in.",
+            "Supabase lagrar svar och webhook går till Zapier.",
+            "Tack‑sida bekräftar mottagning."
+          ]
+        },
+        {
+          "name": "Shop / Produktköp",
+          "entry_points": ["/refill"],
+          "steps": [
+            "Användaren väljer produkter och skickar beställning.",
+            "Webhook skickas till Zapier för orderhantering.",
+            "Tack‑sida visar orderöversikt."
+          ]
+        }
+      ]
+    }
+  ]
+}

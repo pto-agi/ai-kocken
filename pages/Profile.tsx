@@ -12,7 +12,7 @@ import { supabase } from '../lib/supabase';
 import { generateWeeklySchedulePDF } from '../utils/pdfGenerator';
 import { generateFullWeeklyDetails } from '../services/geminiService';
 
-type MainTab = 'OVERVIEW' | 'PLANS' | 'SUBMISSIONS' | 'SETTINGS';
+type MainTab = 'OVERVIEW' | 'PLANS' | 'SUBMISSIONS' | 'MEMBERSHIP' | 'SETTINGS';
 
 type StartSubmission = {
   id: string;
@@ -45,6 +45,8 @@ export const Profile: React.FC = () => {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelStatus, setCancelStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [isPausing, setIsPausing] = useState(false);
+  const [pauseStatus, setPauseStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const queryClient = useQueryClient();
   const [expandedSubmissions, setExpandedSubmissions] = useState<Record<string, boolean>>({});
 
@@ -150,6 +152,53 @@ export const Profile: React.FC = () => {
       setCancelStatus('error');
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handlePauseMembership = async () => {
+    if (isPausing) return;
+    setPauseStatus('idle');
+    setIsPausing(true);
+    try {
+      const payload = {
+        user_id: user.id,
+        email: user.email,
+        name: user.full_name || '',
+        membership_level: user.membership_level || '',
+        coaching_expires_at: user.coaching_expires_at || '',
+        requested_at: new Date().toISOString(),
+        source: 'pause_membership'
+      };
+
+      const body = new URLSearchParams(
+        Object.entries(payload).map(([key, value]) => [key, String(value ?? '')])
+      ).toString();
+
+      let res: Response | null = null;
+      try {
+        res = await fetch('https://hooks.zapier.com/hooks/catch/1514319/ucitm55/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body
+        });
+      } catch (err) {
+        console.warn('Pause webhook primary failed, retrying no-cors:', err);
+        await fetch('https://hooks.zapier.com/hooks/catch/1514319/ucitm55/', {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body
+        });
+        res = null;
+      }
+
+      if (res && !res.ok) throw new Error('Webhook failed');
+      setPauseStatus('success');
+    } catch (err) {
+      console.error('Pause membership webhook error:', err);
+      setPauseStatus('error');
+    } finally {
+      setIsPausing(false);
     }
   };
 
@@ -347,6 +396,7 @@ export const Profile: React.FC = () => {
               <NavButton id="OVERVIEW" label="Översikt" icon={LayoutDashboard} />
               <NavButton id="PLANS" label="Veckomenyer" icon={FileText} />
               <NavButton id="SUBMISSIONS" label="Mina inlämningar" icon={FileDown} />
+              <NavButton id="MEMBERSHIP" label="Medlemskap" icon={User} />
               <NavButton id="SETTINGS" label="Mina uppgifter" icon={Settings} />
             </div>
           </div>
@@ -749,6 +799,120 @@ export const Profile: React.FC = () => {
                           );
                         })
                       )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'MEMBERSHIP' && (
+              <div className="space-y-8 animate-fade-in">
+                <div className={ui.panel}>
+                  <div className="absolute top-[-15%] right-[-10%] w-[320px] h-[320px] bg-[#a0c81d]/10 rounded-full blur-[100px]"></div>
+                  <div className="relative z-10 space-y-8">
+                    <div>
+                      <p className={ui.labelTight}>Medlemskap</p>
+                      <h2 className={ui.titleLg}>Hantera din prenumeration</h2>
+                      <p className={`${ui.body} mt-2 max-w-2xl`}>
+                        Här kan du se status på ditt medlemskap och göra ändringar som paus eller avslut.
+                      </p>
+                    </div>
+
+                    <div className={`${ui.card} flex flex-col gap-4`}>
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                          <p className={ui.label}>Aktiv prenumeration</p>
+                          <h4 className="text-lg md:text-xl font-black text-[#3D3D3D]">PTO Ai Premium</h4>
+                          <p className={`${ui.body} mt-2 max-w-xl`}>
+                            Full tillgång till kost, recept, veckomenyer och uppföljning.
+                          </p>
+                        </div>
+                        <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                          user.membership_level === 'premium'
+                            ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
+                            : 'bg-white/80 text-[#6B6158] border-[#E6E1D8]'
+                        }`}>
+                          {user.membership_level === 'premium' ? 'Aktiv' : 'Inte aktiv'}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-[#6B6158]">
+                        <div className="flex items-start gap-3">
+                          <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
+                          <span>Utgångsdatum: {user.coaching_expires_at ? formatDate(user.coaching_expires_at) : 'Ej angivet'}</span>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
+                          <span>Premiumstatus: {user.membership_level === 'premium' ? 'Aktiv' : 'Inaktiv'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                          Vill du pausa? Då fryser vi din period och aktiverar när du vill igen.
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {pauseStatus === 'success' && (
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                              Pausbegäran skickad
+                            </span>
+                          )}
+                          {pauseStatus === 'error' && (
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
+                              Kunde inte skicka
+                            </span>
+                          )}
+                          {user.membership_level === 'premium' ? (
+                            <button
+                              onClick={handlePauseMembership}
+                              disabled={isPausing}
+                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
+                            >
+                              {isPausing ? 'Skickar...' : 'Pausa medlemskap'}
+                            </button>
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                              Ingen aktiv prenumeration att pausa
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                          Vill du avsluta? Du kan alltid aktivera igen senare.
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {cancelStatus === 'success' && (
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                              Begäran skickad
+                            </span>
+                          )}
+                          {cancelStatus === 'error' && (
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
+                              Kunde inte skicka
+                            </span>
+                          )}
+                          {user.membership_level === 'premium' ? (
+                            <button
+                              onClick={handleCancelSubscription}
+                              disabled={isCancelling}
+                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
+                            >
+                              {isCancelling ? 'Skickar...' : 'Avsluta prenumeration'}
+                            </button>
+                          ) : (
+                            <a
+                              href="https://betalning.privatetrainingonline.se/b/cNi00i4bN9lBaqO4sDcfK0v?locale=sv"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all"
+                            >
+                              Aktivera Premium
+                            </a>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

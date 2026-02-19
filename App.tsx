@@ -20,6 +20,7 @@ import { Support } from './pages/Support';
 import { Forlangning } from './pages/Forlangning';
 import { ForlangningFriskvardTack } from './pages/ForlangningFriskvardTack';
 import { ForlangningTack } from './pages/ForlangningTack';
+import { Changelog } from './pages/Changelog';
 import Refill from './pages/Refill';
 import { RefillTack } from './pages/RefillTack';
 import AuthScreen from './components/AuthScreen';
@@ -89,6 +90,10 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/intranet': {
     title: 'Intranät',
     description: 'Personalens intranät för administration och uppföljning. Hantera ärenden, kundstatus och interna uppgifter i ett samlat gränssnitt för teamet.'
+  },
+  '/changelog': {
+    title: 'Changelog',
+    description: 'Samlad ändringslogg för appen, automatiskt uppdaterad vid push till GitHub.'
   }
 };
 
@@ -277,6 +282,11 @@ function App() {
                   <Intranet />
                 </AuthGuard>
               }
+            />
+
+            <Route
+              path="/changelog"
+              element={<Changelog />}
             />
 
             <Route path="/auth" element={<AuthScreen />} />
