@@ -1,8 +1,18 @@
 {
   "rewrites": [
+    { "source": "/@vite/:path*", "destination": "/@vite/:path*" },
+    { "source": "/@react-refresh", "destination": "/@react-refresh" },
+    { "source": "/@id/:path*", "destination": "/@id/:path*" },
+    { "source": "/@fs/:path*", "destination": "/@fs/:path*" },
+    { "source": "/src/:path*", "destination": "/src/:path*" },
+    { "source": "/node_modules/:path*", "destination": "/node_modules/:path*" },
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/api-proxy/:path*", "destination": "https://generativelanguage.googleapis.com/:path*" },
-    { "source": "/:path*", "destination": "/index.html" }
+    {
+      "source": "/:path*",
+      "has": [{ "type": "header", "key": "accept", "value": "text/html" }],
+      "destination": "/index.html"
+    }
   ],
   "trailingSlash": false
 }
