@@ -1,6 +1,37 @@
 {
-  "last_commit": "409154f98cdbe2c96b545d96d38d5232a6338da5",
+  "last_commit": "dc2ae06b458d79af8d2df71f0834f1e3852556ef",
   "entries": [
+    {
+      "id": "2026-02-19T19:51:00.751Z-dc2ae06",
+      "date": "2026-02-19T19:51:00.751Z",
+      "range": "409154f98cdbe2c96b545d96d38d5232a6338da5..dc2ae06b458d79af8d2df71f0834f1e3852556ef",
+      "head": "dc2ae06b458d79af8d2df71f0834f1e3852556ef",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "dc2ae06",
+          "subject": "Update intranet reports, agenda, and data views"
+        },
+        {
+          "hash": "d0784da",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        ".gitignore",
+        "api/staff-agenda.ts",
+        "data/changelog.json",
+        "package-lock.json",
+        "package.json",
+        "pages/Intranet.tsx",
+        "vercel.json"
+      ],
+      "stats": {
+        "files": 7,
+        "insertions": 1379,
+        "deletions": 197
+      }
+    },
     {
       "id": "2026-02-19T12:02:54.085Z-409154f",
       "date": "2026-02-19T12:02:54.085Z",
