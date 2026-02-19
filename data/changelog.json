@@ -1,6 +1,25 @@
 {
-  "last_commit": null,
+  "last_commit": "fb0fac47aa40c2d4da7333493154dd68524b8c40",
   "entries": [
+    {
+      "id": "2026-02-19T12:01:57.570Z-fb0fac4",
+      "date": "2026-02-19T12:01:57.570Z",
+      "range": null,
+      "head": "fb0fac47aa40c2d4da7333493154dd68524b8c40",
+      "commit_count": 1,
+      "commits": [
+        {
+          "hash": "fb0fac4",
+          "subject": "Changelog initialized"
+        }
+      ],
+      "files_changed": [],
+      "stats": {
+        "files": 0,
+        "insertions": 0,
+        "deletions": 0
+      }
+    },
     {
       "id": "baseline-flows-2026-02-19",
       "date": "2026-02-19T12:00:00.000Z",
@@ -19,7 +38,10 @@
       "flows": [
         {
           "name": "Bli Premium (Aktivera medlemskap)",
-          "entry_points": ["/profile (Mina sidor)", "/premium"],
+          "entry_points": [
+            "/profile (Mina sidor)",
+            "/premium"
+          ],
           "steps": [
             "Användare klickar \"Aktivera Premium\" på Mina sidor.",
             "Användaren skickas till Stripe Payment Link för köp.",
@@ -28,7 +50,9 @@
         },
         {
           "name": "Förlängning (betalning via Stripe)",
-          "entry_points": ["/forlangning"],
+          "entry_points": [
+            "/forlangning"
+          ],
           "steps": [
             "Användaren väljer 3/6/12 månader och betalningsmetod (ej friskvård).",
             "Användaren skickas till Stripe Payment Link med förifylld e‑post.",
@@ -37,7 +61,9 @@
         },
         {
           "name": "Förlängning (friskvårdsportal)",
-          "entry_points": ["/forlangning"],
+          "entry_points": [
+            "/forlangning"
+          ],
           "steps": [
             "Användaren väljer friskvårdsportal och skickar formuläret.",
             "Webhook skickas till Zapier (\"pausade\" flöde för friskvård).",
@@ -46,7 +72,9 @@
         },
         {
           "name": "Pausa medlemskap",
-          "entry_points": ["/profile (flik Medlemskap)"],
+          "entry_points": [
+            "/profile (flik Medlemskap)"
+          ],
           "steps": [
             "Användaren klickar \"Pausa medlemskap\".",
             "Webhook skickas till Zapier (sheet \"pausade\").",
@@ -56,7 +84,9 @@
         },
         {
           "name": "Avsluta medlemskap",
-          "entry_points": ["/profile (Översikt/Medlemskap)"],
+          "entry_points": [
+            "/profile (Översikt/Medlemskap)"
+          ],
           "steps": [
             "Användaren klickar \"Avsluta prenumeration\".",
             "Webhook skickas till Zapier och medlemskap deaktiveras.",
@@ -65,7 +95,9 @@
         },
         {
           "name": "Startformulär",
-          "entry_points": ["/start"],
+          "entry_points": [
+            "/start"
+          ],
           "steps": [
             "Användaren fyller i startformuläret och skickar in.",
             "Supabase lagrar svar och webhook går till Zapier.",
@@ -74,7 +106,9 @@
         },
         {
           "name": "Uppföljning",
-          "entry_points": ["/uppfoljning"],
+          "entry_points": [
+            "/uppfoljning"
+          ],
           "steps": [
             "Användaren fyller i uppföljning och skickar in.",
             "Supabase lagrar svar och webhook går till Zapier.",
@@ -83,7 +117,9 @@
         },
         {
           "name": "Shop / Produktköp",
-          "entry_points": ["/refill"],
+          "entry_points": [
+            "/refill"
+          ],
           "steps": [
             "Användaren väljer produkter och skickar beställning.",
             "Webhook skickas till Zapier för orderhantering.",
