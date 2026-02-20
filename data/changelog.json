@@ -1,6 +1,36 @@
 {
-  "last_commit": "826f7ea08cfe6919ce66b819b2c576c1aaaa5a73",
+  "last_commit": "13b35389a0b8f1ee24edbceb047ed8725afa2b88",
   "entries": [
+    {
+      "id": "2026-02-20T09:11:30.807Z-13b3538",
+      "date": "2026-02-20T09:11:30.807Z",
+      "range": "826f7ea08cfe6919ce66b819b2c576c1aaaa5a73..13b35389a0b8f1ee24edbceb047ed8725afa2b88",
+      "head": "13b35389a0b8f1ee24edbceb047ed8725afa2b88",
+      "commit_count": 3,
+      "commits": [
+        {
+          "hash": "13b3538",
+          "subject": "Remove unsupported functions region config"
+        },
+        {
+          "hash": "85babd7",
+          "subject": "Simplify Vercel rewrites for SPA routing"
+        },
+        {
+          "hash": "fd627de",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "vercel.json"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 28,
+        "deletions": 15
+      }
+    },
     {
       "id": "2026-02-20T09:07:53.576Z-826f7ea",
       "date": "2026-02-20T09:07:53.577Z",
