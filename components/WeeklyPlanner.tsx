@@ -3,9 +3,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles, Loader2, CalendarDays, Printer, Coffee, Sun, Moon, X,
   Save, ArrowRight, Brain, ChefHat, Settings2, AlertTriangle, Minus,
-  Plus, Wallet, Leaf, Beef, Fish, Check, Target, ShoppingBasket,
+  Plus, Leaf, Beef, Fish, Check, Target, ShoppingBasket,
   Users, RefreshCw, List, CheckCircle2, Flame, PieChart, ChevronRight,
-  ArrowLeft, FileDown, Utensils
+  ArrowLeft, FileDown, Utensils, Info
 } from 'lucide-react';
 import { generateWeeklyPlan, generateFullRecipe, swapMeal, WeeklyPlanRequest, generateFullWeeklyDetails } from '../services/geminiService';
 import { databaseService } from '../services/databaseService';
@@ -19,7 +19,7 @@ import { useNavigate } from 'react-router-dom';
 const LOADING_STATES = [
   { text: "Tolkar dina mål, preferenser och allergier...", icon: Brain },
   { text: "Beräknar energi och makrofördelning...", icon: PieChart },
-  { text: "Matchar rätter efter budget och tidsram...", icon: Wallet },
+  { text: "Väljer rätter efter stil och variation...", icon: Utensils },
   { text: "Sätter ihop recept som passar din vardag...", icon: ChefHat },
   { text: "Skapar portionsmängder och inköpslista...", icon: ShoppingBasket },
   { text: "Finjusterar veckan och låser planen...", icon: CalendarDays }
@@ -39,6 +39,7 @@ const MACRO_PRESETS = [
   { id: 'highprotein', label: 'High Protein', p: 50, c: 30, f: 20 },
 ];
 
+
 // --- HELPERS ---
 const n = (v: any, fallback = 0) => {
   if (v === undefined || v === null) return null; 
@@ -50,6 +51,23 @@ const nDisplay = (v: any) => {
   const num = n(v, 0);
   return num === null ? 0 : num;
 }
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const InfoTip: React.FC<{ text: string }> = ({ text }) => (
+  <span className="relative inline-flex items-center group">
+    <button
+      type="button"
+      aria-label="Info"
+      className="ml-2 w-5 h-5 rounded-full border border-[#DAD1C5] bg-[#F4F0E6] text-[#6B6158] flex items-center justify-center hover:text-[#3D3D3D] hover:border-[#a0c81d] focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/40"
+    >
+      <Info className="w-3 h-3" />
+    </button>
+    <span className="pointer-events-none absolute left-0 top-full mt-2 w-56 rounded-xl border border-[#DAD1C5] bg-[#F4F0E6] px-3 py-2 text-[11px] text-[#6B6158] font-medium shadow-lg opacity-0 translate-y-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0">
+      {text}
+    </span>
+  </span>
+);
 
 const macroLine = (meal: any) => {
   if (!meal) return "";
@@ -99,9 +117,8 @@ const WeeklyPlanner: React.FC = () => {
     preferences: {
       categories: [],
       spiceLevel: 'medium',
-      budgetLevel: 'normal',
-      mealPrepLevel: 'some',
-      maxCookTimeMin: 30,
+      varietyLevel: 'balanced',
+      leftoversPlan: 'none',
       optimizeShopping: true
     }
   });
@@ -120,6 +137,9 @@ const WeeklyPlanner: React.FC = () => {
 
   const macroSum = request.targets.p + request.targets.c + request.targets.f;
   const isMacroSumValid = macroSum === 100;
+  const kcalMin = 1200;
+  const kcalMax = 4000;
+  const kcalStep = 50;
 
   // --- EFFECTS ---
   useEffect(() => {
@@ -151,6 +171,14 @@ const WeeklyPlanner: React.FC = () => {
       targets: { ...prev.targets, p: preset.p, c: preset.c, f: preset.f }
     }));
   };
+
+  const adjustKcal = (delta: number) => {
+    setRequest(prev => ({
+      ...prev,
+      targets: { ...prev.targets, kcal: clamp(prev.targets.kcal + delta, kcalMin, kcalMax) }
+    }));
+  };
+
 
   const handleGenerateDraft = async () => {
     if (!isMacroSumValid) {
@@ -444,12 +472,28 @@ ${meal.instructions}
                         <div className="bg-[#F4F0E6] p-6 rounded-2xl border border-[#DAD1C5] space-y-6">
                             {/* Calories */}
                             <div>
-                                <div className="flex justify-between items-end mb-4">
+                                <div className="flex items-center justify-between mb-4">
                                     <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest">Dagligt Energimål</label>
-                                    <span className="text-2xl font-black text-[#a0c81d]">{request.targets.kcal} <span className="text-sm text-[#6B6158]">kcal</span></span>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => adjustKcal(-kcalStep)}
+                                            className="w-7 h-7 flex items-center justify-center bg-[#F4F0E6] rounded-lg text-[#6B6158] hover:text-[#3D3D3D] hover:bg-[#ffffff]/95 transition-colors border border-[#DAD1C5]"
+                                        >
+                                            <Minus className="w-3.5 h-3.5" />
+                                        </button>
+                                        <span className="text-2xl font-black text-[#a0c81d]">{request.targets.kcal} <span className="text-sm text-[#6B6158]">kcal</span></span>
+                                        <button
+                                            type="button"
+                                            onClick={() => adjustKcal(kcalStep)}
+                                            className="w-7 h-7 flex items-center justify-center bg-[#F4F0E6] rounded-lg text-[#6B6158] hover:text-[#3D3D3D] hover:bg-[#ffffff]/95 transition-colors border border-[#DAD1C5]"
+                                        >
+                                            <Plus className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <input 
-                                    type="range" min="1200" max="4000" step="50" 
+                                    type="range" min={kcalMin} max={kcalMax} step={kcalStep}
                                     value={request.targets.kcal} 
                                     onChange={(e) => setRequest(p => ({ ...p, targets: { ...p.targets, kcal: Number(e.target.value) } }))} 
                                     className="w-full accent-[#a0c81d] h-2 bg-[#DAD1C5] rounded-lg appearance-none cursor-pointer" 
@@ -459,7 +503,10 @@ ${meal.instructions}
                             {/* Servings & Meals */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-2">Portioner</label>
+                                    <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-2 flex items-center">
+                                        Portioner
+                                        <InfoTip text="Recepten anpassas efter antal portioner så att mängderna stämmer." />
+                                    </label>
                                     <div className="flex items-center justify-between bg-[#EAE2D5] rounded-xl p-2 border border-[#DAD1C5]">
                                         <button onClick={() => setRequest(p => ({ ...p, servings: Math.max(1, p.servings - 1) }))} className="w-8 h-8 flex items-center justify-center bg-[#F4F0E6] rounded-lg text-[#6B6158] hover:text-[#3D3D3D] hover:bg-[#ffffff]/95 transition-colors"><Minus className="w-4 h-4" /></button>
                                         <span className="font-black text-[#3D3D3D]">{request.servings}</span>
@@ -467,7 +514,10 @@ ${meal.instructions}
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-2">Måltider / Dag</label>
+                                    <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-2 flex items-center">
+                                        Måltider / Dag
+                                        <InfoTip text="Hur många måltider du vill planera för per dag. Påverkar frukost/lunch/middag och mellanmål." />
+                                    </label>
                                     <div className="flex items-center justify-between bg-[#EAE2D5] rounded-xl p-2 border border-[#DAD1C5]">
                                         <button onClick={() => setRequest(p => ({ ...p, mealsPerDay: Math.max(3, p.mealsPerDay - 1) }))} className="w-8 h-8 flex items-center justify-center bg-[#F4F0E6] rounded-lg text-[#6B6158] hover:text-[#3D3D3D] hover:bg-[#ffffff]/95 transition-colors"><Minus className="w-4 h-4" /></button>
                                         <span className="font-black text-[#3D3D3D]">{request.mealsPerDay}</span>
@@ -477,24 +527,39 @@ ${meal.instructions}
                             </div>
                         </div>
 
-                        {/* Diet Type - Updated to Pills */}
                         <div>
-                            <label className="text-[10px] font-black text-[#E6E1D8] uppercase tracking-widest block mb-3">Kosthållning</label>
-                            <div className="flex flex-wrap gap-2">
-                                {DIET_TYPES.map(diet => (
-                                    <button 
-                                        key={diet.id} 
-                                        onClick={() => setRequest(p => ({ ...p, diet: { ...p.diet, type: diet.id } }))}
-                                        className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${
-                                            request.diet.type === diet.id 
-                                            ? 'bg-[#a0c81d] text-[#F6F1E7] border-[#a0c81d]' 
-                                            : 'bg-[#F4F0E6] text-[#6B6158] border-[#DAD1C5] hover:border-[#DAD1C5]'
-                                        }`}
-                                    >
-                                        <diet.icon className="w-3.5 h-3.5" />
-                                        {diet.label}
-                                    </button>
-                                ))}
+                            <label className="text-[10px] font-black text-[#E6E1D8] uppercase tracking-widest block mb-3 flex items-center gap-2"><AlertTriangle className="w-3 h-3" /> Allergier & Undantag</label>
+                            <div className="space-y-3">
+                                <div className="bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-3 py-2.5 min-h-[104px] flex flex-col justify-between">
+                                    <div className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest mb-2">Allergier / Intoleranser</div>
+                                    <textarea
+                                        value={request.diet.allergies}
+                                        onChange={(e) => setRequest(p => ({ ...p, diet: { ...p.diet, allergies: e.target.value } }))}
+                                        className="w-full bg-transparent text-sm text-[#3D3D3D] outline-none placeholder-slate-600 font-medium resize-none"
+                                        rows={2}
+                                    />
+                                    <div className="text-[10px] text-[#8A8177]">Strikta allergier vi aldrig får använda.</div>
+                                </div>
+                                <div className="bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-3 py-2.5 min-h-[104px] flex flex-col justify-between">
+                                    <div className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest mb-2">Uteslut Ingredienser</div>
+                                    <textarea
+                                        value={request.diet.excludeIngredients}
+                                        onChange={(e) => setRequest(p => ({ ...p, diet: { ...p.diet, excludeIngredients: e.target.value } }))}
+                                        className="w-full bg-transparent text-sm text-[#3D3D3D] outline-none placeholder-slate-600 font-medium resize-none"
+                                        rows={2}
+                                    />
+                                    <div className="text-[10px] text-[#8A8177]">Smaker eller råvaror du vill undvika.</div>
+                                </div>
+                                <div className="bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-3 py-2.5 min-h-[104px] flex flex-col justify-between">
+                                    <div className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest mb-2">Måste Inkludera</div>
+                                    <input
+                                        type="text"
+                                        value={request.diet.mustInclude}
+                                        onChange={(e) => setRequest(p => ({ ...p, diet: { ...p.diet, mustInclude: e.target.value } }))}
+                                        className="w-full bg-transparent text-sm text-[#3D3D3D] outline-none placeholder-slate-600 font-medium"
+                                    />
+                                    <div className="text-[10px] text-[#8A8177]">Råvaror du vill bygga veckan kring.</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -507,9 +572,31 @@ ${meal.instructions}
                         </div>
 
                         <div className="bg-[#F4F0E6] p-6 rounded-2xl border border-[#DAD1C5] space-y-6">
+                            {/* Diet Type - Updated to Pills */}
+                            <div>
+                                <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-3">Kosthållning</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {DIET_TYPES.map(diet => (
+                                        <button 
+                                            key={diet.id} 
+                                            onClick={() => setRequest(p => ({ ...p, diet: { ...p.diet, type: diet.id } }))}
+                                            className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-[10px] font-bold uppercase transition-all border ${
+                                                request.diet.type === diet.id 
+                                                ? 'bg-[#a0c81d] text-[#F6F1E7] border-[#a0c81d]' 
+                                                : 'bg-[#EAE2D5] text-[#6B6158] border-[#DAD1C5] hover:border-[#DAD1C5]'
+                                            }`}
+                                        >
+                                            <diet.icon className="w-3.5 h-3.5" />
+                                            {diet.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="border-t border-[#DAD1C5] pt-4"></div>
                             <div className="flex justify-between items-center">
                                 <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest">Välj Inriktning</label>
-                                <span className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${isMacroSumValid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                                <span className={`inline-flex items-center h-6 text-[10px] font-bold px-2 rounded leading-none transition-colors ${isMacroSumValid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
                                     Totalt: {macroSum}%
                                 </span>
                             </div>
@@ -570,55 +657,7 @@ ${meal.instructions}
                             </div>
                         </div>
 
-                        <div>
-                            <label className="text-[10px] font-black text-[#E6E1D8] uppercase tracking-widest block mb-3 flex items-center gap-2"><AlertTriangle className="w-3 h-3" /> Allergier & Undantag</label>
-                            <input 
-                                type="text" 
-                                value={request.diet.allergies} 
-                                onChange={(e) => setRequest(p => ({ ...p, diet: { ...p.diet, allergies: e.target.value } }))}
-                                placeholder="T.ex. Nötter, Gluten, Koriander..." 
-                                className="w-full bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium" 
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-[10px] font-black text-[#E6E1D8] uppercase tracking-widest block mb-3">Uteslut Ingredienser</label>
-                                <input
-                                    type="text"
-                                    value={request.diet.excludeIngredients}
-                                    onChange={(e) => setRequest(p => ({ ...p, diet: { ...p.diet, excludeIngredients: e.target.value } }))}
-                                    placeholder="T.ex. Svamp, Koriander..."
-                                    className="w-full bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black text-[#E6E1D8] uppercase tracking-widest block mb-3">Måste Inkludera</label>
-                                <input
-                                    type="text"
-                                    value={request.diet.mustInclude}
-                                    onChange={(e) => setRequest(p => ({ ...p, diet: { ...p.diet, mustInclude: e.target.value } }))}
-                                    placeholder="T.ex. Lax, Kyckling..."
-                                    className="w-full bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
-                                />
-                            </div>
-                        </div>
-
                         <div className="bg-[#F4F0E6] p-6 rounded-2xl border border-[#DAD1C5] space-y-5">
-                            <div className="flex items-center justify-between">
-                                <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest">Max Tillagningstid</label>
-                                <span className="text-xs font-black text-[#a0c81d]">{request.preferences.maxCookTimeMin} min</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="10"
-                                max="120"
-                                step="5"
-                                value={request.preferences.maxCookTimeMin}
-                                onChange={(e) => setRequest(p => ({ ...p, preferences: { ...p.preferences, maxCookTimeMin: Number(e.target.value) } }))}
-                                className="w-full accent-[#a0c81d] h-2 bg-[#DAD1C5] rounded-lg appearance-none cursor-pointer"
-                            />
-
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                                 <div>
                                     <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-2">Kryddnivå</label>
@@ -633,27 +672,27 @@ ${meal.instructions}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-2">Budget</label>
+                                    <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-2">Variation</label>
                                     <select
-                                        value={request.preferences.budgetLevel}
-                                        onChange={(e) => setRequest(p => ({ ...p, preferences: { ...p.preferences, budgetLevel: e.target.value } }))}
-                                        className="w-full bg-[#EAE2D5] border border-[#DAD1C5] rounded-xl px-3 py-3 text-xs text-[#3D3D3D] font-bold uppercase"
-                                    >
-                                        <option value="budget">Budget</option>
-                                        <option value="normal">Normal</option>
-                                        <option value="premium">Premium</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-2">Meal Prep</label>
-                                    <select
-                                        value={request.preferences.mealPrepLevel}
-                                        onChange={(e) => setRequest(p => ({ ...p, preferences: { ...p.preferences, mealPrepLevel: e.target.value } }))}
+                                        value={request.preferences.varietyLevel}
+                                        onChange={(e) => setRequest(p => ({ ...p, preferences: { ...p.preferences, varietyLevel: e.target.value } }))}
                                         className="w-full bg-[#EAE2D5] border border-[#DAD1C5] rounded-xl px-3 py-3 text-xs text-[#3D3D3D] font-bold uppercase"
                                     >
                                         <option value="low">Låg</option>
-                                        <option value="some">Medel</option>
+                                        <option value="balanced">Balanserad</option>
                                         <option value="high">Hög</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-2">Restplanering</label>
+                                    <select
+                                        value={request.preferences.leftoversPlan}
+                                        onChange={(e) => setRequest(p => ({ ...p, preferences: { ...p.preferences, leftoversPlan: e.target.value } }))}
+                                        className="w-full bg-[#EAE2D5] border border-[#DAD1C5] rounded-xl px-3 py-3 text-xs text-[#3D3D3D] font-bold uppercase"
+                                    >
+                                        <option value="none">Ingen</option>
+                                        <option value="some">Viss</option>
+                                        <option value="high">Mycket</option>
                                     </select>
                                 </div>
                             </div>

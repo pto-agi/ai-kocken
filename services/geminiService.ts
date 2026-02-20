@@ -12,9 +12,8 @@ export interface WeeklyPlanRequest {
   preferences: {
     categories: string[];
     spiceLevel: string;
-    budgetLevel: string;
-    mealPrepLevel: string;
-    maxCookTimeMin: number;
+    varietyLevel: string;
+    leftoversPlan: string;
     optimizeShopping: boolean;
   };
 }
@@ -114,6 +113,18 @@ const mergeWeeklyMeal = (overviewMeal: any, detailsMeal: any) => {
 // --- WEEKLY PLANNER ---
 
 export const generateWeeklyPlan = async (request: WeeklyPlanRequest): Promise<any[]> => {
+  const varietyLabel =
+    request.preferences.varietyLevel === 'low'
+      ? 'Låg'
+      : request.preferences.varietyLevel === 'high'
+        ? 'Hög'
+        : 'Balanserad';
+  const leftoversLabel =
+    request.preferences.leftoversPlan === 'none'
+      ? 'Ingen'
+      : request.preferences.leftoversPlan === 'high'
+        ? 'Mycket'
+        : 'Viss';
   
   // Logic to create a realistic calorie distribution string based on meal count
   let distributionInstruction = "";
@@ -137,11 +148,10 @@ export const generateWeeklyPlan = async (request: WeeklyPlanRequest): Promise<an
     - Allergier (VIKTIGT): ${request.diet.allergies || "Inga"}
     - Uteslut ingredienser (VIKTIGT): ${request.diet.excludeIngredients || "Inga"}
     - Måste inkludera: ${request.diet.mustInclude || "Inget"}
-    - Preferenser: ${request.preferences.categories.join(', ')}
+    - Matstil: ${request.preferences.categories.join(', ') || "Ingen"}
     - Kryddnivå: ${request.preferences.spiceLevel}
-    - Budgetnivå: ${request.preferences.budgetLevel}
-    - Meal prep: ${request.preferences.mealPrepLevel}
-    - Max tillagningstid: ${request.preferences.maxCookTimeMin} minuter
+    - Variation: ${varietyLabel}
+    - Restplanering: ${leftoversLabel}
     - Optimera inköp: ${request.preferences.optimizeShopping ? "Ja" : "Nej"}
     - Ingredienser för: ${request.servings} personer.
 
