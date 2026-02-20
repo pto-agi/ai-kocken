@@ -1,6 +1,33 @@
 {
-  "last_commit": "a9afdf679e9d22369b4160c63e1767e4562224fa",
+  "last_commit": "632cc052bd61dffea056d68d2a176fc59fb3b977",
   "entries": [
+    {
+      "id": "2026-02-20T18:41:18.782Z-632cc05",
+      "date": "2026-02-20T18:41:18.782Z",
+      "range": "a9afdf679e9d22369b4160c63e1767e4562224fa..632cc052bd61dffea056d68d2a176fc59fb3b977",
+      "head": "632cc052bd61dffea056d68d2a176fc59fb3b977",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "632cc05",
+          "subject": "Refine forlangning mobile layout and update menu"
+        },
+        {
+          "hash": "5eedaa8",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "components/Navbar.tsx",
+        "data/changelog.json",
+        "pages/Forlangning.tsx"
+      ],
+      "stats": {
+        "files": 3,
+        "insertions": 88,
+        "deletions": 60
+      }
+    },
     {
       "id": "2026-02-20T18:24:15.505Z-a9afdf6",
       "date": "2026-02-20T18:24:15.505Z",
