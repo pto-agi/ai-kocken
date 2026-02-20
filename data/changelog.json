@@ -1,6 +1,33 @@
 {
-  "last_commit": "898eb4e9f20488c6a90931219f5b4fac14a8a1f1",
+  "last_commit": "0cef105e6d2590c9a370827fd8d860bc50637e59",
   "entries": [
+    {
+      "id": "2026-02-20T23:31:58.658Z-0cef105",
+      "date": "2026-02-20T23:31:58.658Z",
+      "range": "898eb4e9f20488c6a90931219f5b4fac14a8a1f1..0cef105e6d2590c9a370827fd8d860bc50637e59",
+      "head": "0cef105e6d2590c9a370827fd8d860bc50637e59",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "0cef105",
+          "subject": "Refine weekly planner inputs"
+        },
+        {
+          "hash": "ab22c2e",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "components/WeeklyPlanner.tsx",
+        "data/changelog.json",
+        "services/geminiService.ts"
+      ],
+      "stats": {
+        "files": 3,
+        "insertions": 172,
+        "deletions": 97
+      }
+    },
     {
       "id": "2026-02-20T19:14:31.099Z-898eb4e",
       "date": "2026-02-20T19:14:31.099Z",
