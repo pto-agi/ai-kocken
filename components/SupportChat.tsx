@@ -5,39 +5,63 @@ import type { ChatKitOptions } from '@openai/chatkit';
 const chatkitBaseOptions: Omit<ChatKitOptions, 'api'> = {
   theme: {
     colorScheme: 'light',
-    radius: 'round',
-    density: 'spacious',
+    radius: 'pill',
+    density: 'normal',
     color: {
-      grayscale: {
-        hue: 35,
-        tint: 3,
-      },
       accent: {
-        primary: '#8FB81A',
-        level: 1,
+        primary: '#a0c81d',
+        level: 2,
+      },
+      grayscale: {
+        hue: 0,
+        tint: 0,
+      },
+      surface: {
+        background: '#F6F1E7',
+        foreground: '#F4F0E6',
       },
     },
     typography: {
       baseSize: 16,
       fontFamily:
-        '"Poppins", "Open Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
+        '"OpenAI Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
       fontFamilyMono:
         'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace',
+      fontSources: [
+        {
+          family: 'OpenAI Sans',
+          src: 'https://cdn.openai.com/common/fonts/openai-sans/v2/OpenAISans-Regular.woff2',
+          weight: 400,
+          style: 'normal',
+          display: 'swap',
+        },
+        {
+          family: 'OpenAI Sans',
+          src: 'https://cdn.openai.com/common/fonts/openai-sans/v2/OpenAISans-SemiBold.woff2',
+          weight: 600,
+          style: 'normal',
+          display: 'swap',
+        },
+      ],
     },
   },
   header: {
     enabled: false,
   },
   composer: {
-    placeholder: 'Hur kan vi hjälpa dig idag?',
+    placeholder: 'Skriv ditt meddelande…',
     attachments: {
-      enabled: true,
-      maxCount: 5,
-      maxSize: 10_485_760,
+      enabled: false,
     },
   },
   startScreen: {
-    greeting: 'Vad vill du ha hjälp med idag?',
+    greeting: 'Hur kan vi hjälpa dig idag?',
+    prompts: [
+      { icon: 'circle-question', label: 'Medlemskap', prompt: 'Jag behöver hjälp med mitt medlemskap.' },
+      { icon: 'keys', label: 'Inloggning', prompt: 'Jag kommer inte in på mitt konto.' },
+      { icon: 'calendar', label: 'Veckomeny', prompt: 'Hjälp mig med min veckomeny.' },
+      { icon: 'document', label: 'Beställning', prompt: 'Jag har frågor om en beställning.' },
+    ],
   },
   disclaimer: {
     text: 'Behöver du teknisk support? Skriv **support** så hjälper vi dig vidare.',
@@ -95,7 +119,7 @@ const SupportChat: React.FC = () => {
         <section className={`${hasThread ? 'pt-0' : ''}`}>
           <div className="bg-[#F6F1E7]/90 backdrop-blur">
             <div className="px-0 py-2">
-              <div className="support-chatkit relative h-[50svh] min-h-[280px] sm:min-h-[340px] w-full bg-transparent">
+              <div className="support-chatkit relative h-[60svh] min-h-[320px] sm:min-h-[380px] w-full bg-transparent">
                 <div className="h-full w-full">
                   <ChatKit control={control} className="h-full w-full" />
                 </div>
