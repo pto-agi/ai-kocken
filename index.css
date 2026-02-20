@@ -52,3 +52,11 @@
 .support-chatkit :where([class*="ck-"], [data-chatkit], [data-chatkit-root]) {
   background-color: var(--brand-sand);
 }
+
+@media screen and (max-width: 768px) {
+  .support-chatkit input,
+  .support-chatkit textarea,
+  .support-chatkit [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+}
