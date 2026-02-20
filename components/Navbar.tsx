@@ -53,10 +53,10 @@ const Navbar: React.FC = () => {
     : [
         { path: '/', label: 'HEM', icon: Home },
         { path: '/recept', label: 'RECEPT', icon: ChefHat },
+        { path: '/support', label: 'CHATT', icon: LifeBuoy },
         ...(session ? [{ path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ClipboardCheck }] : []),
+        ...(session ? [{ path: '/forlangning', label: 'MEDLEMSKAP', icon: Crown, badge: 'Erbjudande' }] : []),
         ...(session ? [{ path: '/refill', label: 'SHOP', icon: ShoppingBasket }] : []),
-        { path: '/support', label: 'SUPPORT', icon: LifeBuoy },
-        { path: '/profile', label: 'MINA SIDOR', icon: User }
       ];
 
   return (
@@ -94,6 +94,11 @@ const Navbar: React.FC = () => {
                   }`}>
                     {link.label}
                   </span>
+                  {'badge' in link && link.badge && (
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#a0c81d]/20 text-[#a0c81d]">
+                      {link.badge}
+                    </span>
+                  )}
                 </div>
                 <span className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#a0c81d] transition-all duration-300 ${
                   isActive(link.path) ? 'opacity-100 scale-100 shadow-[0_0_8px_#a0c81d]' : 'opacity-0 scale-0'
@@ -138,7 +143,7 @@ const Navbar: React.FC = () => {
           isDrawerOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="p-4 border-b border-[#6B6158] bg-[#3D3D3D] relative">
+        <div className="p-3 border-b border-[#6B6158] bg-[#3D3D3D] relative">
             <button 
                 onClick={() => setIsDrawerOpen(false)}
                 className="absolute top-3 right-3 p-1.5 text-white/80 hover:text-white bg-[#3D3D3D] rounded-full transition-colors"
@@ -146,26 +151,14 @@ const Navbar: React.FC = () => {
                 <X className="w-4 h-4" />
             </button>
 
-            <div className="mt-4 mb-2">
-                {isStaff ? (
-                    <div className="flex items-center justify-center w-full py-2 rounded-lg bg-[#E6E1D8] border border-[#E6E1D8] text-[#3D3D3D] text-xs font-bold uppercase tracking-wide">
-                        <ShieldCheck className="w-3.5 h-3.5 mr-2" /> Personal
-                    </div>
-                ) : !isPremium ? (
-                    <Link 
-                        to="/premium" 
-                        onClick={() => setIsDrawerOpen(false)}
-                        className="flex items-center justify-center w-full py-2.5 rounded-lg bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-wide shadow-[0_0_16px_rgba(160,200,29,0.25)] hover:bg-[#5C7A12] hover:shadow-[0_0_24px_rgba(160,200,29,0.4)] transition-all group"
-                    >
-                        <Crown className="w-4 h-4 mr-2 fill-current" />
-                        Bli Medlem
-                        <ArrowRight className="w-3.5 h-3.5 ml-1 opacity-60 group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                ) : (
-                    <div className="flex items-center justify-center w-full py-2 rounded-lg bg-[#E6E1D8] border border-[#E6E1D8] text-emerald-600 text-xs font-bold uppercase tracking-wide">
-                        <Crown className="w-3.5 h-3.5 mr-2" /> Premium Aktiv
-                    </div>
-                )}
+            <div className="flex items-center gap-3 pr-10">
+                <div className="relative flex items-center justify-center w-9 h-9 rounded-lg border border-[#6B6158] bg-[#3D3D3D] overflow-hidden">
+                    <img src="/pto-logotyp-2026.png" alt="PTO" className="w-7 h-7 object-contain" />
+                </div>
+                <div className="flex items-baseline leading-none">
+                    <span className="text-lg font-bold text-white tracking-tight font-heading">PTO</span>
+                    <span className="text-lg font-bold text-[#a0c81d] font-heading ml-0.5">Ai</span>
+                </div>
             </div>
         </div>
 
@@ -185,6 +178,11 @@ const Navbar: React.FC = () => {
                 <span className={`font-heading text-sm font-semibold tracking-wide ${isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'}`}>
                   {link.label}
                 </span>
+                {'badge' in link && link.badge && (
+                  <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#a0c81d]/20 text-[#a0c81d]">
+                    {link.badge}
+                  </span>
+                )}
               </div>
               <ChevronRight className={`w-3.5 h-3.5 text-white/60 transition-transform group-hover:translate-x-1 ${isActive(link.path) ? 'text-[#a0c81d]' : ''}`} />
             </Link>
@@ -195,6 +193,10 @@ const Navbar: React.FC = () => {
              {session ? (
                <>
                  <Link to="/profile" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
+                    <User className="w-4 h-4" />
+                    <span className="font-medium text-sm">Mina sidor</span>
+                 </Link>
+                 <Link to="/profile?tab=settings" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
                     <Settings className="w-4 h-4" />
                     <span className="font-medium text-sm">Inställningar</span>
                  </Link>
