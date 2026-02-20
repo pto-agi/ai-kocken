@@ -26,17 +26,19 @@ const Footer: React.FC = () => {
                 </div>
             </Link>
             <p className="text-[#E6E1D8] text-sm leading-relaxed max-w-xs font-medium">
-              Vi gör det enkelt att äta gott och leva hälsosamt. Din personliga AI-kock och kostplanerare – anpassad efter dig.
+              Din intelligenta medlemssida från PTO – med snabb hjälp, dygnet runt.
             </p>
           </div>
 
-          {/* 2. AI-VERKTYG */}
+          {/* 2. MEDLEMSSIDA */}
           <div>
-            <h4 className="font-heading font-bold text-white mb-6 tracking-wide">Tjänsten</h4>
+            <h4 className="font-heading font-bold text-white mb-6 tracking-wide">Medlemssidan</h4>
             <ul className="space-y-4 text-sm font-medium">
-              <li><Link to="/recept" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Recept</Link></li>
-              <li><Link to="/forlangning" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Förlängning</Link></li>
-              <li><Link to="/premium" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Bli Medlem</Link></li>
+              <li><Link to="/recept" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Veckomeny</Link></li>
+              <li><Link to="/uppfoljning" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Uppföljning</Link></li>
+              <li><Link to="/support" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Supportchatt</Link></li>
+              <li><Link to="/refill" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Shop</Link></li>
+              <li><Link to="/forlangning" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Medlemskap</Link></li>
             </ul>
           </div>
 
@@ -44,6 +46,7 @@ const Footer: React.FC = () => {
           <div>
             <h4 className="font-heading font-bold text-white mb-6 tracking-wide">Företag</h4>
             <ul className="space-y-4 text-sm font-medium">
+              <li><Link to="/profile" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Mina sidor</Link></li>
               <li><a href="https://privatetrainingonline.se/pt-online/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Digitala friskvårdspaket</a></li>
               <li><a href="https://shop.privatetrainingonline.se/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Webbshop</a></li>
               <li><a href="https://privatetrainingonline.se/villkor-info/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Användarvillkor</a></li>

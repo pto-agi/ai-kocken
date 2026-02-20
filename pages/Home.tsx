@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
+  CheckCircle2,
   CalendarDays,
   LifeBuoy,
   LineChart,
@@ -76,7 +77,7 @@ export const Home: React.FC = () => {
 
             <div className="relative z-10 max-w-3xl">
               <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-[0.3em] text-[#6B6158]">
-                <span className="flex items-center gap-2"><Sparkles className="w-3 h-3 text-[#a0c81d]" /> Medlemsstart</span>
+                <span className="flex items-center gap-2"><Sparkles className="w-3 h-3 text-[#a0c81d]" /> Snabb översikt</span>
                 {session && (
                   <span className={`px-3 py-1 rounded-full border ${isPremium ? 'border-emerald-400/40 text-emerald-300' : 'border-[#E6E1D8] text-[#6B6158]'} bg-[#ffffff]/70`}>
                     {isPremium ? 'Premium aktiv' : 'Medlemskap'}
@@ -87,8 +88,23 @@ export const Home: React.FC = () => {
                 {session ? `Välkommen tillbaka${firstName ? `, ${firstName}` : ''}.` : 'Välkommen till dina medlemssidor.'}
               </h1>
               <p className="mt-4 text-[#6B6158] text-sm md:text-base font-medium">
-                Bygg din veckomeny, följ upp framsteg och få snabb hjälp från supporten. Härifrån når du allt som är viktigt för din resa.
+                Här är en snabb översikt över det viktigaste du kan göra i appen.
               </p>
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-[#6B6158]">
+                {[
+                  'AI‑coach för träning, kost och snabba frågor',
+                  'Veckomeny med recept och inköpslista',
+                  'Uppföljning av mål och framsteg',
+                  'Supportchatt när du behöver hjälp',
+                  'Shop med medlemspris',
+                  'Förlängning av medlemskap'
+                ].map((text) => (
+                  <div key={text} className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#a0c81d] mt-0.5 shrink-0" />
+                    <span>{text}</span>
+                  </div>
+                ))}
+              </div>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link
                   to="/recept"
