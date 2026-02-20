@@ -30,7 +30,7 @@ export const RefillTack: React.FC = () => {
 
   if (!state || !state.items?.length) {
     return (
-      <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-24 pt-24 px-4">
+      <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-12 md:pb-24 pt-24 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-[2rem] p-8 border border-[#DAD1C5] shadow-[0_25px_70px_rgba(61,61,61,0.18)]">
             <h1 className="text-2xl font-black text-[#3D3D3D]">Ingen beställning att visa</h1>
@@ -50,7 +50,7 @@ export const RefillTack: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-24 pt-24 px-4 overflow-x-hidden">
+    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-12 md:pb-24 pt-24 px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
         <div className="absolute top-[-12%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[110px]" />

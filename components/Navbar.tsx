@@ -222,33 +222,6 @@ const Navbar: React.FC = () => {
         </div>
       </div>
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#3D3D3D]/95 backdrop-blur-xl border-t border-[#6B6158] z-40 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
-        <div className="flex justify-around items-center h-[70px] px-2">
-          {navLinks.map((link) => {
-            const active = isActive(link.path);
-            return (
-              <Link
-                key={link.path}
-                to={link.path}
-                className="flex flex-col items-center justify-center w-full h-full gap-1 transition-all group active:scale-95"
-              >
-                <div className={`relative p-1.5 rounded-xl transition-all duration-300 ${active ? '-translate-y-1' : ''}`}>
-                   <link.icon 
-                     className={`w-6 h-6 transition-colors duration-300 ${active ? 'text-[#a0c81d] fill-[#a0c81d]/10' : 'text-white/80 group-hover:text-[#a0c81d]'}`} 
-                     strokeWidth={active ? 2.5 : 2}
-                   />
-                   {active && (
-                     <span className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#a0c81d] rounded-full shadow-[0_0_5px_#a0c81d]"></span>
-                   )}
-                </div>
-                <span className={`text-[9px] font-bold tracking-widest font-condensed uppercase transition-colors ${active ? 'text-[#a0c81d]' : 'text-white/70 group-hover:text-[#a0c81d]'}`}>
-                  {link.label}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
     </>
   );
 };

@@ -32,7 +32,7 @@ export const Layout: React.FC<LayoutProps> = ({
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 md:pb-0 flex flex-col">
+    <div className="min-h-screen bg-slate-50 pb-8 md:pb-0 flex flex-col">
       {/* Desktop Header */}
       <header className="sticky top-0 z-50 glass-panel border-b border-slate-200/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -80,7 +80,7 @@ export const Layout: React.FC<LayoutProps> = ({
       </main>
 
       {/* Footer */}
-      <footer className="bg-slate-100 border-t border-slate-200 mt-auto pb-24 md:pb-8">
+      <footer className="bg-slate-100 border-t border-slate-200 mt-auto pb-12 md:pb-8">
         <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col items-center justify-center text-center">
            <p className="text-[#6B6158] text-sm font-medium mb-2">
              &copy; {new Date().getFullYear()} Private Training Online. Alla rättigheter förbehållna.
@@ -96,21 +96,6 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </footer>
 
-      {/* Mobile Bottom Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex justify-between items-center z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
-            className={`flex flex-col items-center gap-1 ${
-              currentRoute === item.id ? 'text-emerald-600' : 'text-[#6B6158]'
-            }`}
-          >
-            <item.icon className={`w-6 h-6 ${currentRoute === item.id ? 'fill-current opacity-20' : ''}`} />
-            <span className="text-[10px] font-medium">{item.label}</span>
-          </button>
-        ))}
-      </div>
     </div>
   );
 };

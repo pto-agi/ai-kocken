@@ -144,7 +144,7 @@ const StaffRedirect = () => {
 };
 
 const PageContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="max-w-7xl mx-auto px-4 md:px-8 pb-24 text-[#3D3D3D] min-h-[60vh]">
+  <div className="max-w-7xl mx-auto px-4 md:px-8 pb-12 md:pb-24 text-[#3D3D3D] min-h-[60vh]">
     {children}
   </div>
 );

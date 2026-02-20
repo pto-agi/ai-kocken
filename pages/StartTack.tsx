@@ -4,7 +4,7 @@ import { CheckCircle2, ArrowRight, Sparkles, Mail } from 'lucide-react';
 
 export const StartTack: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-24 pt-24 px-4 overflow-x-hidden">
+    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-12 md:pb-24 pt-24 px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
         <div className="absolute top-[-12%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[520px] h-[520px] bg-cyan-500/5 rounded-full blur-[110px]" />
