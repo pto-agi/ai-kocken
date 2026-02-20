@@ -121,7 +121,7 @@ const SupportChat: React.FC = () => {
               </div>
 
               <div className="px-4 py-4 sm:px-6">
-                <div className="relative h-[60vh] min-h-[460px] w-full rounded-[22px] border border-[#E6E1D8] bg-gradient-to-b from-[#F6F1E7] via-[#F6F1E7] to-[#F6F1E7] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                <div className="relative h-[65vh] min-h-[360px] sm:min-h-[420px] w-full rounded-[22px] border border-[#E6E1D8] bg-gradient-to-b from-[#F6F1E7] via-[#F6F1E7] to-[#F6F1E7] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="h-full w-full">
                     <ChatKit control={control} className="h-full w-full" />
                   </div>
