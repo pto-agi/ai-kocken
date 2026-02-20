@@ -378,23 +378,43 @@ ${meal.instructions}
 
       {/* Progress Bar */}
       <div className="max-w-xl mx-auto mb-12">
-         <div className="flex items-center justify-between relative">
-            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-[#E8F1D5] -z-10"></div>
-            <div className={`absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-[#a0c81d] -z-10 transition-all duration-500`} style={{ width: step === 1 ? '0%' : step === 2 ? '50%' : '100%' }}></div>
-            
-            {[1, 2, 3].map(s => (
-                <div key={s} className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm border-4 transition-all duration-300 ${
-                    step >= s ? 'bg-[#a0c81d] border-[#F6F1E7] text-[#F6F1E7] scale-110 shadow-[0_0_15px_#a0c81d]' : 'bg-[#E8F1D5] border-[#F6F1E7] text-[#8A8177]'
-                }`}>
-                    {s}
+        <div className="relative mb-6">
+          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-[#E6E1D8]"></div>
+          <div
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-[#7FA61A] transition-all duration-500"
+            style={{ width: step === 1 ? '0%' : step === 2 ? '50%' : '100%' }}
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 sm:gap-6">
+          {[
+            { id: 1, label: 'Kalibrering', icon: Target, color: 'text-[#7FA61A]', ring: 'ring-[#7FA61A]/25', bg: 'bg-[#7FA61A]' },
+            { id: 2, label: 'Finjustering', icon: Settings2, color: 'text-[#5F8F2B]', ring: 'ring-[#5F8F2B]/25', bg: 'bg-[#5F8F2B]' },
+            { id: 3, label: 'Resultat', icon: CheckCircle2, color: 'text-[#2F6D3A]', ring: 'ring-[#2F6D3A]/25', bg: 'bg-[#2F6D3A]' }
+          ].map((s) => {
+            const isActive = step >= s.id;
+            const Icon = s.icon;
+            return (
+              <div key={s.id} className="flex flex-col items-center text-center gap-2">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full border border-[#DAD1C5] ${isActive ? 'bg-[#F4F0E6]' : 'bg-[#F6F1E7]'} ${isActive ? s.color : 'text-[#8A8177]'}`}>
+                  <Icon className="w-4 h-4" />
                 </div>
-            ))}
-         </div>
-         <div className="flex justify-between mt-2 text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-             <span>Kalibrering</span>
-             <span>Finjustering</span>
-             <span>Resultat</span>
-         </div>
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm border-2 transition-all duration-300 ${
+                    isActive
+                      ? `${s.bg} text-[#F6F1E7] border-[#F6F1E7] ring-4 ${s.ring} shadow-[0_0_14px_rgba(127,166,26,0.25)]`
+                      : 'bg-[#F4F0E6] border-[#E6E1D8] text-[#6B6158]'
+                  }`}
+                >
+                  {s.id}
+                </div>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? s.color : 'text-[#8A8177]'}`}>
+                  {s.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* --- CONTENT AREA --- */}
@@ -651,7 +671,7 @@ ${meal.instructions}
                         onClick={handleGenerateDraft} 
                         className="w-full md:w-auto px-12 py-5 rounded-2xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest hover:bg-[#5C7A12] transition-all flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(160,200,29,0.28)] hover:scale-105 active:scale-95"
                     >
-                        <Sparkles className="w-5 h-5" /> Generera Utkast
+                        <Sparkles className="w-5 h-5" /> Skapa veckomeny
                     </button>
                 </div>
             </div>

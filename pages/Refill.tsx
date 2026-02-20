@@ -74,6 +74,7 @@ const Refill: React.FC = () => {
   const [city, setCity] = useState('');
   const [country, setCountry] = useState('Sverige');
   const [phone, setPhone] = useState('');
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [addressStatus, setAddressStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const navigate = useNavigate();
 
@@ -292,28 +293,28 @@ const Refill: React.FC = () => {
       </div>
 
       <div className="max-w-6xl mx-auto relative z-10 animate-fade-in">
-        <div className="bg-white rounded-[2.8rem] p-8 md:p-12 border border-[#DAD1C5] shadow-[0_35px_90px_rgba(61,61,61,0.2)] mb-12 overflow-hidden relative ring-1 ring-black/5">
+        <div className="bg-white rounded-[2rem] p-6 md:p-12 border border-[#DAD1C5] shadow-[0_25px_70px_rgba(61,61,61,0.18)] mb-8 md:mb-12 overflow-hidden relative ring-1 ring-black/5">
           <div className="absolute inset-0 bg-gradient-to-br from-[#E8F1D5] via-[#F6F1E7] to-white opacity-90"></div>
-          <div className="absolute -right-10 -top-10 w-[320px] h-[320px] bg-[#a0c81d]/10 rounded-full blur-[120px]"></div>
+          <div className="absolute -right-16 -top-16 w-[260px] h-[260px] bg-[#a0c81d]/10 rounded-full blur-[120px]"></div>
           <div className="relative z-10">
-            <div className="inline-flex items-center gap-3 rounded-full border border-[#DAD1C5] bg-white/80 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-[#6B6158]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#DAD1C5] bg-white/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.25em] text-[#6B6158]">
               <Sparkles className="w-3 h-3 text-[#a0c81d]" /> Medlemspris
             </div>
-            <h1 className="mt-6 text-3xl md:text-5xl font-black text-[#3D3D3D] font-heading tracking-tight">
+            <h1 className="mt-4 text-3xl md:text-5xl font-black text-[#3D3D3D] font-heading tracking-tight">
               Shop till medlemspris
             </h1>
-            <p className="mt-4 text-[#6B6158] text-sm md:text-base font-medium max-w-2xl">
+            <p className="mt-3 text-[#6B6158] text-sm md:text-base font-medium max-w-2xl">
               Beställ dina favoriter till medlemspris med ett klick. Vi tar hand om resten.
             </p>
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#6B6158]">
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-[#6B6158]">
               {[
                 'Snabb beställning utan krångel.',
                 'Klientpris och fri frakt.',
                 'Leverans hanteras av oss efter beställning.',
                 'Du kan lägga flera produkter i samma beställning.'
               ].map((text) => (
-                <div key={text} className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-[#a0c81d] mt-0.5" />
+                <div key={text} className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#a0c81d] mt-0.5" />
                   <span>{text}</span>
                 </div>
               ))}
@@ -322,73 +323,99 @@ const Refill: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {PRODUCTS.map((product) => (
+          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
+            {PRODUCTS.map((product, index) => (
               <div
                 key={product.id}
-                className="relative rounded-[2rem] border border-[#DAD1C5] bg-white p-6 md:p-8 shadow-[0_18px_50px_rgba(61,61,61,0.16)] ring-1 ring-black/5 transition-all hover:-translate-y-1 hover:shadow-[0_26px_70px_rgba(61,61,61,0.2)] before:absolute before:inset-0 before:rounded-[2rem] before:shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] before:pointer-events-none"
+                className={`relative rounded-2xl border border-[#DAD1C5] bg-white p-4 sm:p-5 shadow-[0_12px_35px_rgba(61,61,61,0.14)] ring-1 ring-black/5 transition-all hover:-translate-y-0.5 hover:shadow-[0_16px_45px_rgba(61,61,61,0.18)] before:absolute before:inset-0 before:rounded-2xl before:shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] before:pointer-events-none ${index === 0 ? 'sm:col-span-2' : ''}`}
               >
                 {product.tag && (
-                  <div className="absolute top-5 right-5 rounded-full bg-[#a0c81d] text-[#F6F1E7] text-[10px] font-black uppercase tracking-widest px-3 py-1 shadow-[0_8px_20px_rgba(160,200,29,0.35)]">
-                    {product.tag}
+                  <div className="absolute top-3 right-3 rounded-full bg-[#a0c81d] text-[#F6F1E7] text-[9px] font-black uppercase tracking-widest px-2.5 py-1 shadow-[0_6px_16px_rgba(160,200,29,0.3)]">
+                    Bästsäljare
                   </div>
                 )}
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#6B6158]">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#6B6158]">
                   <ShoppingBasket className="w-4 h-4 text-[#a0c81d]" /> Shop
                 </div>
-                <h3 className="mt-4 text-2xl font-black text-[#3D3D3D]">{product.title}</h3>
-                <p className="mt-3 text-[#6B6158] text-sm">{product.description}</p>
-                <div className="mt-4 text-[#8A8177] text-sm">Ordinarie: <span className="line-through">{product.price} kr</span></div>
-                <div className="mt-2 text-3xl font-black text-[#3D3D3D]">{product.memberPrice} kr</div>
+                <h3 className="mt-2 text-lg sm:text-xl font-black text-[#3D3D3D]">{product.title}</h3>
+                <p
+                  id={`product-desc-${product.id}`}
+                  className={`mt-1 text-[#6B6158] text-xs leading-relaxed ${expandedProductId === product.id ? '' : 'line-clamp-2'}`}
+                >
+                  {product.description}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setExpandedProductId((prev) => (prev === product.id ? null : product.id))}
+                  className="mt-1 text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition"
+                  aria-expanded={expandedProductId === product.id}
+                  aria-controls={`product-desc-${product.id}`}
+                >
+                  {expandedProductId === product.id ? 'Visa mindre' : 'Visa mer'}
+                </button>
+                <div className="mt-3 flex items-end justify-between">
+                  <div>
+                    <div className="text-[10px] text-[#8A8177]">Ordinarie: <span className="line-through">{product.price} kr</span></div>
+                    <div className="text-2xl font-black text-[#3D3D3D]">{product.memberPrice} kr</div>
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-[#7FA61A]">
+                    Medlemspris
+                  </div>
+                </div>
 
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => updateQty(product.id, -1)}
-                      className="w-9 h-9 rounded-xl bg-[#F4F0E6] border border-[#DAD1C5] text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#DAD1C5] transition"
+                      className="w-8 h-8 rounded-lg bg-[#F4F0E6] border border-[#DAD1C5] text-[#6B6158] hover:text-[#3D3D3D] transition"
+                      aria-label={`Minska ${product.title}`}
                     >
-                      <Minus className="w-4 h-4 mx-auto" />
+                      <Minus className="w-3.5 h-3.5 mx-auto" />
                     </button>
-                    <span className="text-lg font-black text-[#3D3D3D] w-6 text-center">{quantities[product.id] || 0}</span>
+                    <span className="text-sm font-black text-[#3D3D3D] w-5 text-center">{quantities[product.id] || 0}</span>
                     <button
                       onClick={() => updateQty(product.id, 1)}
-                      className="w-9 h-9 rounded-xl bg-[#F4F0E6] border border-[#DAD1C5] text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#DAD1C5] transition"
+                      className="w-8 h-8 rounded-lg bg-[#F4F0E6] border border-[#DAD1C5] text-[#6B6158] hover:text-[#3D3D3D] transition"
+                      aria-label={`Öka ${product.title}`}
                     >
-                      <Plus className="w-4 h-4 mx-auto" />
+                      <Plus className="w-3.5 h-3.5 mx-auto" />
                     </button>
                   </div>
                   <button
                     onClick={() => updateQty(product.id, 1)}
-                    className="text-[10px] font-black uppercase tracking-widest text-[#a0c81d] hover:text-[#5C7A12] transition"
+                    className="rounded-lg bg-[#a0c81d] text-[#F6F1E7] px-3 py-2 text-[10px] font-black uppercase tracking-widest transition hover:bg-[#5C7A12]"
                   >
-                    Lägg till
+                    Köp
                   </button>
                 </div>
+                <p className="mt-2 text-[10px] text-[#8A8177] font-bold uppercase tracking-widest">
+                  Snabb hantering • Faktura, Delbetalning, Kort eller Swish
+                </p>
               </div>
             ))}
           </div>
 
-          <div className="bg-[#F4F0E6] rounded-[2.5rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_20px_60px_rgba(61,61,61,0.18)] h-fit">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
-                <ShoppingBasket className="w-6 h-6" />
+          <div className="bg-[#F4F0E6] rounded-[2rem] p-5 md:p-8 border border-[#DAD1C5] shadow-[0_16px_45px_rgba(61,61,61,0.18)] h-fit">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
+                <ShoppingBasket className="w-5 h-5" />
               </div>
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Din beställning</p>
-                <h2 className="text-2xl font-black text-[#3D3D3D]">Sammanfattning</h2>
+                <h2 className="text-xl font-black text-[#3D3D3D]">Sammanfattning</h2>
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {selectedItems.length === 0 ? (
-                <div className="rounded-2xl border border-[#DAD1C5] bg-white/80 px-4 py-4 text-sm text-[#8A8177]">
+                <div className="rounded-xl border border-[#DAD1C5] bg-white/80 px-3 py-3 text-xs text-[#8A8177]">
                   Välj produkter till vänster för att bygga din beställning.
                 </div>
               ) : (
                 selectedItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between rounded-2xl border border-[#DAD1C5] bg-white/90 px-4 py-3">
+                  <div key={item.id} className="flex items-center justify-between rounded-xl border border-[#DAD1C5] bg-white/90 px-3 py-2">
                     <div>
-                      <p className="text-sm font-bold text-[#3D3D3D]">{item.title}</p>
+                      <p className="text-sm font-bold text-[#3D3D3D] leading-tight">{item.title}</p>
                       <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">Antal: {item.qty}</p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -406,12 +433,12 @@ const Refill: React.FC = () => {
               )}
             </div>
 
-            <div className="mt-6 border-t border-[#DAD1C5] pt-4 flex items-center justify-between text-sm font-bold text-[#6B6158]">
+            <div className="mt-4 border-t border-[#DAD1C5] pt-4 flex items-center justify-between text-sm font-bold text-[#6B6158]">
               <span>Total</span>
               <span className="text-[#3D3D3D] text-lg">{total} kr</span>
             </div>
 
-            <div className={`mt-6 rounded-2xl border bg-white/80 px-4 py-4 text-sm text-[#6B6158] ${
+            <div className={`mt-4 rounded-xl border bg-white/80 px-3 py-3 text-xs text-[#6B6158] ${
               shippingAttention ? 'border-red-400/60 ring-1 ring-red-400/30' : 'border-[#DAD1C5]'
             }`}>
               <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Leveransuppgifter</div>
@@ -432,7 +459,7 @@ const Refill: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-[#6B6158] text-sm">
+                  <p className="text-[#6B6158] text-xs">
                     Lägg till adress och telefon för att kunna beställa.
                   </p>
                   <div className="space-y-2">
@@ -483,7 +510,7 @@ const Refill: React.FC = () => {
                       type="button"
                       onClick={handleSaveShipping}
                       disabled={addressStatus === 'loading'}
-                      className="mt-2 w-full rounded-xl bg-white/90 border border-[#DAD1C5] text-[10px] font-black uppercase tracking-widest text-[#3D3D3D] py-3 hover:border-[#a0c81d]/40 hover:text-[#a0c81d] transition disabled:opacity-60"
+                      className="mt-2 w-full rounded-xl bg-white/90 border border-[#DAD1C5] text-[10px] font-black uppercase tracking-widest text-[#3D3D3D] py-2.5 hover:border-[#a0c81d]/40 hover:text-[#a0c81d] transition disabled:opacity-60"
                     >
                       {addressStatus === 'loading' ? 'Sparar...' : addressStatus === 'success' ? 'Sparat' : 'Spara uppgifter'}
                     </button>
@@ -517,12 +544,18 @@ const Refill: React.FC = () => {
               type="button"
               onClick={handleSubmit}
               disabled={status === 'sending' || !hasProfileShipping}
-              className="mt-6 w-full flex items-center justify-center gap-2 rounded-2xl bg-[#a0c81d] text-[#F6F1E7] px-6 py-4 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#5C7A12] disabled:opacity-70"
+              className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl bg-[#a0c81d] text-[#F6F1E7] px-5 py-3.5 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#5C7A12] disabled:opacity-70"
             >
               {status === 'sending' ? 'Skickar...' : 'Skicka beställning'}
             </button>
 
-            <p className="mt-4 text-[10px] text-[#8A8177] font-bold uppercase tracking-widest">
+            <div className="mt-3 grid grid-cols-1 gap-1 text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+              <span>Snabb hantering</span>
+              <span>Säker beställning</span>
+              <span>Faktura, Delbetalning, Kort eller Swish</span>
+            </div>
+
+            <p className="mt-3 text-[10px] text-[#6B6158] font-bold uppercase tracking-widest">
               Vi kontaktar dig om leveransdetaljer
             </p>
 
