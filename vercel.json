@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "api/**/*.ts": { "regions": ["arn1"] }
+  },
   "rewrites": [
     { "source": "/@vite/:path*", "destination": "/@vite/:path*" },
     { "source": "/@react-refresh", "destination": "/@react-refresh" },
