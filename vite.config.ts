@@ -10,6 +10,11 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve('./'),
       },
     },
+    server: {
+      proxy: {
+        '/api/chatkit/session': 'http://localhost:5174',
+      },
+    },
     // We removed the 'define' block here.
     // This allows the app to read window.__ENV__ (injected by Cloud Run)
     // without Vite overwriting it with empty build-time values.
