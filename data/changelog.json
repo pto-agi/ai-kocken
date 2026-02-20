@@ -1,6 +1,33 @@
 {
-  "last_commit": "562d35b1752db2f9872432fb6c3658dd32543269",
+  "last_commit": "90eb9eef8310ef2c869ebc7ee26a939b6046099b",
   "entries": [
+    {
+      "id": "2026-02-20T17:23:48.915Z-90eb9ee",
+      "date": "2026-02-20T17:23:48.915Z",
+      "range": "562d35b1752db2f9872432fb6c3658dd32543269..90eb9eef8310ef2c869ebc7ee26a939b6046099b",
+      "head": "90eb9eef8310ef2c869ebc7ee26a939b6046099b",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "90eb9ee",
+          "subject": "Improve shop UX and update recipe CTA"
+        },
+        {
+          "hash": "f36ee4e",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "components/WeeklyPlanner.tsx",
+        "data/changelog.json",
+        "pages/Refill.tsx"
+      ],
+      "stats": {
+        "files": 3,
+        "insertions": 151,
+        "deletions": 60
+      }
+    },
     {
       "id": "2026-02-20T17:08:16.710Z-562d35b",
       "date": "2026-02-20T17:08:16.711Z",
