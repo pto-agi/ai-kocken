@@ -1,6 +1,32 @@
 {
-  "last_commit": "43487884875e295d92b906fa2ad2bc2604f8e4b7",
+  "last_commit": "826f7ea08cfe6919ce66b819b2c576c1aaaa5a73",
   "entries": [
+    {
+      "id": "2026-02-20T09:07:53.576Z-826f7ea",
+      "date": "2026-02-20T09:07:53.577Z",
+      "range": "43487884875e295d92b906fa2ad2bc2604f8e4b7..826f7ea08cfe6919ce66b819b2c576c1aaaa5a73",
+      "head": "826f7ea08cfe6919ce66b819b2c576c1aaaa5a73",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "826f7ea",
+          "subject": "Set Vercel function region to arn1"
+        },
+        {
+          "hash": "3526206",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "vercel.json"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 29,
+        "deletions": 1
+      }
+    },
     {
       "id": "2026-02-19T19:54:11.947Z-4348788",
       "date": "2026-02-19T19:54:11.948Z",
