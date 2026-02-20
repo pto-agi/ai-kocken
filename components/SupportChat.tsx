@@ -91,36 +91,11 @@ const SupportChat: React.FC = () => {
         <div className="absolute inset-0 opacity-[0.25] [background-image:radial-gradient(rgba(148,163,184,0.2)_1px,transparent_1px)] [background-size:26px_26px]" />
       </div>
 
-      <div className="relative flex w-full flex-col px-0 py-4 sm:px-6">
-        <section className={`mt-1 ${hasThread ? 'pt-1' : ''}`}>
+      <div className="relative flex w-full flex-col px-0 py-2 sm:px-6">
+        <section className={`${hasThread ? 'pt-0' : ''}`}>
           <div className="bg-[#F6F1E7]/90 backdrop-blur">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E6E1D8] px-4 py-4 sm:px-2">
-              <div className="flex items-center gap-3">
-                <img
-                  src="/logotyp-mix.png"
-                  alt="Private Training Online"
-                  className="h-7 w-auto object-contain"
-                  loading="eager"
-                />
-                <div>
-                  <p className="text-sm font-semibold text-[#3D3D3D]">Private Training Online</p>
-                  <p className="text-xs text-[#6B6158]">Kundtjänst · Svarar vanligtvis inom 2 minuter</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B6158] font-heading">
-                <button
-                  type="button"
-                  onClick={() => handleSuggestion('Jag behöver teknisk support.')}
-                  className="rounded-full border border-[#E6E1D8] bg-[#ffffff]/70 px-3 py-1 text-[#6B6158] transition-colors hover:border-[#a0c81d]/30 hover:text-[#3D3D3D]"
-                >
-                  Support
-                </button>
-                <span className="rounded-full border border-[#E6E1D8] bg-[#ffffff]/70 px-3 py-1">Online</span>
-              </div>
-            </div>
-
-            <div className="px-0 py-4">
-              <div className="relative h-[65vh] min-h-[360px] sm:min-h-[420px] w-full bg-transparent">
+            <div className="px-0 py-2">
+              <div className="support-chatkit relative h-[50svh] min-h-[280px] sm:min-h-[340px] w-full bg-transparent">
                 <div className="h-full w-full">
                   <ChatKit control={control} className="h-full w-full" />
                 </div>
