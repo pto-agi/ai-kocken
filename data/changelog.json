@@ -1,6 +1,44 @@
 {
-  "last_commit": "13b35389a0b8f1ee24edbceb047ed8725afa2b88",
+  "last_commit": "562d35b1752db2f9872432fb6c3658dd32543269",
   "entries": [
+    {
+      "id": "2026-02-20T17:08:16.710Z-562d35b",
+      "date": "2026-02-20T17:08:16.711Z",
+      "range": "13b35389a0b8f1ee24edbceb047ed8725afa2b88..562d35b1752db2f9872432fb6c3658dd32543269",
+      "head": "562d35b1752db2f9872432fb6c3658dd32543269",
+      "commit_count": 3,
+      "commits": [
+        {
+          "hash": "562d35b",
+          "subject": "Compact mobile drawer navigation"
+        },
+        {
+          "hash": "5d170e8",
+          "subject": "Remove mobile bottom nav and reclaim content space"
+        },
+        {
+          "hash": "f3aa476",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "App.tsx",
+        "components/Layout.tsx",
+        "components/Navbar.tsx",
+        "data/changelog.json",
+        "pages/Changelog.tsx",
+        "pages/ForlangningFriskvardTack.tsx",
+        "pages/ForlangningTack.tsx",
+        "pages/RefillTack.tsx",
+        "pages/StartTack.tsx",
+        "pages/UppfoljningTack.tsx"
+      ],
+      "stats": {
+        "files": 10,
+        "insertions": 68,
+        "deletions": 80
+      }
+    },
     {
       "id": "2026-02-20T09:11:30.807Z-13b3538",
       "date": "2026-02-20T09:11:30.807Z",
