@@ -1,6 +1,46 @@
 {
-  "last_commit": "181b005b712b8384f5539b0178d43b0e64fdd3ca",
+  "last_commit": "dc8f69a41ca7f78626a25f1fa80b3c6903a6aad4",
   "entries": [
+    {
+      "id": "2026-02-20T18:19:49.615Z-dc8f69a",
+      "date": "2026-02-20T18:19:49.615Z",
+      "range": "181b005b712b8384f5539b0178d43b0e64fdd3ca..dc8f69a41ca7f78626a25f1fa80b3c6903a6aad4",
+      "head": "dc8f69a41ca7f78626a25f1fa80b3c6903a6aad4",
+      "commit_count": 5,
+      "commits": [
+        {
+          "hash": "dc8f69a",
+          "subject": "Adjust support chat height and background"
+        },
+        {
+          "hash": "35f8708",
+          "subject": "Make support chat edge-to-edge on mobile"
+        },
+        {
+          "hash": "86a8a00",
+          "subject": "Integrate support chat styling while preserving height"
+        },
+        {
+          "hash": "888b741",
+          "subject": "Expand support layout without breaking chat"
+        },
+        {
+          "hash": "28282f9",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "components/SupportChat.tsx",
+        "data/changelog.json",
+        "index.css",
+        "pages/Support.tsx"
+      ],
+      "stats": {
+        "files": 4,
+        "insertions": 61,
+        "deletions": 52
+      }
+    },
     {
       "id": "2026-02-20T17:36:16.809Z-181b005",
       "date": "2026-02-20T17:36:16.809Z",
