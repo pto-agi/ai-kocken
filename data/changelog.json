@@ -1,6 +1,32 @@
 {
-  "last_commit": "dc8f69a41ca7f78626a25f1fa80b3c6903a6aad4",
+  "last_commit": "a9afdf679e9d22369b4160c63e1767e4562224fa",
   "entries": [
+    {
+      "id": "2026-02-20T18:24:15.505Z-a9afdf6",
+      "date": "2026-02-20T18:24:15.505Z",
+      "range": "dc8f69a41ca7f78626a25f1fa80b3c6903a6aad4..a9afdf679e9d22369b4160c63e1767e4562224fa",
+      "head": "a9afdf679e9d22369b4160c63e1767e4562224fa",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "a9afdf6",
+          "subject": "Prevent iOS zoom in support chat inputs"
+        },
+        {
+          "hash": "a7e3376",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "index.css"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 49,
+        "deletions": 1
+      }
+    },
     {
       "id": "2026-02-20T18:19:49.615Z-dc8f69a",
       "date": "2026-02-20T18:19:49.615Z",
