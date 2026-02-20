@@ -91,10 +91,10 @@ const SupportChat: React.FC = () => {
         <div className="absolute inset-0 opacity-[0.25] [background-image:radial-gradient(rgba(148,163,184,0.2)_1px,transparent_1px)] [background-size:26px_26px]" />
       </div>
 
-      <div className="relative mx-auto flex w-full max-w-5xl flex-col px-4 py-5 sm:px-6">
+      <div className="relative flex w-full flex-col px-0 py-4 sm:px-6">
         <section className={`mt-1 ${hasThread ? 'pt-1' : ''}`}>
           <div className="bg-[#F6F1E7]/90 backdrop-blur">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E6E1D8] px-1 py-4 sm:px-2">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E6E1D8] px-4 py-4 sm:px-2">
               <div className="flex items-center gap-3">
                 <img
                   src="/logotyp-mix.png"
@@ -137,7 +137,7 @@ const SupportChat: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E6E1D8] px-1 py-3 text-xs text-[#6B6158] sm:px-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E6E1D8] px-4 py-3 text-xs text-[#6B6158] sm:px-2">
               <span>Välj en snabbfråga eller skriv din egen fråga.</span>
               <span className="font-mono">Säker session</span>
             </div>
