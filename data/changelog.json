@@ -1,6 +1,34 @@
 {
-  "last_commit": "90eb9eef8310ef2c869ebc7ee26a939b6046099b",
+  "last_commit": "bf2ff6364317a9f9d19f4cea6d0a440516476633",
   "entries": [
+    {
+      "id": "2026-02-20T17:32:02.612Z-bf2ff63",
+      "date": "2026-02-20T17:32:02.612Z",
+      "range": "90eb9eef8310ef2c869ebc7ee26a939b6046099b..bf2ff6364317a9f9d19f4cea6d0a440516476633",
+      "head": "bf2ff6364317a9f9d19f4cea6d0a440516476633",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "bf2ff63",
+          "subject": "Make support chat full-screen and proxy chatkit"
+        },
+        {
+          "hash": "6c1bf8c",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "components/SupportChat.tsx",
+        "data/changelog.json",
+        "pages/Support.tsx",
+        "vite.config.ts"
+      ],
+      "stats": {
+        "files": 4,
+        "insertions": 84,
+        "deletions": 60
+      }
+    },
     {
       "id": "2026-02-20T17:23:48.915Z-90eb9ee",
       "date": "2026-02-20T17:23:48.915Z",
