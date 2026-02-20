@@ -367,10 +367,17 @@ ${meal.instructions}
           </span>
         </div>
         <h1 className="text-3xl md:text-5xl font-black text-[#3D3D3D] font-heading tracking-tight mb-2">
-          Kalibera kosten <span className="text-[#a0c81d]">efter just dig</span>
+          Finjustera ditt <span className="text-[#a0c81d]">kostschema</span>
         </h1>
         <p className="text-[#6B6158] font-medium text-sm md:text-base max-w-2xl mx-auto">
-          {step === 1 && "Ange antalet kalorier som ditt kostschema ska anpassas samt dina preferenser kring antal mål per dag och kosten i sin helhet."}
+          {step === 1 && (
+            <>
+              Bygg ett personligt kostschema med recept till varje måltid. Välj mål, preferenser och upplägg – vi skapar ett 7‑dagars schema med recept och inköpslista som matchar dina val.
+              <br />
+              <br />
+              När det är klart sparas schemat i din profil och kan laddas ner som komplett PDF.
+            </>
+          )}
           {step === 2 && "Steg 2: Granska och finjustera"}
           {step === 3 && "Steg 3: Genererar slutgiltig plan"}
         </p>
