@@ -1,6 +1,32 @@
 {
-  "last_commit": "c7bc705012f0e5431232c06f58d3db07cded358d",
+  "last_commit": "898eb4e9f20488c6a90931219f5b4fac14a8a1f1",
   "entries": [
+    {
+      "id": "2026-02-20T19:14:31.099Z-898eb4e",
+      "date": "2026-02-20T19:14:31.099Z",
+      "range": "c7bc705012f0e5431232c06f58d3db07cded358d..898eb4e9f20488c6a90931219f5b4fac14a8a1f1",
+      "head": "898eb4e9f20488c6a90931219f5b4fac14a8a1f1",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "898eb4e",
+          "subject": "Refresh cost plan intro copy"
+        },
+        {
+          "hash": "6746927",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "components/WeeklyPlanner.tsx",
+        "data/changelog.json"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 37,
+        "deletions": 3
+      }
+    },
     {
       "id": "2026-02-20T19:04:28.138Z-c7bc705",
       "date": "2026-02-20T19:04:28.139Z",
