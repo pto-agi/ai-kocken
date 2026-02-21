@@ -741,17 +741,17 @@ export const Profile: React.FC = () => {
                                     </div>
                                     {isStart ? (
                                       <div className="text-xs text-[#8A8177] font-medium">
-                                        {data.desired_start_date ? `Önskat startdatum: ${formatDate(data.desired_start_date)}` : 'Önskat startdatum ej angivet'}
+                                        {submission.data.desired_start_date ? `Önskat startdatum: ${formatDate(submission.data.desired_start_date)}` : 'Önskat startdatum ej angivet'}
                                       </div>
                                     ) : (
                                       <div className="text-xs text-[#8A8177] font-medium">
-                                        {data.goal ? `Mål: ${data.goal}` : 'Mål ej angivet'}
+                                        {submission.data.goal ? `Mål: ${submission.data.goal}` : 'Mål ej angivet'}
                                       </div>
                                     )}
                                     <div className="text-[13px] text-[#6B6158] font-medium max-w-2xl">
                                       {isStart
-                                        ? clampText(data.goal_description || (data.focus_areas || []).join(', '))
-                                        : clampText(data.summary_feedback)}
+                                        ? clampText(submission.data.goal_description || (submission.data.focus_areas || []).join(', '))
+                                        : clampText(submission.data.summary_feedback)}
                                     </div>
                                   </div>
                                 </div>
@@ -767,13 +767,13 @@ export const Profile: React.FC = () => {
                                       <div>
                                         <span className={ui.label}>Fokusområden</span>
                                         <div className="mt-1 text-[#6B6158]">
-                                          {(data.focus_areas && data.focus_areas.length > 0) ? data.focus_areas.join(', ') : 'Ej angivet'}
+                                          {(submission.data.focus_areas && submission.data.focus_areas.length > 0) ? submission.data.focus_areas.join(', ') : 'Ej angivet'}
                                         </div>
                                       </div>
                                       <div>
                                         <span className={ui.label}>Målbeskrivning</span>
                                         <div className="mt-1 text-[#6B6158]">
-                                          {data.goal_description || 'Ej angivet'}
+                                          {submission.data.goal_description || 'Ej angivet'}
                                         </div>
                                       </div>
                                     </>
@@ -782,13 +782,13 @@ export const Profile: React.FC = () => {
                                       <div>
                                         <span className={ui.label}>Sammanfattning</span>
                                         <div className="mt-1 text-[#6B6158]">
-                                          {data.summary_feedback || 'Ej angivet'}
+                                          {submission.data.summary_feedback || 'Ej angivet'}
                                         </div>
                                       </div>
                                       <div>
                                         <span className={ui.label}>Mål</span>
                                         <div className="mt-1 text-[#6B6158]">
-                                          {data.goal || 'Ej angivet'}
+                                          {submission.data.goal || 'Ej angivet'}
                                         </div>
                                       </div>
                                     </>

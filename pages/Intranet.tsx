@@ -924,8 +924,8 @@ const Intranet: React.FC = () => {
                   </div>
                   <p className="text-sm text-[#6B6158]">
                     {submission.kind === 'start'
-                      ? `Fokus: ${truncate(formatList((data as StartFormEntry).focus_areas), 120)}`
-                      : truncate((data as UppfoljningEntry).summary_feedback, 140)}
+                      ? `Fokus: ${truncate(formatList(submission.data.focus_areas), 120)}`
+                      : truncate(submission.data.summary_feedback, 140)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -964,47 +964,47 @@ const Intranet: React.FC = () => {
                       <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Nyckelinfo</h4>
                         <div className="space-y-3">
-                          <InfoRow label="Önskat startdatum" value={formatDateOnly(data.desired_start_date)} />
-                          <InfoRow label="Pass per vecka" value={data.sessions_per_week || '—'} />
-                          <InfoRow label="Fokusområden" value={formatList(data.focus_areas)} />
+                          <InfoRow label="Önskat startdatum" value={formatDateOnly(submission.data.desired_start_date)} />
+                          <InfoRow label="Pass per vecka" value={submission.data.sessions_per_week || '—'} />
+                          <InfoRow label="Fokusområden" value={formatList(submission.data.focus_areas)} />
                         </div>
                       </section>
 
                       <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Grunddata</h4>
                         <div className="space-y-3">
-                          <InfoRow label="Vikt" value={formatNumber(data.weight_kg, ' kg')} />
-                          <InfoRow label="Längd" value={formatNumber(data.height_cm, ' cm')} />
-                          <InfoRow label="Ålder" value={formatNumber(data.age)} />
+                          <InfoRow label="Vikt" value={formatNumber(submission.data.weight_kg, ' kg')} />
+                          <InfoRow label="Längd" value={formatNumber(submission.data.height_cm, ' cm')} />
+                          <InfoRow label="Ålder" value={formatNumber(submission.data.age)} />
                         </div>
                       </section>
 
                       <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Mål & bakgrund</h4>
                         <div className="space-y-3">
-                          <InfoRow label="Målbeskrivning" value={data.goal_description || '—'} />
-                          <InfoRow label="Skador" value={data.injuries || '—'} />
-                          <InfoRow label="Träningserfarenhet" value={data.training_experience || '—'} />
-                          <InfoRow label="Aktivitet 6 månader" value={data.activity_last_6_months || '—'} />
-                          <InfoRow label="Kosthållning 6 månader" value={data.diet_last_6_months || '—'} />
+                          <InfoRow label="Målbeskrivning" value={submission.data.goal_description || '—'} />
+                          <InfoRow label="Skador" value={submission.data.injuries || '—'} />
+                          <InfoRow label="Träningserfarenhet" value={submission.data.training_experience || '—'} />
+                          <InfoRow label="Aktivitet 6 månader" value={submission.data.activity_last_6_months || '—'} />
+                          <InfoRow label="Kosthållning 6 månader" value={submission.data.diet_last_6_months || '—'} />
                         </div>
                       </section>
 
                       <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träningsupplägg</h4>
                         <div className="space-y-3">
-                          <InfoRow label="Träningsformer" value={formatList(data.training_forms)} />
-                          <InfoRow label="Träningsformer annat" value={data.training_forms_other || '—'} />
-                          <InfoRow label="Träningsplatser" value={formatList(data.training_places)} />
-                          <InfoRow label="Träningsplatser annat" value={data.training_places_other || '—'} />
-                          <InfoRow label="Pass/vecka (detalj)" value={data.sessions_per_week_other || '—'} />
+                          <InfoRow label="Träningsformer" value={formatList(submission.data.training_forms)} />
+                          <InfoRow label="Träningsformer annat" value={submission.data.training_forms_other || '—'} />
+                          <InfoRow label="Träningsplatser" value={formatList(submission.data.training_places)} />
+                          <InfoRow label="Träningsplatser annat" value={submission.data.training_places_other || '—'} />
+                          <InfoRow label="Pass/vecka (detalj)" value={submission.data.sessions_per_week_other || '—'} />
                         </div>
                       </section>
 
                       <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kroppsmått</h4>
                         <div className="space-y-3">
-                          <InfoRow label="Mått (cm)" value={buildMeasurements(data)} />
+                          <InfoRow label="Mått (cm)" value={buildMeasurements(submission.data)} />
                         </div>
                       </section>
                     </div>
@@ -1013,35 +1013,35 @@ const Intranet: React.FC = () => {
                       <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Översikt</h4>
                         <div className="space-y-3">
-                          <InfoRow label="Mål" value={data.goal || '—'} />
-                          <InfoRow label="Pass per vecka" value={formatNumber(data.sessions_per_week)} />
-                          <InfoRow label="Behåll upplägg" value={formatBoolean(data.quick_keep_plan)} />
+                          <InfoRow label="Mål" value={submission.data.goal || '—'} />
+                          <InfoRow label="Pass per vecka" value={formatNumber(submission.data.sessions_per_week)} />
+                          <InfoRow label="Behåll upplägg" value={formatBoolean(submission.data.quick_keep_plan)} />
                         </div>
                       </section>
 
                       <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Summering & feedback</h4>
                         <div className="space-y-3">
-                          <InfoRow label="Sammanfattning" value={data.summary_feedback || '—'} />
+                          <InfoRow label="Sammanfattning" value={submission.data.summary_feedback || '—'} />
                         </div>
                       </section>
 
                       <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träning</h4>
                         <div className="space-y-3">
-                          <InfoRow label="Övrig aktivitet" value={formatList(data.other_activity)} />
-                          <InfoRow label="Träningsplatser" value={formatList(data.training_places)} />
-                          <InfoRow label="Träningsplatser annat" value={data.training_places_other || '—'} />
-                          <InfoRow label="Utrustning hemma" value={formatList(data.home_equipment)} />
-                          <InfoRow label="Utrustning annat" value={data.home_equipment_other || '—'} />
+                          <InfoRow label="Övrig aktivitet" value={formatList(submission.data.other_activity)} />
+                          <InfoRow label="Träningsplatser" value={formatList(submission.data.training_places)} />
+                          <InfoRow label="Träningsplatser annat" value={submission.data.training_places_other || '—'} />
+                          <InfoRow label="Utrustning hemma" value={formatList(submission.data.home_equipment)} />
+                          <InfoRow label="Utrustning annat" value={submission.data.home_equipment_other || '—'} />
                         </div>
                       </section>
 
                       <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Produkter & fortsättning</h4>
                         <div className="space-y-3">
-                          <InfoRow label="Påfyllnad" value={formatList(data.refill_products)} />
-                          <InfoRow label="Auto fortsätt" value={data.auto_continue || '—'} />
+                          <InfoRow label="Påfyllnad" value={formatList(submission.data.refill_products)} />
+                          <InfoRow label="Auto fortsätt" value={submission.data.auto_continue || '—'} />
                         </div>
                       </section>
                     </div>

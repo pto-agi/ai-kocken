@@ -104,7 +104,6 @@ const Refill: React.FC = () => {
     if (addressStatus === 'success' || addressStatus === 'error') {
       setAddressStatus('idle');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addressLine1, addressLine2, postalCode, city, country, phone]);
 
   const shipping = {
