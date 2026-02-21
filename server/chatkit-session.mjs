@@ -57,6 +57,40 @@ function parseCookies(req) {
   }, {});
 }
 
+async function readJsonBody(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  if (!chunks.length) return {};
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function normalizeStateVariables(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const result = {};
+  for (const [rawKey, rawValue] of Object.entries(input)) {
+    const key = String(rawKey).trim();
+    if (!key || key.length > 64) continue;
+
+    if (rawValue === null || ['string', 'number', 'boolean'].includes(typeof rawValue)) {
+      result[key] = rawValue;
+      continue;
+    }
+
+    try {
+      result[key] = JSON.stringify(rawValue);
+    } catch {
+      // Skip values that cannot be stringified.
+    }
+  }
+  return Object.keys(result).length ? result : undefined;
+}
+
 function sendJson(res, statusCode, body, headers = {}) {
   const json = JSON.stringify(body);
   res.writeHead(statusCode, {
@@ -77,7 +111,7 @@ function isAllowedOrigin(origin) {
   return allowed.includes(origin);
 }
 
-async function createSession(user) {
+async function createSession(user, stateVariables) {
   const apiKey = process.env.OPENAI_API_KEY;
   const workflowId = process.env.CHATKIT_WORKFLOW_ID;
   const workflowVersion = process.env.CHATKIT_WORKFLOW_VERSION;
@@ -106,6 +140,7 @@ async function createSession(user) {
         workflow: {
           id: workflowId,
           ...(workflowVersion ? { version: workflowVersion } : {}),
+          ...(stateVariables ? { state_variables: stateVariables } : {}),
         },
       }),
       signal: controller.signal,
@@ -168,24 +203,31 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
+  const body = await readJsonBody(req);
+  const requestedUserId = typeof body?.user_id === 'string' && body.user_id.trim()
+    ? body.user_id.trim()
+    : undefined;
+  const stateVariables = normalizeStateVariables(body?.state_variables);
+
   const clientKey = getClientKey(req);
   if (isRateLimited(clientKey)) {
     return sendJson(res, 429, { error: 'Rate limit exceeded' }, { 'Access-Control-Allow-Origin': origin || '*' });
   }
 
   const cookies = parseCookies(req);
-  let user = cookies[COOKIE_NAME];
-  const isNewUser = !user;
+  const cookieUser = cookies[COOKIE_NAME];
+  let user = requestedUserId || cookieUser;
   if (!user) user = randomUUID();
+  const shouldSetCookie = !requestedUserId && !cookieUser;
 
-  const result = await createSession(user);
+  const result = await createSession(user, stateVariables);
 
   const headers = {
     'Access-Control-Allow-Origin': origin || '*',
     'Access-Control-Allow-Credentials': 'true',
   };
 
-  if (isNewUser) {
+  if (shouldSetCookie) {
     headers['Set-Cookie'] = `${COOKIE_NAME}=${encodeURIComponent(user)}; Max-Age=${COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
   }
 

@@ -4,6 +4,49 @@ const COOKIE_NAME = 'chatkit_user_id';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 dagar
 const FETCH_TIMEOUT_MS = 10_000;
 
+async function readJsonBody(req: any): Promise<Record<string, unknown>> {
+  if (req?.body && typeof req.body === 'object') {
+    return req.body as Record<string, unknown>;
+  }
+
+  const chunks: Buffer[] = [];
+  if (req && req.readable) {
+    for await (const chunk of req) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+  }
+
+  if (!chunks.length) return {};
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function normalizeStateVariables(input: unknown): Record<string, string | number | boolean | null> | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const result: Record<string, string | number | boolean | null> = {};
+
+  for (const [rawKey, rawValue] of Object.entries(input as Record<string, unknown>)) {
+    const key = rawKey.trim();
+    if (!key || key.length > 64) continue;
+
+    if (rawValue === null || typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
+      result[key] = rawValue;
+      continue;
+    }
+
+    try {
+      result[key] = JSON.stringify(rawValue);
+    } catch {
+      // Skip values that cannot be stringified.
+    }
+  }
+
+  return Object.keys(result).length ? result : undefined;
+}
+
 function parseCookies(header: string | undefined): Record<string, string> {
   if (!header) return {};
   return header.split(';').reduce((acc, part) => {
@@ -69,10 +112,17 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  const body = await readJsonBody(req);
+  const requestedUserId = typeof body?.user_id === 'string' && body.user_id.trim()
+    ? body.user_id.trim()
+    : undefined;
+  const stateVariables = normalizeStateVariables(body?.state_variables);
+
   const cookies = parseCookies(req.headers?.cookie);
-  let user = cookies[COOKIE_NAME];
-  const isNewUser = !user;
+  const cookieUser = cookies[COOKIE_NAME];
+  let user = requestedUserId || cookieUser;
   if (!user) user = randomUUID();
+  const shouldSetCookie = !requestedUserId && !cookieUser;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -91,6 +141,7 @@ export default async function handler(req: any, res: any) {
         workflow: {
           id: workflowId,
           ...(workflowVersion ? { version: workflowVersion } : {}),
+          ...(stateVariables ? { state_variables: stateVariables } : {}),
         },
       }),
       signal: controller.signal,
@@ -138,7 +189,7 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  if (isNewUser) {
+  if (shouldSetCookie) {
     const proto = (req.headers?.['x-forwarded-proto'] as string | undefined) || '';
     const isSecure = proto === 'https' || origin?.startsWith('https://');
     const cookie = [

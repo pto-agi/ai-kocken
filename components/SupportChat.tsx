@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { ChatKit, useChatKit } from '@openai/chatkit-react';
 import type { ChatKitOptions } from '@openai/chatkit';
+import { getEnv } from '../lib/env';
+import { useAuthStore } from '../store/authStore';
 
 const chatkitBaseOptions: Omit<ChatKitOptions, 'api'> = {
   theme: {
@@ -73,8 +75,41 @@ const SupportChat: React.FC = () => {
   const [hasThread, setHasThread] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const { session, profile } = useAuthStore();
 
   const sessionUrl = useMemo(() => '/api/chatkit/session', []);
+  const includeAccessToken = useMemo(
+    () => getEnv('VITE_CHATKIT_INCLUDE_ACCESS_TOKEN') === 'true',
+    []
+  );
+
+  const stateVariables = useMemo(() => {
+    const vars: Record<string, string | number | boolean | null> = {};
+
+    if (session?.user?.id) vars.user_id = session.user.id;
+    if (session?.user?.email) vars.user_email = session.user.email;
+    if (profile?.full_name) vars.user_name = profile.full_name;
+    if (profile?.membership_level) vars.membership_level = profile.membership_level;
+    if (profile?.subscription_status) vars.subscription_status = profile.subscription_status;
+    if (profile?.coaching_expires_at) vars.coaching_expires_at = profile.coaching_expires_at;
+
+    const targetCalories = profile?.biometrics?.results?.targetCalories;
+    if (typeof targetCalories === 'number') vars.target_calories = targetCalories;
+
+    if (profile?.biometrics?.results) {
+      try {
+        vars.biometrics_json = JSON.stringify(profile.biometrics.results);
+      } catch {
+        // Ignore serialization errors for optional fields.
+      }
+    }
+
+    if (includeAccessToken && typeof session?.access_token === 'string') {
+      vars.access_token = session.access_token;
+    }
+
+    return vars;
+  }, [includeAccessToken, profile, session]);
 
   const { control, sendUserMessage } = useChatKit({
     ...chatkitBaseOptions,
@@ -83,7 +118,14 @@ const SupportChat: React.FC = () => {
     onThreadChange: ({ threadId }) => setHasThread(Boolean(threadId)),
     api: {
       async getClientSecret() {
-        const res = await fetch(sessionUrl, { method: 'POST' });
+        const res = await fetch(sessionUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: session?.user?.id ?? null,
+            state_variables: stateVariables,
+          }),
+        });
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
