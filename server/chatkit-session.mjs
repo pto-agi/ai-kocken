@@ -8,6 +8,15 @@ const PORT = process.env.CHATKIT_PORT || 5174;
 const COOKIE_NAME = 'chatkit_user_id';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 dagar
 const FETCH_TIMEOUT_MS = 10_000;
+const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'https://mcp-0brh.onrender.com/mcp';
+const MCP_SERVER_LABEL = process.env.MCP_SERVER_LABEL || 'supabase_mcp';
+const MCP_ALLOWED_TOOLS = [
+  'get_profile',
+  'get_start_intake_latest',
+  'get_followup_latest',
+  'get_weekly_plans',
+  'save_weekly_plan',
+];
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 30;
@@ -55,6 +64,12 @@ function parseCookies(req) {
     acc[k.trim()] = decodeURIComponent(v.trim());
     return acc;
   }, {});
+}
+
+function getBearerToken(header) {
+  if (!header) return undefined;
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : undefined;
 }
 
 async function readJsonBody(req) {
@@ -111,10 +126,15 @@ function isAllowedOrigin(origin) {
   return allowed.includes(origin);
 }
 
-async function createSession(user, stateVariables) {
+async function createSession(user, stateVariables, accessToken) {
   const apiKey = process.env.OPENAI_API_KEY;
   const workflowId = process.env.CHATKIT_WORKFLOW_ID;
   const workflowVersion = process.env.CHATKIT_WORKFLOW_VERSION;
+  const requestMeta = {
+    user_id: user,
+    workflow_id: workflowId,
+    workflow_version: workflowVersion ?? null,
+  };
 
   if (!apiKey) {
     return { status: 500, body: { error: 'Missing OPENAI_API_KEY' } };
@@ -127,7 +147,32 @@ async function createSession(user, stateVariables) {
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   let upstream;
+  const startedAt = Date.now();
   try {
+    const tools = MCP_SERVER_URL
+      ? [
+          {
+            type: 'mcp',
+            server_label: MCP_SERVER_LABEL,
+            server_url: MCP_SERVER_URL,
+            allowed_tools: MCP_ALLOWED_TOOLS,
+            require_approval: 'never',
+            ...(accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {}),
+          },
+        ]
+      : undefined;
+
+    if (tools) {
+      // eslint-disable-next-line no-console
+      console.info('ChatKit session: MCP tools enabled', {
+        server_url: MCP_SERVER_URL,
+        server_label: MCP_SERVER_LABEL,
+        allowed_tools: MCP_ALLOWED_TOOLS,
+        hasAccessToken: Boolean(accessToken),
+        ...requestMeta,
+      });
+    }
+
     upstream = await fetch('https://api.openai.com/v1/chatkit/sessions', {
       method: 'POST',
       headers: {
@@ -142,12 +187,23 @@ async function createSession(user, stateVariables) {
           ...(workflowVersion ? { version: workflowVersion } : {}),
           ...(stateVariables ? { state_variables: stateVariables } : {}),
         },
+        ...(tools ? { tools } : {}),
       }),
       signal: controller.signal,
     });
   } catch (error) {
     clearTimeout(timeout);
     const isAbort = error instanceof Error && error.name === 'AbortError';
+    // eslint-disable-next-line no-console
+    console.error('ChatKit session: upstream request failed', {
+      error: error?.message || String(error),
+      isAbort,
+      hasAccessToken: Boolean(accessToken),
+      server_url: MCP_SERVER_URL,
+      server_label: MCP_SERVER_LABEL,
+      allowed_tools: MCP_ALLOWED_TOOLS,
+      ...requestMeta,
+    });
     return { status: isAbort ? 504 : 502, body: { error: isAbort ? 'Upstream timeout' : 'Upstream request failed' } };
   } finally {
     clearTimeout(timeout);
@@ -161,13 +217,50 @@ async function createSession(user, stateVariables) {
   }
 
   if (!upstream.ok) {
+    const requestId = upstream.headers.get('x-request-id') || undefined;
+    // eslint-disable-next-line no-console
+    console.error('ChatKit session create failed', {
+      status: upstream.status,
+      requestId,
+      error: payload?.error ?? payload ?? 'Failed to create session',
+      hasAccessToken: Boolean(accessToken),
+      server_url: MCP_SERVER_URL,
+      server_label: MCP_SERVER_LABEL,
+      allowed_tools: MCP_ALLOWED_TOOLS,
+      duration_ms: Date.now() - startedAt,
+      ...requestMeta,
+    });
     return { status: upstream.status, body: { error: payload?.error ?? payload ?? 'Failed to create session' } };
   }
 
   const client_secret = payload?.client_secret;
   if (!client_secret) {
+    const requestId = upstream.headers.get('x-request-id') || undefined;
+    // eslint-disable-next-line no-console
+    console.error('ChatKit session: missing client_secret', {
+      status: upstream.status,
+      requestId,
+      hasAccessToken: Boolean(accessToken),
+      server_url: MCP_SERVER_URL,
+      server_label: MCP_SERVER_LABEL,
+      allowed_tools: MCP_ALLOWED_TOOLS,
+      duration_ms: Date.now() - startedAt,
+      ...requestMeta,
+    });
     return { status: 502, body: { error: 'No client_secret returned' } };
   }
+
+  const requestId = upstream.headers.get('x-request-id') || undefined;
+  // eslint-disable-next-line no-console
+  console.info('ChatKit session: created', {
+    requestId,
+    duration_ms: Date.now() - startedAt,
+    hasAccessToken: Boolean(accessToken),
+    server_url: MCP_SERVER_URL,
+    server_label: MCP_SERVER_LABEL,
+    allowed_tools: MCP_ALLOWED_TOOLS,
+    ...requestMeta,
+  });
 
   return {
     status: 200,
@@ -192,7 +285,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': origin || '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Allow-Credentials': 'true',
     });
     return res.end();
@@ -208,6 +301,16 @@ const server = http.createServer(async (req, res) => {
     ? body.user_id.trim()
     : undefined;
   const stateVariables = normalizeStateVariables(body?.state_variables);
+  const accessToken = getBearerToken(req.headers.authorization) || body?.access_token;
+
+  if (!accessToken) {
+    // eslint-disable-next-line no-console
+    console.warn('ChatKit session: missing access token for MCP', {
+      hasAuthorizationHeader: Boolean(req.headers.authorization),
+      user_id: requestedUserId,
+      origin,
+    });
+  }
 
   const clientKey = getClientKey(req);
   if (isRateLimited(clientKey)) {
@@ -220,7 +323,7 @@ const server = http.createServer(async (req, res) => {
   if (!user) user = randomUUID();
   const shouldSetCookie = !requestedUserId && !cookieUser;
 
-  const result = await createSession(user, stateVariables);
+  const result = await createSession(user, stateVariables, accessToken);
 
   const headers = {
     'Access-Control-Allow-Origin': origin || '*',

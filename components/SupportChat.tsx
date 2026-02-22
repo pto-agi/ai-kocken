@@ -82,6 +82,7 @@ const SupportChat: React.FC = () => {
     () => getEnv('VITE_CHATKIT_INCLUDE_ACCESS_TOKEN') === 'true',
     []
   );
+  const accessToken = session?.access_token ?? null;
 
   const stateVariables = useMemo(() => {
     const vars: Record<string, string | number | boolean | null> = {};
@@ -120,7 +121,10 @@ const SupportChat: React.FC = () => {
       async getClientSecret() {
         const res = await fetch(sessionUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
           body: JSON.stringify({
             user_id: session?.user?.id ?? null,
             state_variables: stateVariables,
