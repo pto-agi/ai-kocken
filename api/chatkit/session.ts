@@ -42,7 +42,7 @@ function normalizeStateVariables(input: unknown): Record<string, string | number
     if (!key || key.length > 64) continue;
 
     if (rawValue === null || typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
-      result[key] = rawValue;
+      result[key] = rawValue as string | number | boolean | null;
       continue;
     }
 
