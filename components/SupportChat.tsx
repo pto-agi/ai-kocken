@@ -1,156 +1,88 @@
-import React, { useMemo, useState } from 'react';
-import { ChatKit, useChatKit } from '@openai/chatkit-react';
-import type { ChatKitOptions } from '@openai/chatkit';
-import { getEnv } from '../lib/env';
+import React, { useEffect, useRef, useState } from 'react';
+import { useChat } from '@ai-sdk/react';
 import { useAuthStore } from '../store/authStore';
 
-const chatkitBaseOptions: Omit<ChatKitOptions, 'api'> = {
-  theme: {
-    colorScheme: 'light',
-    radius: 'pill',
-    density: 'normal',
-    color: {
-      accent: {
-        primary: '#a0c81d',
-        level: 2,
-      },
-      grayscale: {
-        hue: 0,
-        tint: 0,
-      },
-      surface: {
-        background: '#F6F1E7',
-        foreground: '#F4F0E6',
-      },
-    },
-    typography: {
-      baseSize: 16,
-      fontFamily:
-        '"OpenAI Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
-      fontFamilyMono:
-        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace',
-      fontSources: [
-        {
-          family: 'OpenAI Sans',
-          src: 'https://cdn.openai.com/common/fonts/openai-sans/v2/OpenAISans-Regular.woff2',
-          weight: 400,
-          style: 'normal',
-          display: 'swap',
-        },
-        {
-          family: 'OpenAI Sans',
-          src: 'https://cdn.openai.com/common/fonts/openai-sans/v2/OpenAISans-SemiBold.woff2',
-          weight: 600,
-          style: 'normal',
-          display: 'swap',
-        },
-      ],
-    },
-  },
-  header: {
-    enabled: false,
-  },
-  composer: {
-    placeholder: 'Skriv ditt meddelande…',
-    attachments: {
-      enabled: false,
-    },
-  },
-  startScreen: {
-    greeting: 'Hur kan vi hjälpa dig idag?',
-    prompts: [
-      { icon: 'circle-question', label: 'Medlemskap', prompt: 'Jag behöver hjälp med mitt medlemskap.' },
-      { icon: 'keys', label: 'Inloggning', prompt: 'Jag kommer inte in på mitt konto.' },
-      { icon: 'calendar', label: 'Veckomeny', prompt: 'Hjälp mig med min veckomeny.' },
-      { icon: 'document', label: 'Beställning', prompt: 'Jag har frågor om en beställning.' },
-    ],
-  },
-  disclaimer: {
-    text: 'Behöver du teknisk support? Skriv **support** så hjälper vi dig vidare.',
-  },
-};
+const quickPrompts = [
+  { label: 'Medlemskap', prompt: 'Jag behöver hjälp med mitt medlemskap.' },
+  { label: 'Inloggning', prompt: 'Jag kommer inte in på mitt konto.' },
+  { label: 'Veckomeny', prompt: 'Hjälp mig med min veckomeny.' },
+  { label: 'Beställning', prompt: 'Jag har frågor om en beställning.' },
+];
 
 const SupportChat: React.FC = () => {
-  const [isReady, setIsReady] = useState(false);
-  const [hasThread, setHasThread] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [chatError, setChatError] = useState<string | null>(null);
-  const { session, profile } = useAuthStore();
-
-  const sessionUrl = useMemo(() => '/api/chatkit/session', []);
-  const includeAccessToken = useMemo(
-    () => getEnv('VITE_CHATKIT_INCLUDE_ACCESS_TOKEN') === 'true',
-    []
-  );
+  const { session } = useAuthStore();
   const accessToken = session?.access_token ?? null;
 
-  const stateVariables = useMemo(() => {
-    const vars: Record<string, string | number | boolean | null> = {};
-
-    if (session?.user?.id) vars.user_id = session.user.id;
-    if (session?.user?.email) vars.user_email = session.user.email;
-    if (profile?.full_name) vars.user_name = profile.full_name;
-    if (profile?.membership_level) vars.membership_level = profile.membership_level;
-    if (profile?.subscription_status) vars.subscription_status = profile.subscription_status;
-    if (profile?.coaching_expires_at) vars.coaching_expires_at = profile.coaching_expires_at;
-
-    const targetCalories = profile?.biometrics?.results?.targetCalories;
-    if (typeof targetCalories === 'number') vars.target_calories = targetCalories;
-
-    if (profile?.biometrics?.results) {
-      try {
-        vars.biometrics_json = JSON.stringify(profile.biometrics.results);
-      } catch {
-        // Ignore serialization errors for optional fields.
-      }
-    }
-
-    if (includeAccessToken && typeof session?.access_token === 'string') {
-      vars.access_token = session.access_token;
-    }
-
-    return vars;
-  }, [includeAccessToken, profile, session]);
-
-  const { control, sendUserMessage } = useChatKit({
-    ...chatkitBaseOptions,
-    onReady: () => setIsReady(true),
-    onError: ({ error }) => setChatError(error?.message ?? 'Okänt fel.'),
-    onThreadChange: ({ threadId }) => setHasThread(Boolean(threadId)),
-    api: {
-      async getClientSecret() {
-        const res = await fetch(sessionUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
-          body: JSON.stringify({
-            user_id: session?.user?.id ?? null,
-            state_variables: stateVariables,
-          }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err?.error || 'Failed to create ChatKit session');
-        }
-
-        const data = await res.json();
-        return data.client_secret as string;
-      },
-    },
+  const {
+    messages,
+    append,
+    input,
+    setInput,
+    handleInputChange,
+    status,
+    error,
+  } = useChat({
+    api: '/api/chat',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    key: accessToken ?? 'anonymous',
+    streamProtocol: 'data',
   });
 
-  const handleSuggestion = async (text: string) => {
-    if (!isReady || isSending) return;
+  const [isSending, setIsSending] = useState(false);
+  const endRef = useRef<HTMLDivElement | null>(null);
+
+  const isReady = status === 'ready';
+  const isStreaming = status === 'streaming' || status === 'submitted';
+  const hasMessages = messages.length > 0;
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, status]);
+
+  const handleLocalSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const text = input.trim();
+    if (!text || !isReady || isSending || !accessToken) return;
     setIsSending(true);
     try {
-      await sendUserMessage({ text, newThread: !hasThread });
-      setHasThread(true);
+      await append({ role: 'user', content: text });
+      setInput('');
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleQuickPrompt = async (text: string) => {
+    if (!isReady || isSending || !accessToken) return;
+    setIsSending(true);
+    try {
+      await append({ role: 'user', content: text });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const renderMessage = (message: any) => {
+    const textParts = (message.parts || []).filter((part: any) => part.type === 'text');
+    const content =
+      textParts.map((part: any) => part.text).join('') ||
+      (typeof message.content === 'string' ? message.content : '');
+    if (!content) return null;
+    const isUser = message.role === 'user';
+
+    return (
+      <div key={message.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+        <div
+          className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+            isUser
+              ? 'bg-[#a0c81d] text-[#0b1222]'
+              : 'bg-white/80 text-[#3D3D3D] border border-[#E6E1D8]'
+          }`}
+        >
+          <p className="whitespace-pre-wrap">{content}</p>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -161,31 +93,96 @@ const SupportChat: React.FC = () => {
         <div className="absolute inset-0 opacity-[0.25] [background-image:radial-gradient(rgba(148,163,184,0.2)_1px,transparent_1px)] [background-size:26px_26px]" />
       </div>
 
-      <div className="relative flex w-full flex-col px-0 py-2 sm:px-6">
-        <section className={`${hasThread ? 'pt-0' : ''}`}>
-          <div className="bg-[#F6F1E7]/90 backdrop-blur">
-            <div className="px-0 py-2">
-              <div className="support-chatkit relative h-[60svh] min-h-[320px] sm:min-h-[380px] w-full bg-transparent">
-                <div className="h-full w-full">
-                  <ChatKit control={control} className="h-full w-full" />
+      <div className="relative flex w-full flex-col px-4 py-4 sm:px-8">
+        <section className="w-full">
+          <div className="rounded-[28px] border border-[#E6E1D8] bg-[#F6F1E7]/90 backdrop-blur">
+            <div className="flex items-center justify-between border-b border-[#E6E1D8] px-6 py-4">
+              <div>
+                <p className="text-sm font-semibold text-[#3D3D3D]">Supportchat</p>
+                <p className="text-xs text-[#6B6158]">Vi hjälper dig med medlemsskapet, planer och support.</p>
+              </div>
+              <span className="rounded-full bg-[#a0c81d]/15 px-3 py-1 text-[11px] font-semibold text-[#64721c]">
+                {isStreaming ? 'Svarar…' : 'Online'}
+              </span>
+            </div>
+
+            <div className="flex h-[60svh] min-h-[360px] flex-col gap-4 overflow-y-auto px-6 py-6">
+              {!accessToken && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+                  Du måste vara inloggad för att använda chatten.
                 </div>
-                {!isReady && (
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#0b1222]/60 text-sm text-[#6B6158]">
-                    Laddar chatten…
+              )}
+
+              {!hasMessages && (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-semibold text-[#3D3D3D]">Hur kan vi hjälpa dig idag?</p>
+                    <p className="text-xs text-[#6B6158]">Välj en snabbfråga eller skriv din egen fråga.</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {quickPrompts.map((item) => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        className="rounded-2xl border border-[#E6E1D8] bg-white/70 px-4 py-3 text-left text-xs font-semibold text-[#3D3D3D] transition hover:border-[#a0c81d] hover:bg-white"
+                        onClick={() => handleQuickPrompt(item.prompt)}
+                        disabled={!isReady || !accessToken}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-4">
+                {messages.map((message) => renderMessage(message))}
+                {isStreaming && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[85%] rounded-2xl border border-[#E6E1D8] bg-white/80 px-4 py-3 text-xs text-[#6B6158]">
+                      Skriver…
+                    </div>
                   </div>
                 )}
-                {chatError && (
-                  <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-xs text-red-200">
-                    Chatten kunde inte laddas: {chatError}
-                  </div>
-                )}
+                <div ref={endRef} />
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E6E1D8] px-4 py-3 text-xs text-[#6B6158] sm:px-2">
-              <span>Välj en snabbfråga eller skriv din egen fråga.</span>
-              <span className="font-mono">Säker session</span>
-            </div>
+            {error && (
+              <div className="mx-6 mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+                Chatten kunde inte laddas: {error.message || 'Okänt fel'}
+              </div>
+            )}
+
+            <form onSubmit={handleLocalSubmit} className="border-t border-[#E6E1D8] px-6 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="flex-1">
+                  <label className="sr-only" htmlFor="support-chat-input">
+                    Skriv ditt meddelande
+                  </label>
+                  <textarea
+                    id="support-chat-input"
+                    rows={2}
+                    className="w-full resize-none rounded-2xl border border-[#E6E1D8] bg-white/80 px-4 py-3 text-sm text-[#3D3D3D] placeholder:text-[#9A9086] focus:border-[#a0c81d] focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:bg-[#F6F1E7]"
+                    placeholder="Skriv ditt meddelande…"
+                    value={input}
+                    onChange={handleInputChange}
+                    disabled={!isReady || !accessToken || isSending}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-2xl bg-[#a0c81d] px-5 py-3 text-sm font-semibold text-[#0b1222] transition hover:bg-[#b6df27] disabled:cursor-not-allowed disabled:bg-[#d7e3a6]"
+                  disabled={!isReady || !input.trim() || !accessToken || isSending}
+                >
+                  Skicka
+                </button>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[11px] text-[#6B6158]">
+                <span>Vi sparar inga känsliga uppgifter i chatten.</span>
+                <span className="font-mono">Säker session</span>
+              </div>
+            </form>
           </div>
         </section>
       </div>

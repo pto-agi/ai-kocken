@@ -6,11 +6,12 @@ export default function handler(req: any, res: any) {
 
   const envStatus = {
     OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY),
-    CHATKIT_WORKFLOW_ID: Boolean(process.env.CHATKIT_WORKFLOW_ID),
+    OPENAI_CHAT_MODEL: Boolean(process.env.OPENAI_CHAT_MODEL),
+    MCP_SERVER_URL: Boolean(process.env.MCP_SERVER_URL),
   };
 
   res.status(200).json({
-    ok: envStatus.OPENAI_API_KEY && envStatus.CHATKIT_WORKFLOW_ID,
+    ok: envStatus.OPENAI_API_KEY,
     time: new Date().toISOString(),
     build: {
       commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
