@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 const FETCH_TIMEOUT_MS = 15_000;
 const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'https://mcp-0brh.onrender.com/mcp';
+const MCP_SERVER_LABEL = process.env.MCP_SERVER_LABEL || 'supabase_mcp';
 const OPENAI_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4.1-mini';
 
 type UIMessage = {
@@ -145,6 +146,7 @@ export default async function handler(req: any, res: any) {
   const tools = [
     {
       type: 'mcp',
+      server_label: MCP_SERVER_LABEL,
       server_url: MCP_SERVER_URL,
       headers: { Authorization: `Bearer ${accessToken}` },
       require_approval: 'never',
@@ -161,6 +163,7 @@ export default async function handler(req: any, res: any) {
   try {
     console.info('Chat stream: sending request', {
       ...requestMeta,
+      mcp_server_label: MCP_SERVER_LABEL,
       mcp_server_url: MCP_SERVER_URL,
     });
 
