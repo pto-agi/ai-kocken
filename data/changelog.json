@@ -1,6 +1,32 @@
 {
-  "last_commit": "0a1143162fa32c3df2b650899c86a7faa786ad17",
+  "last_commit": "63feca53b5cd6be3533a7501eb46a2c7df221570",
   "entries": [
+    {
+      "id": "2026-02-22T14:03:09.874Z-63feca5",
+      "date": "2026-02-22T14:03:09.876Z",
+      "range": "0a1143162fa32c3df2b650899c86a7faa786ad17..63feca53b5cd6be3533a7501eb46a2c7df221570",
+      "head": "63feca53b5cd6be3533a7501eb46a2c7df221570",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "63feca5",
+          "subject": "Guide MCP tool usage in chat"
+        },
+        {
+          "hash": "43d1e34",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/chat.ts",
+        "data/changelog.json"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 39,
+        "deletions": 1
+      }
+    },
     {
       "id": "2026-02-22T13:58:45.744Z-0a11431",
       "date": "2026-02-22T13:58:45.744Z",
