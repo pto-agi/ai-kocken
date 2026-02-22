@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 const FETCH_TIMEOUT_MS = 15_000;
 const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'https://mcp-0brh.onrender.com/mcp';
 const MCP_SERVER_LABEL = process.env.MCP_SERVER_LABEL || 'supabase_mcp';
@@ -80,10 +78,6 @@ function buildOpenAIInput(messages: UIMessage[]) {
       };
     })
     .filter(Boolean);
-}
-
-function writeSse(res: any, payload: Record<string, unknown>) {
-  res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
 export default async function handler(req: any, res: any) {
@@ -217,22 +211,15 @@ export default async function handler(req: any, res: any) {
 
   const requestId = upstream.headers.get('x-request-id') || undefined;
   const headers = {
-    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Content-Type': 'text/plain; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
     'X-Accel-Buffering': 'no',
-    'x-vercel-ai-ui-message-stream': 'v1',
   } as Record<string, string>;
 
   setCors(res, origin);
   Object.entries(headers).forEach(([key, value]) => res.setHeader(key, value));
   res.flushHeaders?.();
-
-  const messageId = `msg_${randomUUID()}`;
-  const textId = `text_${randomUUID()}`;
-  writeSse(res, { type: 'start', messageId });
-  writeSse(res, { type: 'start-step' });
-  writeSse(res, { type: 'text-start', id: textId });
 
   const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
@@ -275,7 +262,7 @@ export default async function handler(req: any, res: any) {
         }
 
         if (event?.type === 'response.output_text.delta' && typeof event.delta === 'string') {
-          writeSse(res, { type: 'text-delta', id: textId, delta: event.delta });
+          res.write(event.delta);
         }
 
         if (event?.type === 'response.failed') {
@@ -294,9 +281,6 @@ export default async function handler(req: any, res: any) {
       ...requestMeta,
     });
   } finally {
-    writeSse(res, { type: 'text-end', id: textId });
-    writeSse(res, { type: 'finish-step' });
-    writeSse(res, { type: 'finish' });
     res.end();
     console.info('Chat stream: completed', {
       requestId,

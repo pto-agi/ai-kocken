@@ -25,7 +25,7 @@ const SupportChat: React.FC = () => {
     api: '/api/chat',
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     key: accessToken ?? 'anonymous',
-    streamProtocol: 'data',
+    streamProtocol: 'text',
   });
 
   const [isSending, setIsSending] = useState(false);
