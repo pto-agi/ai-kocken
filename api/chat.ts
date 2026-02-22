@@ -2,6 +2,20 @@ const FETCH_TIMEOUT_MS = 15_000;
 const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'https://mcp-0brh.onrender.com/mcp';
 const MCP_SERVER_LABEL = process.env.MCP_SERVER_LABEL || 'supabase_mcp';
 const OPENAI_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4.1-mini';
+const MCP_ALLOWED_TOOLS = [
+  'get_profile',
+  'get_start_intake_latest',
+  'get_followup_latest',
+  'get_weekly_plans',
+  'save_weekly_plan',
+];
+const SYSTEM_INSTRUCTIONS = [
+  'Du är en supportagent i vår app.',
+  'Du har tillgång till användarens data via MCP-verktyg.',
+  'När användaren frågar efter profil- eller kontouppgifter (t.ex. e-post, namn, medlemskap),',
+  'ska du använda verktygen (t.ex. get_profile) för att hämta uppgifterna och svara direkt.',
+  'Fråga inte om extra tillstånd om du kan hämta data via MCP.',
+].join(' ');
 
 type UIMessage = {
   id?: string;
@@ -142,6 +156,7 @@ export default async function handler(req: any, res: any) {
       type: 'mcp',
       server_label: MCP_SERVER_LABEL,
       server_url: MCP_SERVER_URL,
+      allowed_tools: MCP_ALLOWED_TOOLS,
       headers: { Authorization: `Bearer ${accessToken}` },
       require_approval: 'never',
     },
@@ -169,8 +184,10 @@ export default async function handler(req: any, res: any) {
       },
       body: JSON.stringify({
         model: OPENAI_MODEL,
+        instructions: SYSTEM_INSTRUCTIONS,
         input,
         tools,
+        tool_choice: 'auto',
         stream: true,
       }),
       signal: controller.signal,
