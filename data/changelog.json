@@ -1,6 +1,34 @@
 {
-  "last_commit": "6d8f1c9c24822903c4ebd9cb3e2d048c96db0705",
+  "last_commit": "c075b30ccb81b6625fc44ef2023492063e98161b",
   "entries": [
+    {
+      "id": "2026-02-22T02:15:47.921Z-c075b30",
+      "date": "2026-02-22T02:15:47.921Z",
+      "range": "6d8f1c9c24822903c4ebd9cb3e2d048c96db0705..c075b30ccb81b6625fc44ef2023492063e98161b",
+      "head": "c075b30ccb81b6625fc44ef2023492063e98161b",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "c075b30",
+          "subject": "Add MCP logging for ChatKit"
+        },
+        {
+          "hash": "86faf51",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/chatkit/session.ts",
+        "components/SupportChat.tsx",
+        "data/changelog.json",
+        "server/chatkit-session.mjs"
+      ],
+      "stats": {
+        "files": 4,
+        "insertions": 251,
+        "deletions": 6
+      }
+    },
     {
       "id": "2026-02-21T14:28:27.969Z-6d8f1c9",
       "date": "2026-02-21T14:28:27.969Z",
