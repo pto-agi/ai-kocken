@@ -1,6 +1,40 @@
 {
-  "last_commit": "6f7cec0740b1e80dfcdf41a2c344af2769c65482",
+  "last_commit": "ab9f0767cfc838e8c275a53d71141b106a544d58",
   "entries": [
+    {
+      "id": "2026-02-22T02:50:37.875Z-ab9f076",
+      "date": "2026-02-22T02:50:37.877Z",
+      "range": "6f7cec0740b1e80dfcdf41a2c344af2769c65482..ab9f0767cfc838e8c275a53d71141b106a544d58",
+      "head": "ab9f0767cfc838e8c275a53d71141b106a544d58",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "ab9f076",
+          "subject": "Replace ChatKit with custom MCP streaming chat"
+        },
+        {
+          "hash": "daaeb41",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/chat.ts",
+        "api/chatkit/session.ts",
+        "api/health.ts",
+        "components/SupportChat.tsx",
+        "data/changelog.json",
+        "index.css",
+        "index.html",
+        "package-lock.json",
+        "package.json",
+        "server/chatkit-session.mjs"
+      ],
+      "stats": {
+        "files": 10,
+        "insertions": 735,
+        "deletions": 853
+      }
+    },
     {
       "id": "2026-02-22T02:17:13.658Z-6f7cec0",
       "date": "2026-02-22T02:17:13.659Z",
