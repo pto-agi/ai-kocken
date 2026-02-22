@@ -1,6 +1,33 @@
 {
-  "last_commit": "fdd1c255acb2df20885804dcb4a21f93aab93952",
+  "last_commit": "db1289d6f3639e4f6a28695f8c1b861fc8ebccb9",
   "entries": [
+    {
+      "id": "2026-02-22T13:58:09.451Z-db1289d",
+      "date": "2026-02-22T13:58:09.452Z",
+      "range": "fdd1c255acb2df20885804dcb4a21f93aab93952..db1289d6f3639e4f6a28695f8c1b861fc8ebccb9",
+      "head": "db1289d6f3639e4f6a28695f8c1b861fc8ebccb9",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "db1289d",
+          "subject": "Switch chat streaming to text protocol"
+        },
+        {
+          "hash": "acabbec",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/chat.ts",
+        "components/SupportChat.tsx",
+        "data/changelog.json"
+      ],
+      "stats": {
+        "files": 3,
+        "insertions": 25,
+        "deletions": 20
+      }
+    },
     {
       "id": "2026-02-22T02:57:20.233Z-fdd1c25",
       "date": "2026-02-22T02:57:20.233Z",
