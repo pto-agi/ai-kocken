@@ -350,6 +350,7 @@ export const runWorkflow = async (messages: UIMessage[], accessToken: string): P
     state.user_email = profileEmail;
     state.user_name = profileName;
 
+    const hasHistory = messages.length > 1;
     const hasAssistant = messages.some((m) => m?.role === 'assistant' && extractTextParts(m).length);
     const conversationHistory: AgentInputItem[] = [
       profile
@@ -363,7 +364,7 @@ export const runWorkflow = async (messages: UIMessage[], accessToken: string): P
             ],
           }
         : null,
-      hasAssistant
+      hasHistory || hasAssistant
         ? {
             role: 'system',
             content: [
