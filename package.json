@@ -14,6 +14,7 @@
   "dependencies": {
     "@openai/agents": "latest",
     "@openai/guardrails": "latest",
+    "@modelcontextprotocol/sdk": "^1.5.1",
     "@ai-sdk/react": "latest",
     "@google/genai": "latest",
     "@supabase/supabase-js": "^2.39.7",

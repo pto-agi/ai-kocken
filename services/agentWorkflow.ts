@@ -1,6 +1,9 @@
 import { Agent, type AgentInputItem, type RunContext, Runner, fileSearchTool, hostedMcpTool, withTrace } from '@openai/agents';
 import { runGuardrails } from '@openai/guardrails';
 import { OpenAI } from 'openai';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 
 const WORKFLOW_ID = 'wf_698f3221c2a481909c391387fd6efe8e0a3f823293ebb086';
 
@@ -42,6 +45,40 @@ function createMcp1(accessToken: string) {
     requireApproval: 'never',
     serverUrl: 'https://mcp-0brh.onrender.com/mcp',
   });
+}
+
+async function fetchProfileFromMcp(accessToken: string) {
+  if (!accessToken) return null;
+  const transport = new StreamableHTTPClientTransport(new URL('https://mcp-0brh.onrender.com/mcp'), {
+    requestInit: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+  const client = new Client({ name: 'ptoai-app', version: '1.0.0' });
+  try {
+    await client.connect(transport);
+    const result = await client.request(
+      {
+        method: 'tools/call',
+        params: {
+          name: 'get_profile',
+          arguments: { access_token: accessToken },
+        },
+      },
+      CallToolResultSchema,
+    );
+    const textItem = result?.content?.find((item: any) => item?.type === 'text');
+    if (!textItem?.text) return null;
+    const parsed = JSON.parse(textItem.text);
+    return parsed?.profile ?? null;
+  } catch (error) {
+    console.warn('MCP profile fetch failed', error);
+    return null;
+  } finally {
+    await transport.close().catch(() => undefined);
+  }
 }
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -253,9 +290,33 @@ export const runWorkflow = async (inputText: string, accessToken: string): Promi
       target_calories: null,
       biometrics_json: null,
     };
+    const profile = await fetchProfileFromMcp(accessToken);
+    const profileName =
+      (typeof profile?.full_name === 'string' && profile.full_name.trim()) ||
+      (typeof profile?.name === 'string' && profile.name.trim()) ||
+      (typeof profile?.first_name === 'string' && profile.first_name.trim()) ||
+      null;
+    const profileEmail =
+      (typeof profile?.email === 'string' && profile.email.trim()) ||
+      (typeof profile?.email_address === 'string' && profile.email_address.trim()) ||
+      null;
+    state.user_email = profileEmail;
+    state.user_name = profileName;
+
     const conversationHistory: AgentInputItem[] = [
+      profile
+        ? {
+            role: 'system',
+            content: [
+              {
+                type: 'input_text',
+                text: `Användarprofil (hämtad via MCP): ${JSON.stringify(profile)}`,
+              },
+            ],
+          }
+        : null,
       { role: 'user', content: [{ type: 'input_text', text: workflow.input_as_text }] },
-    ];
+    ].filter(Boolean) as AgentInputItem[];
     const runner = new Runner({
       traceMetadata: {
         __trace_source__: 'agent-builder',
