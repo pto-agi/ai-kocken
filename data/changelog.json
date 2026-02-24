@@ -1,6 +1,32 @@
 {
-  "last_commit": "9d14d82cb1355577a0ed8b38807985350fab337a",
+  "last_commit": "f1f94397985ba232a1a3dc0a36113caf2c53a9d4",
   "entries": [
+    {
+      "id": "2026-02-24T21:10:35.088Z-f1f9439",
+      "date": "2026-02-24T21:10:35.089Z",
+      "range": "9d14d82cb1355577a0ed8b38807985350fab337a..f1f94397985ba232a1a3dc0a36113caf2c53a9d4",
+      "head": "f1f94397985ba232a1a3dc0a36113caf2c53a9d4",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "f1f9439",
+          "subject": "Sync live Agent SDK instructions"
+        },
+        {
+          "hash": "5d83522",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "services/agentWorkflow.ts"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 54,
+        "deletions": 8
+      }
+    },
     {
       "id": "2026-02-24T21:00:33.104Z-9d14d82",
       "date": "2026-02-24T21:00:33.104Z",
