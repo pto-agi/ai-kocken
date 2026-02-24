@@ -14,11 +14,11 @@
   "dependencies": {
     "@openai/agents": "latest",
     "@openai/guardrails": "latest",
-    "@ai-sdk/react": "^1.2.12",
+    "@ai-sdk/react": "latest",
     "@google/genai": "latest",
     "@supabase/supabase-js": "^2.39.7",
     "@tanstack/react-query": "^5.28.4",
-    "ai": "^6.0.97",
+    "ai": "latest",
     "clsx": "^2.1.0",
     "google-auth-library": "^10.5.0",
     "jspdf": "^2.5.1",
