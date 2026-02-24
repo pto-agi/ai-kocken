@@ -1,6 +1,33 @@
 {
-  "last_commit": "f1f94397985ba232a1a3dc0a36113caf2c53a9d4",
+  "last_commit": "5443bcef24ad08bd19b899dc4818fd5979f2c128",
   "entries": [
+    {
+      "id": "2026-02-24T21:15:27.011Z-5443bce",
+      "date": "2026-02-24T21:15:27.011Z",
+      "range": "f1f94397985ba232a1a3dc0a36113caf2c53a9d4..5443bcef24ad08bd19b899dc4818fd5979f2c128",
+      "head": "5443bcef24ad08bd19b899dc4818fd5979f2c128",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "5443bce",
+          "subject": "Improve support nav label and layout"
+        },
+        {
+          "hash": "cb92c2f",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "components/Navbar.tsx",
+        "data/changelog.json",
+        "pages/Support.tsx"
+      ],
+      "stats": {
+        "files": 3,
+        "insertions": 43,
+        "deletions": 3
+      }
+    },
     {
       "id": "2026-02-24T21:10:35.088Z-f1f9439",
       "date": "2026-02-24T21:10:35.089Z",
