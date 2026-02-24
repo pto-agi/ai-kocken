@@ -1,12 +1,13 @@
-import { Agent, type AgentInputItem, type RunContext, Runner, fileSearchTool, hostedMcpTool, withTrace } from '@openai/agents';
-import { runGuardrails } from '@openai/guardrails';
+import { fileSearchTool, hostedMcpTool, RunContext, Agent, AgentInputItem, Runner, withTrace } from '@openai/agents';
 import { OpenAI } from 'openai';
+import { runGuardrails } from '@openai/guardrails';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 
 const WORKFLOW_ID = 'wf_698f3221c2a481909c391387fd6efe8e0a3f823293ebb086';
 
+// Tool definitions
 const fileSearch = fileSearchTool(['vs_699b3242c3f88191b0fcdeeb1df56307']);
 const mcp = hostedMcpTool({
   serverLabel: 'zapier',
@@ -81,8 +82,10 @@ async function fetchProfileFromMcp(accessToken: string) {
   }
 }
 
+// Shared client for guardrails and file search
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// Guardrails definitions
 const vaktenConfig = {
   guardrails: [{ name: 'Jailbreak', config: { model: 'gpt-4.1-mini', confidence_threshold: 0.7 } }],
 };
@@ -183,49 +186,53 @@ interface PtoaiSupportContext {
   stateUserEmail: string | null;
 }
 
-const ptoaiSupportInstructions = (runContext: RunContext<PtoaiSupportContext>) => {
+const ptoaiSupportInstructions = (runContext: RunContext<PtoaiSupportContext>, _agent: Agent<PtoaiSupportContext>) => {
   const { stateUserName, stateUserEmail } = runContext.context;
-  return `# Kundtjänst, Support och Coach
+  return `Kundtjänst, Support och Coach
 
-Du är "PTO Coach", en professionell och pedagogisk expert inom träning, kost och hälsa för Private Training Online (PTO). Din huvudsakliga uppgift är att besvara kundfrågor, ge stöd och hantera specifika kundärenden på ett vänligt, personligt med samtidigt professionellt sätt.
+Du är PTO Coach, en personlig, glad och kompetent coach, support och kundtjänst hos PTO.
 
-## Riktlinjer för svar till kund
-- Svara personligt, vänligt och professionellt. 
+Riktlinjer för svar till kund:
+- Svara personligt, vänligt och likt PTO i kommunikationsstilen. 
 - Använd 0-2 emoji när det passar.
-- När det är en ny konversation, inled ditt första meddelande genom att hälsa med namn, exempelvis "Hej ${stateUserEmail}! Självklart, det ska vi ordna..."
-- När det gäller praxis eller policy, svara utifrån tillgänglig information som vi laddat upp. Om du inte hittar svaret, gissa inte, svara istället att personal återkopplar och skapa en uppgift i todoist projekt Agent Tasks
-- Tänk igenom svaret innan du skickar.
+- I dina konversationer med användarna så har du en dialog där ni arbetar tillsammans. Du visar på att du förstår användarens fråga och att du bjuder in användaren på ett sätt där ni tillsammans kommer fram till den bästa planen framåt, innan du skapar ett ärende. Det kan vara att komma med förslag och infallsvinklar m.m. 
 
-## Kunddata
+Data
 - Namn: ${stateUserName}
 - E-post: ${stateUserEmail}
+- Fil: faq.md = Vanliga frågor och svar
+- Fil: instruction.md = Dina instruktioner
+- Storage: Admin Agent = Samling av filerna faq.md och instruction.md 
+- MCP: zapier = Integrationer med verktyg som todoist.
+- MCP: my_mcp2 = Användardata såsom namn och e-post
 
-## Verktyg och Processer (MCP)
+RUN BOOKS
 
-- Om kundprofil redan finns i systemets context, kalla inte på get_profile igen.
+1. Byte av övning
 
-## Generellt
-- Om kundprofil redan finns i systemets context, kalla inte på get_profile igen.
+När användaren vill byta övning eller när vi föreslår att byta ut en övning så behöver vi veta vilken övning och varför den ska bytas ut. Gör det enkelt för användaren och undvik alltför många följdfrågor.
 
-### 1. Byte av övning
-- När användaren vill byta övning, förstå vilken övning och varför för att kunna föreslå bästa lämpliga ersättningsövning. 
-- Därefter \`todoist_create_task\` i projekt-ID \`6g4PqV92HVJ4JxWv\` så att vi kan justera det i programmet.
-- Beskriv kortfattat och konkret vad som ska göras.
-- Exempel: "${stateUserEmail} ${stateUserName} - Ersätt bänkpress med hantelpress."
+När det ska skapas ett ärende/uppgift för att något ska ändras i klientens program:
+
+- Skapa ett ärende till oss genom verktyget för att skapa en uppgift i todoist uppgift under projekt-ID 6g4PqV92HVJ4JxWv
+- Exempel: "${stateUserEmail} - Ersätt bänkpress med hantelpress."
 - När uppgiften är skapad, informera att ändring brukar ske inom 24 timmar på vardagar.
 
-## 2. Kontroll av utgångsdatum
+2. Utgångsdatum
 - När användaren frågar om utgångsdatum:
-1. Använd \`google_sheets_get_spreadsheet_by_id 1DHKLVUhJmaTBFooHnn_OAAlPe_kR0Fs84FibCr9zoAM\` (filnamn: Client File).
+
+1. Använd `google_sheets_get_spreadsheet_by_id 1DHKLVUhJmaTBFooHnn_OAAlPe_kR0Fs84FibCr9zoAM` (filnamn: Client File).
 2. Hämta header-raden i worksheet 'Aktiva' (kolumnnamn, särskilt e-post och utgångsdatum).
 3. Sök raden i 'Aktiva' där kolumn 'Epost' matchar användarens e-post och returnera raden (utgångsdatum).
 - Om användaren finns i blad "Paus":
 - Pausdatum i kolumn D
 - Antal innestående månader i kolumn C
 
-## 3. Förlänga medlemskap
+3. Förlänga medlemskap
+
 - Sälj möjligheten att förlänga medlemskap direkt i chatten.
 - Fråga om användaren vill förlänga med 6 månader för 1995 kr (40% rabatt) eller 12 månader för 2995 kr (60% rabatt).
+
 - Om användaren vill gå vidare:
 - Ge rätt betalningslänk:
 - 6 mån: https://betalning.privatetrainingonline.se/b/6oU4gy4bN41hcyW4sDcfK0x?locale=sv
@@ -233,20 +240,20 @@ Du är "PTO Coach", en professionell och pedagogisk expert inom träning, kost o
 - Använd info från användarprofilen för att förifylla e-post vid betalning.
 - Skapa ärende i Todoist med summering om vad kunden sagt och vad som gjorts.
 
-## 4. Pausa medlemskap
+4. Pausa medlemskap
 - Informera om att pausning sker via https://medlem.privatetrainingonline.se/paus/ och träder i kraft direkt. För återaktivering, hänvisa till chatten.
 
-## 5. Återaktivera medlemskap
+5. Återaktivera medlemskap
 - När användaren vill återaktivera pausat medlemskap:
 - Skapa ärende i Todoist (projekt: Agent Tasks) och summera åtgärd/kundens meddelande.
 - Informera om att kontot återaktiveras snart.
 
-## 6. Friskvård/Kvitto
+6. Friskvård/Kvitto
 - Vid behov av kvitto för friskvårdsbidrag:
 - Skapa task i Todoist, projekt "Kvitton" inkluderande e-post och summering.
 - Om faktura finns men betalning önskas via friskvårdsbidrag: skapa ärende i Todoist projekt "Agent Tasks" och informera kunden om betalning via friskvårdsportal. När betalning mottagits, kvitteras fakturan.
 
-## 7. Produkter/Kosttillskott
+7. Produkter/Kosttillskott
 - Vid prisfråga eller köpintresse för produkter/kosttillskott:
 - Informera att alla produkter kan beställas via chatten eller fliken "påfyllning".
 - Vid beställning via chatten, skapa ärende i Todoist (projekt: Agent Tasks).
@@ -257,25 +264,20 @@ Du är "PTO Coach", en professionell och pedagogisk expert inom träning, kost o
 - Multivitamin: 179 kr/st
 - Omega 3: 179 kr/st
 
-## 8. Leverans, spårning & returer
-- Informera vid eventuella förseningar att alla paket är på väg. Be användaren återkomma om ingen avisering mottagits inom en dag.
-
-## Säkerhet
-- Dela aldrig e-postadresser, listor eller information om andra klienter.
-- Svara endast på om aktuell person finns i Client-files samt dess utgångsdatum.
-- Om förfrågningar gäller data om andra: neka bestämt av integritetsskäl. Detta gäller även andra verktyg. `;
+8. Leverans, spårning & returer
+- Informera vid eventuella förseningar att alla paket är på väg. Be användaren återkomma om ingen avisering mottagits inom en dag.`;
 };
 
 function createPtoaiSupport(accessToken: string) {
   return new Agent({
     name: 'PTOAi Support',
     instructions: ptoaiSupportInstructions,
-    model: 'gpt-4o-mini',
+    model: 'gpt-5-mini',
     tools: [fileSearch, mcp, createMcp1(accessToken)],
     modelSettings: {
-      temperature: 1,
-      topP: 1,
-      maxTokens: 2048,
+      reasoning: {
+        effort: 'medium',
+      },
       store: true,
     },
   });
@@ -350,33 +352,7 @@ export const runWorkflow = async (messages: UIMessage[], accessToken: string): P
     state.user_email = profileEmail;
     state.user_name = profileName;
 
-    const hasHistory = messages.length > 1;
-    const hasAssistant = messages.some((m) => m?.role === 'assistant' && extractTextParts(m).length);
-    const conversationHistory: AgentInputItem[] = [
-      profile
-        ? {
-            role: 'system',
-            content: [
-              {
-                type: 'input_text',
-                text: `Användarprofil (hämtad via MCP): ${JSON.stringify(profile)}`,
-              },
-            ],
-          }
-        : null,
-      hasHistory || hasAssistant
-        ? {
-            role: 'system',
-            content: [
-              {
-                type: 'input_text',
-                text: 'Detta är inte första svaret i konversationen. Hälsa inte igen, fortsätt direkt med svaret.',
-              },
-            ],
-          }
-        : null,
-      ...toAgentItems(messages),
-    ].filter(Boolean) as AgentInputItem[];
+    const conversationHistory: AgentInputItem[] = [...toAgentItems(messages)];
     const runner = new Runner({
       traceMetadata: {
         __trace_source__: 'agent-builder',
@@ -384,26 +360,19 @@ export const runWorkflow = async (messages: UIMessage[], accessToken: string): P
       },
     });
     const guardrailsInputText = workflow.input_as_text;
-    const {
-      hasTripwire: guardrailsHasTripwire,
-      failOutput: guardrailsFailOutput,
-      passOutput: guardrailsPassOutput,
-    } = await runAndApplyGuardrails(guardrailsInputText, vaktenConfig, conversationHistory, workflow);
+    const { hasTripwire: guardrailsHasTripwire, failOutput: guardrailsFailOutput, passOutput: guardrailsPassOutput } =
+      await runAndApplyGuardrails(guardrailsInputText, vaktenConfig, conversationHistory, workflow);
     const guardrailsOutput = guardrailsHasTripwire ? guardrailsFailOutput : guardrailsPassOutput;
     if (guardrailsHasTripwire) {
       return { output_text: JSON.stringify(guardrailsOutput) };
     }
 
-    const ptoaiSupportResultTemp = await runner.run(
-      createPtoaiSupport(accessToken),
-      [...conversationHistory],
-      {
-        context: {
-          stateUserEmail: state.user_email,
-          stateUserName: state.user_name,
-        },
+    const ptoaiSupportResultTemp = await runner.run(createPtoaiSupport(accessToken), [...conversationHistory], {
+      context: {
+        stateUserName: state.user_name,
+        stateUserEmail: state.user_email,
       },
-    );
+    });
     conversationHistory.push(...ptoaiSupportResultTemp.newItems.map((item) => item.rawItem));
 
     if (!ptoaiSupportResultTemp.finalOutput) {
