@@ -1,6 +1,11 @@
 import { fileSearchTool, hostedMcpTool, RunContext, Agent, AgentInputItem, Runner, withTrace } from '@openai/agents';
 import { OpenAI } from 'openai';
 import { runGuardrails } from '@openai/guardrails';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+
+const WORKFLOW_ID = 'wf_698f3221c2a481909c391387fd6efe8e0a3f823293ebb086';
 
 // Tool definitions
 const fileSearch = fileSearchTool(['vs_699b3242c3f88191b0fcdeeb1df56307']);
@@ -27,18 +32,55 @@ const mcp = hostedMcpTool({
   requireApproval: 'never',
   serverUrl: 'https://mcp.zapier.com/api/mcp/mcp',
 });
-const mcp1 = hostedMcpTool({
-  serverLabel: 'my_mcp2',
-  allowedTools: [
-    'get_profile',
-    'get_start_intake_latest',
-    'get_followup_latest',
-    'get_weekly_plans',
-    'save_weekly_plan',
-  ],
-  requireApproval: 'never',
-  serverUrl: 'https://mcp-0brh.onrender.com/mcp',
-});
+function createMcp1(accessToken: string) {
+  return hostedMcpTool({
+    serverLabel: 'my_mcp2',
+    allowedTools: [
+      'get_profile',
+      'get_start_intake_latest',
+      'get_followup_latest',
+      'get_weekly_plans',
+      'save_weekly_plan',
+    ],
+    authorization: accessToken,
+    requireApproval: 'never',
+    serverUrl: 'https://mcp-0brh.onrender.com/mcp',
+  });
+}
+
+async function fetchProfileFromMcp(accessToken: string) {
+  if (!accessToken) return null;
+  const transport = new StreamableHTTPClientTransport(new URL('https://mcp-0brh.onrender.com/mcp'), {
+    requestInit: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+  const client = new Client({ name: 'ptoai-app', version: '1.0.0' });
+  try {
+    await client.connect(transport);
+    const result = await client.request(
+      {
+        method: 'tools/call',
+        params: {
+          name: 'get_profile',
+          arguments: { access_token: accessToken },
+        },
+      },
+      CallToolResultSchema,
+    );
+    const textItem = result?.content?.find((item: any) => item?.type === 'text');
+    if (!textItem || textItem.type !== 'text' || typeof textItem.text !== 'string') return null;
+    const parsed = JSON.parse(textItem.text);
+    return parsed?.profile ?? null;
+  } catch (error) {
+    console.warn('MCP profile fetch failed', error);
+    return null;
+  } finally {
+    await transport.close().catch(() => undefined);
+  }
+}
 
 // Shared client for guardrails and file search
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -140,9 +182,10 @@ function buildGuardrailFailOutput(results: any[]) {
 }
 
 interface PtoaiSupportContext {
-  stateUserName: string;
-  stateUserEmail: string;
+  stateUserName: string | null;
+  stateUserEmail: string | null;
 }
+
 const ptoaiSupportInstructions = (runContext: RunContext<PtoaiSupportContext>, _agent: Agent<PtoaiSupportContext>) => {
   const { stateUserName, stateUserEmail } = runContext.context;
   return `Kundtjänst, Support och Coach
@@ -224,20 +267,64 @@ När det ska skapas ett ärende/uppgift för att något ska ändras i klientens 
 8. Leverans, spårning & returer
 - Informera vid eventuella förseningar att alla paket är på väg. Be användaren återkomma om ingen avisering mottagits inom en dag.`;
 };
-const ptoaiSupport = new Agent({
-  name: 'PTOAi Support',
-  instructions: ptoaiSupportInstructions,
-  model: 'gpt-5.2-chat-latest',
-  tools: [fileSearch, mcp, mcp1],
-  modelSettings: {
-    store: true,
-  },
-});
+
+function createPtoaiSupport(accessToken: string) {
+  return new Agent({
+    name: 'PTOAi Support',
+    instructions: ptoaiSupportInstructions,
+    model: 'gpt-5.2-chat-latest',
+    tools: [fileSearch, mcp, createMcp1(accessToken)],
+    modelSettings: {
+      store: true,
+    },
+  });
+}
 
 type WorkflowInput = { input_as_text: string };
 
-// Main code entrypoint
-export const runWorkflow = async (workflow: WorkflowInput) => {
+export type WorkflowResult = { output_text: string };
+
+type UIMessage = {
+  id?: string;
+  role?: 'user' | 'assistant' | 'system' | string;
+  content?: string;
+  parts?: Array<{ type: string; text?: string }>;
+};
+
+function extractTextParts(message: UIMessage): string[] {
+  if (Array.isArray(message.parts) && message.parts.length > 0) {
+    return message.parts
+      .filter((part) => part?.type === 'text' && typeof part.text === 'string')
+      .map((part) => part.text as string)
+      .filter((text) => text.trim().length > 0);
+  }
+  if (typeof message.content === 'string' && message.content.trim().length > 0) {
+    return [message.content];
+  }
+  return [];
+}
+
+function toAgentItems(messages: UIMessage[]): AgentInputItem[] {
+  return messages
+    .map((message) => {
+      const parts = extractTextParts(message);
+      if (!parts.length) return null;
+      const isAssistant = message.role === 'assistant';
+      if (message.role === 'system') return null;
+      const role = isAssistant ? 'assistant' : 'user';
+      const contentType = isAssistant ? 'output_text' : 'input_text';
+      return {
+        role,
+        content: [{ type: contentType, text: parts.join('\n') }],
+      } as AgentInputItem;
+    })
+    .filter(Boolean) as AgentInputItem[];
+}
+
+export const runWorkflow = async (messages: UIMessage[], accessToken: string): Promise<WorkflowResult> => {
+  const lastUser = [...messages].reverse().find((m) => m?.role === 'user' && extractTextParts(m).length);
+  const inputText = lastUser ? extractTextParts(lastUser).join('\n') : '';
+  const workflow: WorkflowInput = { input_as_text: inputText };
   return await withTrace('PTO Agent-1', async () => {
     const state = {
       user_id: null,
@@ -249,43 +336,50 @@ export const runWorkflow = async (workflow: WorkflowInput) => {
       target_calories: null,
       biometrics_json: null,
     };
-    const conversationHistory: AgentInputItem[] = [
-      { role: 'user', content: [{ type: 'input_text', text: workflow.input_as_text }] },
-    ];
+    const profile = await fetchProfileFromMcp(accessToken);
+    const profileName =
+      (typeof profile?.full_name === 'string' && profile.full_name.trim()) ||
+      (typeof profile?.name === 'string' && profile.name.trim()) ||
+      (typeof profile?.first_name === 'string' && profile.first_name.trim()) ||
+      null;
+    const profileEmail =
+      (typeof profile?.email === 'string' && profile.email.trim()) ||
+      (typeof profile?.email_address === 'string' && profile.email_address.trim()) ||
+      null;
+    state.user_email = profileEmail;
+    state.user_name = profileName;
+
+    const conversationHistory: AgentInputItem[] = [...toAgentItems(messages)];
     const runner = new Runner({
       traceMetadata: {
         __trace_source__: 'agent-builder',
-        workflow_id: 'wf_698f3221c2a481909c391387fd6efe8e0a3f823293ebb086',
+        workflow_id: WORKFLOW_ID,
       },
     });
     const guardrailsInputText = workflow.input_as_text;
-    const {
-      hasTripwire: guardrailsHasTripwire,
-      safeText: guardrailsAnonymizedText,
-      failOutput: guardrailsFailOutput,
-      passOutput: guardrailsPassOutput,
-    } = await runAndApplyGuardrails(guardrailsInputText, vaktenConfig, conversationHistory, workflow);
+    const { hasTripwire: guardrailsHasTripwire, failOutput: guardrailsFailOutput, passOutput: guardrailsPassOutput } =
+      await runAndApplyGuardrails(guardrailsInputText, vaktenConfig, conversationHistory, workflow);
     const guardrailsOutput = guardrailsHasTripwire ? guardrailsFailOutput : guardrailsPassOutput;
     if (guardrailsHasTripwire) {
-      return guardrailsOutput;
-    } else {
-      const ptoaiSupportResultTemp = await runner.run(ptoaiSupport, [...conversationHistory], {
-        context: {
-          stateUserName: state.user_name,
-          stateUserEmail: state.user_email,
-        },
-      });
-      conversationHistory.push(...ptoaiSupportResultTemp.newItems.map((item) => item.rawItem));
-
-      if (!ptoaiSupportResultTemp.finalOutput) {
-        throw new Error('Agent result is undefined');
-      }
-
-      const ptoaiSupportResult = {
-        output_text: ptoaiSupportResultTemp.finalOutput ?? '',
-      };
-
-      return ptoaiSupportResult;
+      return { output_text: JSON.stringify(guardrailsOutput) };
     }
+
+    const ptoaiSupportResultTemp = await runner.run(createPtoaiSupport(accessToken), [...conversationHistory], {
+      context: {
+        stateUserName: state.user_name,
+        stateUserEmail: state.user_email,
+      },
+    });
+    conversationHistory.push(...ptoaiSupportResultTemp.newItems.map((item) => item.rawItem));
+
+    if (!ptoaiSupportResultTemp.finalOutput) {
+      throw new Error('Agent result is undefined');
+    }
+
+    const ptoaiSupportResult = {
+      output_text: ptoaiSupportResultTemp.finalOutput ?? '',
+    };
+
+    return ptoaiSupportResult;
   });
 };
