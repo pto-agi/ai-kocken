@@ -46,7 +46,7 @@ export const Layout: React.FC<LayoutProps> = ({
                    </div>
                 </div>
               </div>
-              <span className="text-xl font-bold tracking-tighter text-[#3D3D3D] font-heading">PTO <span className="text-emerald-500">Ai</span></span>
+              <span className="text-xl font-bold tracking-tighter text-[#3D3D3D] font-heading">PTO</span>
             </div>
 
             {/* Desktop Nav */}
@@ -86,12 +86,12 @@ export const Layout: React.FC<LayoutProps> = ({
              &copy; {new Date().getFullYear()} Private Training Online. Alla rättigheter förbehållna.
            </p>
            <a 
-             href="https://privatetrainingonline.se/" 
+             href="https://my.privatetrainingonline.se/" 
              target="_blank" 
              rel="noopener noreferrer"
              className="text-xs font-bold text-emerald-600 uppercase tracking-widest hover:text-emerald-700 transition-colors"
            >
-             Besök PrivateTrainingOnline.se
+             Besök my.privatetrainingonline.se
            </a>
         </div>
       </footer>

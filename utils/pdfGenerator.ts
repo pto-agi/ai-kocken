@@ -109,7 +109,7 @@ const drawPageHeader = (doc: jsPDF, title: string, subtitle?: string) => {
   doc.setTextColor(...COLORS.white);
   doc.setFontSize(11);
   doc.setFont(FONTS.heading, 'bold');
-  doc.text("PTO Ai", 18, 15);
+  doc.text("My PTO", 18, 15);
 
   if (subtitle) {
     doc.setFontSize(9);
@@ -159,7 +159,7 @@ const drawCover = (doc: jsPDF, targets: any) => {
   doc.setTextColor(...COLORS.white);
   doc.setFont(FONTS.heading, 'bold');
   doc.setFontSize(12);
-  doc.text("PTO Ai", margin, 18);
+  doc.text("My PTO", margin, 18);
 
   doc.setFontSize(36);
   doc.setTextColor(...COLORS.ink);

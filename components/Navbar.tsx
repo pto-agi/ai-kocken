@@ -12,7 +12,6 @@ import {
   ChevronRight,
   Settings,
   ShieldCheck,
-  Crown,
   LifeBuoy,
   ClipboardCheck,
   ShoppingBasket
@@ -53,7 +52,6 @@ const Navbar: React.FC = () => {
         { path: '/recept', label: 'RECEPT', icon: ChefHat },
         { path: '/support', label: 'CHATT', icon: LifeBuoy },
         { path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ClipboardCheck },
-        { path: '/forlangning', label: 'FÖRLÄNGNING', icon: Crown, badge: 'Erbjudande' },
         { path: '/refill', label: 'SHOP', icon: ShoppingBasket },
       ];
 
@@ -74,7 +72,6 @@ const Navbar: React.FC = () => {
             <div className="flex flex-col">
                 <div className="flex items-baseline leading-none">
                     <span className="text-xl font-bold text-white tracking-tight font-heading">PTO</span>
-                    <span className="text-xl font-bold text-[#a0c81d] font-heading ml-0.5">Ai</span>
                 </div>
             </div>
           </Link>
@@ -92,11 +89,6 @@ const Navbar: React.FC = () => {
                   }`}>
                     {link.label}
                   </span>
-                  {'badge' in link && link.badge && (
-                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#a0c81d]/20 text-[#a0c81d]">
-                      {link.badge}
-                    </span>
-                  )}
                 </div>
                 <span className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#a0c81d] transition-all duration-300 ${
                   isActive(link.path) ? 'opacity-100 scale-100 shadow-[0_0_8px_#a0c81d]' : 'opacity-0 scale-0'
@@ -177,7 +169,6 @@ const Navbar: React.FC = () => {
                 </div>
                 <div className="flex items-baseline leading-none">
                     <span className="text-lg font-bold text-white tracking-tight font-heading">PTO</span>
-                    <span className="text-lg font-bold text-[#a0c81d] font-heading ml-0.5">Ai</span>
                 </div>
             </div>
         </div>
@@ -198,11 +189,6 @@ const Navbar: React.FC = () => {
                 <span className={`font-heading text-sm font-semibold tracking-wide ${isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'}`}>
                   {link.label}
                 </span>
-                {'badge' in link && link.badge && (
-                  <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#a0c81d]/20 text-[#a0c81d]">
-                    {link.badge}
-                  </span>
-                )}
               </div>
               <ChevronRight className={`w-3.5 h-3.5 text-white/60 transition-transform group-hover:translate-x-1 ${isActive(link.path) ? 'text-[#a0c81d]' : ''}`} />
             </Link>

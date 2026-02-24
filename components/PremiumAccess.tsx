@@ -20,7 +20,7 @@ const PremiumAccess: React.FC<PremiumAccessProps> = ({
   const copy = {
     locked: {
       badge: 'Premium krävs',
-      title: title || 'Lås upp hela PTO Ai.',
+      title: title || 'Lås upp hela My PTO.',
       desc: description || 'Den här funktionen är exklusiv för Premium-medlemmar. Aktivera för att få full tillgång direkt.'
     },
     loggedOut: {

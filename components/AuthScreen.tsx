@@ -120,7 +120,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
             
             <div className="flex items-baseline justify-center leading-none mb-2">
                 <span className="text-3xl font-black text-[#3D3D3D] tracking-tight font-heading">PTO</span>
-                <span className="text-3xl font-black text-[#a0c81d] font-heading ml-1">Ai</span>
             </div>
             <p className="text-[#6B6158] text-sm font-medium">
                 {isLogin ? 'Logga in för att komma åt din profil' : 'Skapa ett konto för att börja din resa'}

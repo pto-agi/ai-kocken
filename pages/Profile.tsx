@@ -40,7 +40,7 @@ type CombinedSubmission =
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { session, profile: user, signOut, refreshProfile } = useAuthStore();
+  const { session, profile: user, signOut, refreshProfile, profileError } = useAuthStore();
   const [activeTab, setActiveTab] = useState<MainTab>('OVERVIEW');
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -89,8 +89,6 @@ export const Profile: React.FC = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['weeklyPlans'] })
   });
 
-  if (!user || !session) return null;
-
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
@@ -100,13 +98,14 @@ export const Profile: React.FC = () => {
   }, [location.search]);
 
   useEffect(() => {
+    if (!user) return;
     setAddressLine1(user.address_line1 || '');
     setAddressLine2(user.address_line2 || '');
     setPostalCode(user.postal_code || '');
     setCity(user.city || '');
     setCountry(user.country || 'Sverige');
     setPhone(user.phone || '');
-  }, [user.address_line1, user.address_line2, user.postal_code, user.city, user.country, user.phone]);
+  }, [user?.address_line1, user?.address_line2, user?.postal_code, user?.city, user?.country, user?.phone]);
 
   const handleCancelSubscription = async () => {
     if (isCancelling) return;
@@ -343,6 +342,51 @@ export const Profile: React.FC = () => {
     { id: 'SETTINGS', label: 'Mina uppgifter' },
     { id: 'MEMBERSHIP', label: 'Medlemskap' }
   ];
+
+  if (!session) return null;
+
+  if (!user) {
+    return (
+      <div className={ui.page}>
+        <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
+          <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px] pointer-events-none"></div>
+          <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px]"></div>
+        </div>
+        <div className="max-w-3xl mx-auto relative z-10 animate-fade-in">
+          <div className="bg-[#E8F1D5]/70 backdrop-blur-xl rounded-[2.5rem] p-6 md:p-10 border border-[#E6E1D8] shadow-2xl">
+            <p className={ui.labelTight}>Mina sidor</p>
+            <h1 className={ui.titleLg}>
+              {profileError ? 'Profilen kunde inte laddas' : 'Vi laddar din profil…'}
+            </h1>
+            <p className={`${ui.body} mt-2`}>
+              {profileError
+                ? 'Det verkar vara ett serverfel när vi hämtar profilen. Försök igen eller logga ut och in igen.'
+                : 'Om sidan fortsätter vara tom, försök uppdatera profilen eller logga ut och in igen.'}
+            </p>
+            {profileError ? (
+              <div className="mt-4 rounded-xl bg-white/70 border border-[#E6E1D8] px-4 py-3 text-xs text-[#6B6158]">
+                Fel: <span className="font-bold">{profileError}</span>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-3 mt-6">
+              <button
+                onClick={() => refreshProfile()}
+                className={ui.primaryBtn}
+              >
+                Försök igen
+              </button>
+              <button
+                onClick={async () => { await signOut(); navigate('/'); }}
+                className={ui.outlineBtn}
+              >
+                Logga ut
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={ui.page}>
@@ -789,7 +833,7 @@ export const Profile: React.FC = () => {
                       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                           <p className={ui.label}>Aktiv prenumeration</p>
-                          <h4 className="text-lg md:text-xl font-black text-[#3D3D3D]">PTO Ai Premium</h4>
+                          <h4 className="text-lg md:text-xl font-black text-[#3D3D3D]">My PTO Premium</h4>
                           <p className={`${ui.body} mt-2 max-w-xl`}>
                             Full tillgång till kost, recept, veckomenyer och uppföljning.
                           </p>

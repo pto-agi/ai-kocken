@@ -263,7 +263,7 @@ Du är "PTO Coach", en professionell och pedagogisk expert inom träning, kost o
 
 function createPtoaiSupport(accessToken: string) {
   return new Agent({
-    name: 'PTOAi Support',
+    name: 'My PTO Support',
     instructions: ptoaiSupportInstructions,
     model: 'gpt-4.1-mini',
     tools: [fileSearch, mcp, createMcp1(accessToken)],

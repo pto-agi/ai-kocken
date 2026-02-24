@@ -21,7 +21,6 @@ const Footer: React.FC = () => {
                 <div className="flex flex-col">
                     <div className="flex items-baseline leading-none">
                         <span className="text-xl font-bold text-white tracking-tight font-heading">PTO</span>
-                        <span className="text-xl font-bold text-[#a0c81d] font-heading ml-0.5">Ai</span>
                     </div>
                 </div>
             </Link>
@@ -34,11 +33,11 @@ const Footer: React.FC = () => {
           <div>
             <h4 className="font-heading font-bold text-white mb-6 tracking-wide">Medlemssidan</h4>
             <ul className="space-y-4 text-sm font-medium">
+              <li><Link to="/forlangning" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Förlängning (erbjudande)</Link></li>
               <li><Link to="/recept" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Veckomeny</Link></li>
               <li><Link to="/uppfoljning" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Uppföljning</Link></li>
               <li><Link to="/support" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Supportchatt</Link></li>
               <li><Link to="/refill" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Shop</Link></li>
-              <li><Link to="/forlangning" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Förlängning</Link></li>
             </ul>
           </div>
 
@@ -92,12 +91,12 @@ const Footer: React.FC = () => {
         <div className="border-t border-[#6B6158] pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-[#E6E1D8] font-medium">
           <p>© {new Date().getFullYear()} Private Training Online. Alla rättigheter förbehållna.</p>
           <a 
-            href="https://privatetrainingonline.se/" 
+            href="https://my.privatetrainingonline.se/" 
             target="_blank" 
             rel="noopener noreferrer"
             className="text-white hover:text-[#a0c81d] transition-colors"
           >
-            Besök privatetrainingonline.se
+            Besök my.privatetrainingonline.se
           </a>
         </div>
       </div>

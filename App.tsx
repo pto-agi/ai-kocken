@@ -86,7 +86,7 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   },
   '/auth': {
     title: 'Logga in',
-    description: 'Logga in eller skapa konto för att använda PTO Ai. Spara planer, följ din utveckling, hantera medlemskap och få verktygen direkt. Säker inloggning med e-post.'
+    description: 'Logga in eller skapa konto för att använda My PTO. Spara planer, följ din utveckling, hantera medlemskap och få verktygen direkt. Säker inloggning med e-post.'
   },
   '/auth-required': {
     title: 'Inloggning krävs',
@@ -107,7 +107,7 @@ const MetaManager = () => {
 
   useEffect(() => {
     const meta = META_BY_PATH[pathname] || META_BY_PATH['/'];
-    const title = `${meta.title} - PTOAi`;
+    const title = `${meta.title} - My PTO`;
     if (document.title !== title) {
       document.title = title;
     }
