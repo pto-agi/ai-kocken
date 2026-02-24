@@ -1,4 +1,4 @@
-import { runWorkflow } from '../services/agentWorkflow';
+import { runWorkflow } from '../services/agentWorkflow.js';
 
 type UIMessage = {
   id?: string;
