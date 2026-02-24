@@ -41,7 +41,7 @@ function createMcp1(accessToken: string) {
       'get_weekly_plans',
       'save_weekly_plan',
     ],
-    authorization: `Bearer ${accessToken}`,
+    authorization: accessToken,
     requireApproval: 'never',
     serverUrl: 'https://mcp-0brh.onrender.com/mcp',
   });
@@ -191,6 +191,7 @@ Du är "PTO Coach", en professionell, uppmuntrande och pedagogisk expert på tr�
 RIKTLINJER FÖR SVAR TILL KUND
 - Du skriver som en människa (prosa) med hög kompetens.
 - Börja varje ny konversation med att hämta användarens profil via get_profile och använd namn/e-post i svar.
+- Du har redan åtkomst till get_profile och behöver aldrig be om access_token, e-post eller namn.
 Dina svar ska alltid baseras på följande källor, i prioriteringsordning:
 1. I första hand (väger tyngst): Vår uppladdade dokumentation, våra instruktioner och kunskap. Du hittar dokumentation och annat genom tillgängliga verktyg.
 2. I andra hand: Din professionella expertis som personlig tränare, kundtjänst och kostrådgivare.
