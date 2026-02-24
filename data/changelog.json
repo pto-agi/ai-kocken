@@ -1,6 +1,50 @@
 {
-  "last_commit": "1c9055bf08fc11ce6c574a2760c3b753bd074a04",
+  "last_commit": "b32273a6e22f9ef8f428c733d37801b3dfc3c6a3",
   "entries": [
+    {
+      "id": "2026-02-24T11:57:22.556Z-b32273a",
+      "date": "2026-02-24T11:57:22.556Z",
+      "range": "1c9055bf08fc11ce6c574a2760c3b753bd074a04..b32273a6e22f9ef8f428c733d37801b3dfc3c6a3",
+      "head": "b32273a6e22f9ef8f428c733d37801b3dfc3c6a3",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "b32273a",
+          "subject": "Prep launch UX, auth gating, and support prompts"
+        },
+        {
+          "hash": "f3be4ca",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "App.tsx",
+        "api/chat.ts",
+        "components/AuthGuard.tsx",
+        "components/AuthScreen.tsx",
+        "components/Footer.tsx",
+        "components/Navbar.tsx",
+        "components/SupportChat.tsx",
+        "components/WeeklyPlanner.tsx",
+        "data/changelog.json",
+        "pages/AuthRequired.tsx",
+        "pages/Forlangning.tsx",
+        "pages/Intranet.tsx",
+        "pages/Premium.tsx",
+        "pages/Profile.tsx",
+        "pages/Start.tsx",
+        "pages/Uppfoljning.tsx",
+        "scripts/update-changelog.mjs",
+        "services/databaseService.ts",
+        "services/geminiService.ts",
+        "vite.config.ts"
+      ],
+      "stats": {
+        "files": 20,
+        "insertions": 481,
+        "deletions": 301
+      }
+    },
     {
       "id": "2026-02-22T14:03:28.255Z-1c9055b",
       "date": "2026-02-22T14:03:28.255Z",
