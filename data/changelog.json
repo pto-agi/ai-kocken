@@ -1,6 +1,32 @@
 {
-  "last_commit": "bc4bd8d355f46e6731250bdb41c4517330a902ba",
+  "last_commit": "6bf7b74e525b3c727057cba7ac887e0d299b6ce2",
   "entries": [
+    {
+      "id": "2026-02-24T17:28:53.493Z-6bf7b74",
+      "date": "2026-02-24T17:28:53.493Z",
+      "range": "bc4bd8d355f46e6731250bdb41c4517330a902ba..6bf7b74e525b3c727057cba7ac887e0d299b6ce2",
+      "head": "6bf7b74e525b3c727057cba7ac887e0d299b6ce2",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "6bf7b74",
+          "subject": "Render markdown in support chat"
+        },
+        {
+          "hash": "8ad39e2",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "components/SupportChat.tsx",
+        "data/changelog.json"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 31,
+        "deletions": 2
+      }
+    },
     {
       "id": "2026-02-24T17:21:53.835Z-bc4bd8d",
       "date": "2026-02-24T17:21:53.836Z",
