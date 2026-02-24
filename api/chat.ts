@@ -153,10 +153,19 @@ export default async function handler(req: any, res: any) {
   } catch (error: any) {
     console.error('Chat stream: workflow error', {
       error: error?.message || String(error),
+      stack: error?.stack,
       duration_ms: Date.now() - startedAt,
       ...requestMeta,
     });
     setCors(res, origin);
+    if (process.env.CHAT_DEBUG === 'true') {
+      res.status(502).json({
+        error: 'Workflow run failed',
+        message: error?.message || String(error),
+        stack: error?.stack,
+      });
+      return;
+    }
     res.status(502).json({ error: 'Workflow run failed' });
   }
 }
