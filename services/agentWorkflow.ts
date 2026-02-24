@@ -270,7 +270,7 @@ function createPtoaiSupport(accessToken: string) {
   return new Agent({
     name: 'PTOAi Support',
     instructions: ptoaiSupportInstructions,
-    model: 'gpt-4.1-mini',
+    model: 'gpt-4o-mini',
     tools: [fileSearch, mcp, createMcp1(accessToken)],
     modelSettings: {
       temperature: 1,
