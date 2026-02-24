@@ -311,6 +311,7 @@ function toAgentItems(messages: UIMessage[]): AgentInputItem[] {
       const parts = extractTextParts(message);
       if (!parts.length) return null;
       const isAssistant = message.role === 'assistant';
+      if (message.role === 'system') return null;
       const role = isAssistant ? 'assistant' : 'user';
       const contentType = isAssistant ? 'output_text' : 'input_text';
       return {
@@ -349,6 +350,7 @@ export const runWorkflow = async (messages: UIMessage[], accessToken: string): P
     state.user_email = profileEmail;
     state.user_name = profileName;
 
+    const hasAssistant = messages.some((m) => m?.role === 'assistant' && extractTextParts(m).length);
     const conversationHistory: AgentInputItem[] = [
       profile
         ? {
@@ -357,6 +359,17 @@ export const runWorkflow = async (messages: UIMessage[], accessToken: string): P
               {
                 type: 'input_text',
                 text: `Användarprofil (hämtad via MCP): ${JSON.stringify(profile)}`,
+              },
+            ],
+          }
+        : null,
+      hasAssistant
+        ? {
+            role: 'system',
+            content: [
+              {
+                type: 'input_text',
+                text: 'Detta är inte första svaret i konversationen. Hälsa inte igen, fortsätt direkt med svaret.',
               },
             ],
           }
