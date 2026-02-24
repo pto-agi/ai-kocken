@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { useChat } from '@ai-sdk/react';
 import { useAuthStore } from '../store/authStore';
 
@@ -79,7 +80,9 @@ const SupportChat: React.FC = () => {
               : 'bg-white/80 text-[#3D3D3D] border border-[#E6E1D8]'
           }`}
         >
-          <p className="whitespace-pre-wrap">{content}</p>
+          <div className="prose prose-sm max-w-none text-inherit">
+            <ReactMarkdown>{content}</ReactMarkdown>
+          </div>
         </div>
       </div>
     );
