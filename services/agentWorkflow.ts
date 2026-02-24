@@ -243,7 +243,7 @@ Tillgängliga verktyg, processer och hur de ska hanteras.
 
 function createPtoaiSupport(accessToken: string) {
   return new Agent({
-    name: 'My PTO Support',
+    name: 'PTOAi Support',
     instructions: ptoaiSupportInstructions,
     model: 'gpt-4.1-mini',
     tools: [fileSearch, mcp, createMcp1(accessToken)],
