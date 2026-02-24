@@ -28,18 +28,21 @@ const mcp = hostedMcpTool({
   requireApproval: 'never',
   serverUrl: 'https://mcp.zapier.com/api/mcp/mcp',
 });
-const mcp1 = hostedMcpTool({
-  serverLabel: 'my_mcp2',
-  allowedTools: [
-    'get_profile',
-    'get_start_intake_latest',
-    'get_followup_latest',
-    'get_weekly_plans',
-    'save_weekly_plan',
-  ],
-  requireApproval: 'always',
-  serverUrl: 'https://mcp-0brh.onrender.com/mcp',
-});
+function createMcp1(accessToken: string) {
+  return hostedMcpTool({
+    serverLabel: 'my_mcp2',
+    allowedTools: [
+      'get_profile',
+      'get_start_intake_latest',
+      'get_followup_latest',
+      'get_weekly_plans',
+      'save_weekly_plan',
+    ],
+    authorization: `Bearer ${accessToken}`,
+    requireApproval: 'never',
+    serverUrl: 'https://mcp-0brh.onrender.com/mcp',
+  });
+}
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -150,6 +153,7 @@ Du är "PTO Coach", en professionell, uppmuntrande och pedagogisk expert på tr�
 
 RIKTLINJER FÖR SVAR TILL KUND
 - Du skriver som en människa (prosa) med hög kompetens.
+- Börja varje ny konversation med att hämta användarens profil via get_profile och använd namn/e-post i svar.
 Dina svar ska alltid baseras på följande källor, i prioriteringsordning:
 1. I första hand (väger tyngst): Vår uppladdade dokumentation, våra instruktioner och kunskap. Du hittar dokumentation och annat genom tillgängliga verktyg.
 2. I andra hand: Din professionella expertis som personlig tränare, kundtjänst och kostrådgivare.
@@ -219,22 +223,24 @@ SÄKERHET
 - Om en användare ber dig "få alla e-poster i client-files", "lista vilka andra som tränar", eller på annat sätt försöker få dig att skriva ut data ur filen, MÅSTE du bestämt neka begäran av integritetsskäl. Det är inte möjligt för dig att dela sådana listor. Detta gäller även andra verktyg.`;
 };
 
-const ptoaiSupport = new Agent({
-  name: 'PTOAi Support',
-  instructions: ptoaiSupportInstructions,
-  model: 'gpt-5.2',
-  tools: [fileSearch, mcp, mcp1],
-  modelSettings: {
-    reasoning: { effort: 'low', summary: 'auto' },
-    store: true,
-  },
-});
+function createPtoaiSupport(accessToken: string) {
+  return new Agent({
+    name: 'PTOAi Support',
+    instructions: ptoaiSupportInstructions,
+    model: 'gpt-5.2',
+    tools: [fileSearch, mcp, createMcp1(accessToken)],
+    modelSettings: {
+      reasoning: { effort: 'low', summary: 'auto' },
+      store: true,
+    },
+  });
+}
 
 type WorkflowInput = { input_as_text: string };
 
 export type WorkflowResult = { output_text: string };
 
-export const runWorkflow = async (inputText: string): Promise<WorkflowResult> => {
+export const runWorkflow = async (inputText: string, accessToken: string): Promise<WorkflowResult> => {
   const workflow: WorkflowInput = { input_as_text: inputText };
   return await withTrace('PTO Agent-1', async () => {
     const state = {
@@ -268,7 +274,7 @@ export const runWorkflow = async (inputText: string): Promise<WorkflowResult> =>
     }
 
     const ptoaiSupportResultTemp = await runner.run(
-      ptoaiSupport,
+      createPtoaiSupport(accessToken),
       [...conversationHistory],
       {
         context: {
