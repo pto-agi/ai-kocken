@@ -1,21 +1,4 @@
-const FETCH_TIMEOUT_MS = 15_000;
-const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'https://mcp-0brh.onrender.com/mcp';
-const MCP_SERVER_LABEL = process.env.MCP_SERVER_LABEL || 'supabase_mcp';
-const OPENAI_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4.1-mini';
-const MCP_ALLOWED_TOOLS = [
-  'get_profile',
-  'get_start_intake_latest',
-  'get_followup_latest',
-  'get_weekly_plans',
-  'save_weekly_plan',
-];
-const SYSTEM_INSTRUCTIONS = [
-  'Du är en supportagent i vår app.',
-  'Du har tillgång till användarens data via MCP-verktyg.',
-  'När användaren frågar efter profil- eller kontouppgifter (t.ex. e-post, namn, medlemskap),',
-  'ska du använda verktygen (t.ex. get_profile) för att hämta uppgifterna och svara direkt.',
-  'Fråga inte om extra tillstånd om du kan hämta data via MCP.',
-].join(' ');
+import { runWorkflow } from '../services/agentWorkflow';
 
 type UIMessage = {
   id?: string;
@@ -81,17 +64,14 @@ function extractTextParts(message: UIMessage): string[] {
   return [];
 }
 
-function buildOpenAIInput(messages: UIMessage[]) {
-  return messages
-    .map((message) => {
-      const parts = extractTextParts(message);
-      if (!parts.length) return null;
-      return {
-        role: message.role || 'user',
-        content: parts.join('\n'),
-      };
-    })
-    .filter(Boolean);
+function getLatestUserText(messages: UIMessage[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (message?.role !== 'user') continue;
+    const parts = extractTextParts(message);
+    if (parts.length) return parts.join('\n');
+  }
+  return null;
 }
 
 export default async function handler(req: any, res: any) {
@@ -134,7 +114,6 @@ export default async function handler(req: any, res: any) {
     origin,
     message_count: messages.length,
     hasAccessToken: Boolean(accessToken),
-    model: OPENAI_MODEL,
   };
 
   if (!accessToken) {
@@ -144,165 +123,40 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const input = buildOpenAIInput(messages);
-  if (!input.length) {
+  const inputText = getLatestUserText(messages);
+  if (!inputText) {
     setCors(res, origin);
     res.status(400).json({ error: 'No valid messages to send' });
     return;
   }
 
-  const tools = [
-    {
-      type: 'mcp',
-      server_label: MCP_SERVER_LABEL,
-      server_url: MCP_SERVER_URL,
-      allowed_tools: MCP_ALLOWED_TOOLS,
-      headers: { Authorization: `Bearer ${accessToken}` },
-      require_approval: 'never',
-    },
-  ];
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   const startedAt = Date.now();
 
-  req.on('close', () => controller.abort());
-
-  let upstream: Response;
   try {
-    console.info('Chat stream: sending request', {
+    console.info('Chat stream: running workflow', {
       ...requestMeta,
-      mcp_server_label: MCP_SERVER_LABEL,
-      mcp_server_url: MCP_SERVER_URL,
+      workflow_id: 'wf_698f3221c2a481909c391387fd6efe8e0a3f823293ebb086',
     });
+    const result = await runWorkflow(inputText);
+    const outputText =
+      typeof result?.output_text === 'string' && result.output_text.trim().length > 0
+        ? result.output_text
+        : JSON.stringify(result ?? {});
 
-    upstream = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        instructions: SYSTEM_INSTRUCTIONS,
-        input,
-        tools,
-        tool_choice: 'auto',
-        stream: true,
-      }),
-      signal: controller.signal,
-    });
-  } catch (error: any) {
-    clearTimeout(timeout);
-    const isAbort = error instanceof Error && error.name === 'AbortError';
-    console.error('Chat stream: upstream request failed', {
-      error: error?.message || String(error),
-      isAbort,
-      duration_ms: Date.now() - startedAt,
-      ...requestMeta,
-    });
     setCors(res, origin);
-    res.status(isAbort ? 504 : 502).json({ error: isAbort ? 'Upstream timeout' : 'Upstream request failed' });
-    return;
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  if (!upstream.ok || !upstream.body) {
-    const errorText = await upstream.text().catch(() => '');
-    const requestId = upstream.headers.get('x-request-id') || undefined;
-    console.error('Chat stream: upstream error', {
-      status: upstream.status,
-      requestId,
-      error: errorText || 'Upstream error',
-      duration_ms: Date.now() - startedAt,
-      ...requestMeta,
-    });
-    setCors(res, origin);
-    res.status(upstream.status).json({
-      error: errorText || 'Upstream error',
-      request_id: requestId,
-    });
-    return;
-  }
-
-  const requestId = upstream.headers.get('x-request-id') || undefined;
-  const headers = {
-    'Content-Type': 'text/plain; charset=utf-8',
-    'Cache-Control': 'no-cache, no-transform',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-  } as Record<string, string>;
-
-  setCors(res, origin);
-  Object.entries(headers).forEach(([key, value]) => res.setHeader(key, value));
-  res.flushHeaders?.();
-
-  const reader = upstream.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      let boundary = buffer.indexOf('\n\n');
-      while (boundary !== -1) {
-        const chunk = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        const dataLines = chunk
-          .split('\n')
-          .map((line) => line.trim())
-          .filter((line) => line.startsWith('data:'))
-          .map((line) => line.replace(/^data:\s?/, ''));
-
-        if (!dataLines.length) {
-          boundary = buffer.indexOf('\n\n');
-          continue;
-        }
-
-        const data = dataLines.join('\n');
-        if (data === '[DONE]') {
-          boundary = buffer.indexOf('\n\n');
-          continue;
-        }
-
-        let event: any;
-        try {
-          event = JSON.parse(data);
-        } catch {
-          console.warn('Chat stream: failed to parse upstream event', { data });
-          boundary = buffer.indexOf('\n\n');
-          continue;
-        }
-
-        if (event?.type === 'response.output_text.delta' && typeof event.delta === 'string') {
-          res.write(event.delta);
-        }
-
-        if (event?.type === 'response.failed') {
-          console.error('Chat stream: response failed', {
-            error: event?.error?.message || event?.error || 'Unknown error',
-          });
-        }
-
-        boundary = buffer.indexOf('\n\n');
-      }
-    }
-  } catch (error: any) {
-    console.error('Chat stream: streaming error', {
-      error: error?.message || String(error),
-      duration_ms: Date.now() - startedAt,
-      ...requestMeta,
-    });
-  } finally {
-    res.end();
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.status(200).send(outputText);
     console.info('Chat stream: completed', {
-      requestId,
       duration_ms: Date.now() - startedAt,
       ...requestMeta,
     });
+  } catch (error: any) {
+    console.error('Chat stream: workflow error', {
+      error: error?.message || String(error),
+      duration_ms: Date.now() - startedAt,
+      ...requestMeta,
+    });
+    setCors(res, origin);
+    res.status(502).json({ error: 'Workflow run failed' });
   }
 }
