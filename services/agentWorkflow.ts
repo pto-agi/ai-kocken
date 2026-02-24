@@ -303,10 +303,12 @@ function toAgentItems(messages: UIMessage[]): AgentInputItem[] {
     .map((message) => {
       const parts = extractTextParts(message);
       if (!parts.length) return null;
-      const role = message.role === 'assistant' ? 'assistant' : 'user';
+      const isAssistant = message.role === 'assistant';
+      const role = isAssistant ? 'assistant' : 'user';
+      const contentType = isAssistant ? 'output_text' : 'input_text';
       return {
         role,
-        content: [{ type: 'input_text', text: parts.join('\n') }],
+        content: [{ type: contentType, text: parts.join('\n') }],
       } as AgentInputItem;
     })
     .filter(Boolean) as AgentInputItem[];
