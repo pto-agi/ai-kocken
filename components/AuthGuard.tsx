@@ -11,7 +11,7 @@ interface AuthGuardProps {
 
 export const AuthGuard: React.FC<AuthGuardProps> = ({ 
   children, 
-  requirePremium = false,
+  requirePremium: _requirePremium = false,
   requireStaff = false
 }) => {
   const { session, profile, isLoading } = useAuthStore();
@@ -40,17 +40,6 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     return <Navigate to="/intranet" replace />;
   }
 
-  // 3. Om inloggad men saknar Premium (på en sida som kräver det)
-  if (requirePremium && profile?.membership_level !== 'premium') {
-    return (
-      <PremiumAccess 
-        mode="locked"
-        title="Premiuminnehåll" 
-        description="Denna funktion är exklusiv för våra Premium-medlemmar. Uppgradera för att få tillgång."
-      />
-    );
-  }
-
-  // 4. Allt grönt -> Visa innehållet
+  // 3. Allt grönt -> Visa innehållet
   return <>{children}</>;
 };

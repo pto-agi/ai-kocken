@@ -70,7 +70,7 @@ async function fetchProfileFromMcp(accessToken: string) {
       CallToolResultSchema,
     );
     const textItem = result?.content?.find((item: any) => item?.type === 'text');
-    if (!textItem?.text) return null;
+    if (!textItem || textItem.type !== 'text' || typeof textItem.text !== 'string') return null;
     const parsed = JSON.parse(textItem.text);
     return parsed?.profile ?? null;
   } catch (error) {
@@ -265,10 +265,12 @@ function createPtoaiSupport(accessToken: string) {
   return new Agent({
     name: 'PTOAi Support',
     instructions: ptoaiSupportInstructions,
-    model: 'gpt-5.2-chat-latest',
+    model: 'gpt-4.1-mini',
     tools: [fileSearch, mcp, createMcp1(accessToken)],
     modelSettings: {
-      reasoning: { summary: 'auto' },
+      temperature: 1,
+      topP: 1,
+      maxTokens: 2048,
       store: true,
     },
   });
