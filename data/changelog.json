@@ -1,6 +1,34 @@
 {
-  "last_commit": "f18fdf71d513d294f6c9b463c2985656e1d61f93",
+  "last_commit": "08b69dbe56fad24aafd249c47fda1a4da4765bc7",
   "entries": [
+    {
+      "id": "2026-02-24T16:36:39.696Z-08b69db",
+      "date": "2026-02-24T16:36:39.696Z",
+      "range": "f18fdf71d513d294f6c9b463c2985656e1d61f93..08b69dbe56fad24aafd249c47fda1a4da4765bc7",
+      "head": "08b69dbe56fad24aafd249c47fda1a4da4765bc7",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "08b69db",
+          "subject": "Allow npm install with legacy peer deps"
+        },
+        {
+          "hash": "505dc2b",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        ".npmrc",
+        "data/changelog.json",
+        "package-lock.json",
+        "package.json"
+      ],
+      "stats": {
+        "files": 4,
+        "insertions": 38,
+        "deletions": 5
+      }
+    },
     {
       "id": "2026-02-24T16:34:39.377Z-f18fdf7",
       "date": "2026-02-24T16:34:39.377Z",
