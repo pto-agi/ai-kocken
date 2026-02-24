@@ -50,7 +50,7 @@ const Navbar: React.FC = () => {
     : [
         { path: '/', label: 'HEM', icon: Home },
         { path: '/recept', label: 'RECEPT', icon: ChefHat },
-        { path: '/support', label: 'CHATT', icon: LifeBuoy },
+        { path: '/support', label: 'SUPPORT', icon: LifeBuoy, aiBadge: true },
         { path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ClipboardCheck },
         { path: '/refill', label: 'SHOP', icon: ShoppingBasket },
       ];
@@ -89,6 +89,12 @@ const Navbar: React.FC = () => {
                   }`}>
                     {link.label}
                   </span>
+                  {'aiBadge' in link && link.aiBadge && (
+                    <span className="relative ml-1 flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#a0c81d]/60" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#a0c81d]" />
+                    </span>
+                  )}
                 </div>
                 <span className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#a0c81d] transition-all duration-300 ${
                   isActive(link.path) ? 'opacity-100 scale-100 shadow-[0_0_8px_#a0c81d]' : 'opacity-0 scale-0'
@@ -189,6 +195,12 @@ const Navbar: React.FC = () => {
                 <span className={`font-heading text-sm font-semibold tracking-wide ${isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'}`}>
                   {link.label}
                 </span>
+                {'aiBadge' in link && link.aiBadge && (
+                  <span className="relative ml-1 flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#a0c81d]/60" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#a0c81d]" />
+                  </span>
+                )}
               </div>
               <ChevronRight className={`w-3.5 h-3.5 text-white/60 transition-transform group-hover:translate-x-1 ${isActive(link.path) ? 'text-[#a0c81d]' : ''}`} />
             </Link>

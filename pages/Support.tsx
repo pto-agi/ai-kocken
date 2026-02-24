@@ -19,7 +19,9 @@ export const Support: React.FC = () => {
         </div>
       </div>
       <div className="flex-1 min-h-0 w-full">
-        <SupportChat />
+        <div className="max-w-5xl mx-auto px-4 md:px-6">
+          <SupportChat />
+        </div>
       </div>
     </div>
   );
