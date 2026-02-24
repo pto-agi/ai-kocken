@@ -17,6 +17,7 @@ type UppfoljningFormState = {
   homeEquipment: string[];
   homeEquipmentOther: string;
   sessionsPerWeek: string;
+  sessionsPerWeekOther: string;
 };
 
 const goalOptions = [
@@ -51,6 +52,16 @@ const homeEquipmentOptions = [
   'Roddmaskin'
 ];
 
+const sessionsOptions = [
+  { value: '1', label: '1 pass per vecka' },
+  { value: '2', label: '2 pass per vecka' },
+  { value: '3', label: '3 pass per vecka' },
+  { value: '4', label: '4 pass per vecka' },
+  { value: '5', label: '5 pass per vecka' },
+  { value: 'none', label: 'Ingen träning' },
+  { value: 'other', label: 'Annan' }
+];
+
 const emptyState: UppfoljningFormState = {
   firstName: '',
   lastName: '',
@@ -63,7 +74,8 @@ const emptyState: UppfoljningFormState = {
   trainingPlacesOther: '',
   homeEquipment: [],
   homeEquipmentOther: '',
-  sessionsPerWeek: ''
+  sessionsPerWeek: '',
+  sessionsPerWeekOther: ''
 };
 
 const inputClass = 'w-full p-3 rounded-xl bg-[#F6F1E7]/70 border border-[#E6E1D8] text-[#3D3D3D] placeholder:text-[#8A8177] focus:border-[#a0c81d] focus:ring-0 outline-none transition';
@@ -175,6 +187,17 @@ const Uppfoljning: React.FC = () => {
     if (!form.quickKeepPlan && form.trainingPlaces.length === 0) {
       return 'Välj var du vill/kan träna.';
     }
+    if (!form.sessionsPerWeek) {
+      return 'Välj antal pass per vecka.';
+    }
+    if (form.sessionsPerWeek === 'other') {
+      if (!form.sessionsPerWeekOther.trim()) {
+        return 'Ange hur många pass per vecka du vill träna.';
+      }
+      if (parseIntSafe(form.sessionsPerWeekOther) === null) {
+        return 'Ange ett giltigt antal pass per vecka.';
+      }
+    }
     return null;
   };
 
@@ -203,6 +226,12 @@ const Uppfoljning: React.FC = () => {
 
     setStatus('submitting');
 
+    const sessionsPerWeekValue = form.sessionsPerWeek === 'other'
+      ? parseIntSafe(form.sessionsPerWeekOther)
+      : form.sessionsPerWeek === 'none'
+        ? 0
+        : parseIntSafe(form.sessionsPerWeek);
+
     const payload = {
       user_id: session.user.id,
       first_name: form.firstName.trim(),
@@ -216,7 +245,7 @@ const Uppfoljning: React.FC = () => {
       training_places_other: form.trainingPlaces.includes('Annat') ? (form.trainingPlacesOther.trim() || null) : null,
       home_equipment: form.trainingPlaces.includes('Hemma') ? form.homeEquipment : [],
       home_equipment_other: form.trainingPlaces.includes('Hemma') ? (form.homeEquipmentOther.trim() || null) : null,
-      sessions_per_week: parseIntSafe(form.sessionsPerWeek)
+      sessions_per_week: sessionsPerWeekValue
     };
 
     const { error } = await supabase
@@ -265,14 +294,14 @@ const Uppfoljning: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-32 pt-24 px-4 overflow-x-hidden">
+    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-32 pt-16 md:pt-24 px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px] pointer-events-none"></div>
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px]"></div>
       </div>
 
       <div className="max-w-5xl mx-auto relative z-10 animate-fade-in">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-10">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-6 md:mb-10">
           <div>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-11 h-11 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
@@ -301,7 +330,7 @@ const Uppfoljning: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Förnamn<span className="text-[#a0c81d]">*</span></label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Förnamn<span className="text-[#D64545]">*</span></label>
                   <input
                     type="text"
                     required
@@ -312,7 +341,7 @@ const Uppfoljning: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Efternamn<span className="text-[#a0c81d]">*</span></label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Efternamn<span className="text-[#D64545]">*</span></label>
                   <input
                     type="text"
                     required
@@ -326,7 +355,7 @@ const Uppfoljning: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">E-post<span className="text-[#a0c81d]">*</span></label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">E-post<span className="text-[#D64545]">*</span></label>
                   <input
                     type="email"
                     required
@@ -349,7 +378,7 @@ const Uppfoljning: React.FC = () => {
                   </label>
                   {form.quickKeepPlan && (
                     <p className="text-xs text-[#8A8177] font-medium">
-                      Då räcker det att du skickar in formuläret. Övriga fält är valfria.
+                      Då räcker det att du skickar in formuläret. Övriga fält är valfria, förutom antal pass per vecka.
                     </p>
                   )}
                 </div>
@@ -364,7 +393,7 @@ const Uppfoljning: React.FC = () => {
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">
                   Summering & Feedback inför kommande planering
-                  {!form.quickKeepPlan && <span className="text-[#a0c81d]">*</span>}
+                  {!form.quickKeepPlan && <span className="text-[#D64545]">*</span>}
                 </label>
                 <textarea
                   value={form.summaryFeedback}
@@ -433,7 +462,7 @@ const Uppfoljning: React.FC = () => {
 
               <div className="space-y-4">
                 <p className="text-sm text-[#6B6158]">
-                  Jag vill/kan träna{!form.quickKeepPlan && <span className="text-[#a0c81d]">*</span>}
+                  Jag vill/kan träna{!form.quickKeepPlan && <span className="text-[#D64545]">*</span>}
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {trainingPlaceOptions.map((option) => (
@@ -494,17 +523,33 @@ const Uppfoljning: React.FC = () => {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Antal pass per vecka</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={14}
+              <div className="space-y-3">
+                <label className="text-sm text-[#6B6158]">
+                  Hur många pass per vecka vill du träna?<span className="text-[#D64545]">*</span>
+                </label>
+                <select
                   value={form.sessionsPerWeek}
                   onChange={(e) => setForm((prev) => ({ ...prev, sessionsPerWeek: e.target.value }))}
                   className={inputClass}
-                  placeholder="Ange antalet träningspass per vecka"
-                />
+                  required
+                >
+                  <option value="">Välj antal pass per vecka</option>
+                  {sessionsOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {form.sessionsPerWeek === 'other' && (
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.sessionsPerWeekOther}
+                    onChange={(e) => setForm((prev) => ({ ...prev, sessionsPerWeekOther: e.target.value }))}
+                    className={inputClass}
+                    placeholder="Ange antal pass per vecka"
+                  />
+                )}
               </div>
             </section>
 

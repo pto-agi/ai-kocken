@@ -3,10 +3,10 @@ import { useChat } from '@ai-sdk/react';
 import { useAuthStore } from '../store/authStore';
 
 const quickPrompts = [
-  { label: 'Medlemskap', prompt: 'Jag behöver hjälp med mitt medlemskap.' },
-  { label: 'Inloggning', prompt: 'Jag kommer inte in på mitt konto.' },
-  { label: 'Veckomeny', prompt: 'Hjälp mig med min veckomeny.' },
-  { label: 'Beställning', prompt: 'Jag har frågor om en beställning.' },
+  { label: 'Byta övning', prompt: 'Jag vill ha hjälp att byta ut en övning.' },
+  { label: 'Utgångsdatum', prompt: 'Jag vill veta mitt utgångsdatum.' },
+  { label: 'Pausa medlemskap', prompt: 'Jag vill pausa mitt medlemskap.' },
+  { label: 'Förläng medlemskap', prompt: 'Jag vill förlänga mitt medlemskap.' },
 ];
 
 const SupportChat: React.FC = () => {

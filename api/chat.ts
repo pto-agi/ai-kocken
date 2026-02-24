@@ -272,7 +272,7 @@ export default async function handler(req: any, res: any) {
         let event: any;
         try {
           event = JSON.parse(data);
-        } catch (error) {
+        } catch {
           console.warn('Chat stream: failed to parse upstream event', { data });
           boundary = buffer.indexOf('\n\n');
           continue;

@@ -294,7 +294,7 @@ export const databaseService = {
     return !error;
   },
 
-  async searchFoodDatabase(query: string, page: number): Promise<MealItem[]> {
+  async searchFoodDatabase(_query: string, _page: number): Promise<MealItem[]> {
     // Placeholder: In a real app, this would query a dedicated table or external API
     // We mock empty for now as fallback
     return []; 

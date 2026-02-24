@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ClipboardList, Loader2, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronDown, ClipboardList, Loader2, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
@@ -563,28 +563,26 @@ const Start: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-sm text-[#6B6158]">Hur många pass per vecka vill du träna?<span className="text-[#a0c81d]">*</span></p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="text-sm text-[#6B6158]">
+                    Hur många pass per vecka vill du träna?<span className="text-[#a0c81d]">*</span>
+                  </label>
+                  <select
+                    value={form.sessionsPerWeek}
+                    onChange={(e) => setForm((prev) => ({ ...prev, sessionsPerWeek: e.target.value }))}
+                    className={inputClass}
+                    required
+                  >
+                    <option value="">Välj antal pass per vecka</option>
                     {sessionsOptions.map((option) => (
-                      <label
-                        key={option.value}
-                        className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.sessionsPerWeek === option.value ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'}`}
-                      >
-                        <input
-                          type="radio"
-                          name="sessionsPerWeek"
-                          value={option.value}
-                          checked={form.sessionsPerWeek === option.value}
-                          onChange={() => setForm((prev) => ({ ...prev, sessionsPerWeek: option.value }))}
-                          className="accent-[#a0c81d]"
-                        />
-                        <span className="text-sm font-semibold text-[#3D3D3D]">{option.label}</span>
-                      </label>
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
                     ))}
-                  </div>
+                  </select>
                   {form.sessionsPerWeek === 'other' && (
                     <input
-                      type="text"
+                      type="number"
+                      min={0}
                       value={form.sessionsPerWeekOther}
                       onChange={(e) => setForm((prev) => ({ ...prev, sessionsPerWeekOther: e.target.value }))}
                       className={inputClass}
@@ -603,9 +601,13 @@ const Start: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setForm((prev) => ({ ...prev, showMeasurements: !prev.showMeasurements }))}
-                className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D]"
+                className="w-full md:w-auto inline-flex items-center justify-between gap-2 text-xs font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D]"
               >
-                <Sparkles className="w-4 h-4" /> {form.showMeasurements ? 'Dölj kroppsmått' : 'Fyll i kroppsmått'}
+                <span className="inline-flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  {form.showMeasurements ? 'Dölj kroppsmått' : 'Fyll i kroppsmått'}
+                </span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${form.showMeasurements ? 'rotate-180' : ''}`} />
               </button>
 
               {form.showMeasurements && (
@@ -730,12 +732,6 @@ const Start: React.FC = () => {
                   'Skicka in startformulär'
                 )}
               </button>
-              <Link
-                to="/uppfoljning"
-                className="text-xs font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D]"
-              >
-                Gå till uppföljning
-              </Link>
             </div>
           </form>
         </div>

@@ -23,8 +23,9 @@ import { ForlangningTack } from './pages/ForlangningTack';
 import { Changelog } from './pages/Changelog';
 import Refill from './pages/Refill';
 import { RefillTack } from './pages/RefillTack';
+import { AuthRequired } from './pages/AuthRequired';
+import { Premium } from './pages/Premium';
 import AuthScreen from './components/AuthScreen';
-import PremiumAccess from './components/PremiumAccess';
 
 const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/': {
@@ -86,6 +87,10 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/auth': {
     title: 'Logga in',
     description: 'Logga in eller skapa konto för att använda PTO Ai. Spara planer, följ din utveckling, hantera medlemskap och få verktygen direkt. Säker inloggning med e-post.'
+  },
+  '/auth-required': {
+    title: 'Inloggning krävs',
+    description: 'Denna sida kräver inloggning. Logga in eller skapa konto för att fortsätta.'
   },
   '/intranet': {
     title: 'Intranät',
@@ -247,15 +252,27 @@ function App() {
 
             <Route
               path="/forlangning"
-              element={<Forlangning />}
+              element={
+                <AuthGuard requirePremium={false}>
+                  <Forlangning />
+                </AuthGuard>
+              }
             />
             <Route
               path="/tack-forlangning"
-              element={<ForlangningTack />}
+              element={
+                <AuthGuard requirePremium={false}>
+                  <ForlangningTack />
+                </AuthGuard>
+              }
             />
             <Route
               path="/tack-forlangning-friskvard"
-              element={<ForlangningFriskvardTack />}
+              element={
+                <AuthGuard requirePremium={false}>
+                  <ForlangningFriskvardTack />
+                </AuthGuard>
+              }
             />
 
             <Route
@@ -286,12 +303,24 @@ function App() {
 
             <Route
               path="/changelog"
-              element={<Changelog />}
+              element={
+                <AuthGuard requirePremium={false}>
+                  <Changelog />
+                </AuthGuard>
+              }
             />
 
             <Route path="/auth" element={<AuthScreen />} />
+            <Route path="/auth-required" element={<AuthRequired />} />
             
-            <Route path="/premium" element={<PageContainer><PremiumAccess mode="logged_out" /></PageContainer>} />
+            <Route
+              path="/premium"
+              element={
+                <AuthGuard requirePremium={false}>
+                  <PageContainer><Premium /></PageContainer>
+                </AuthGuard>
+              }
+            />
             
           </Routes>
         </main>

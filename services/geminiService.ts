@@ -239,7 +239,7 @@ export const generateWeeklyPlan = async (request: WeeklyPlanRequest): Promise<an
   return normalized;
 };
 
-export const generateFullWeeklyDetails = async (planOverview: any[], targets: any): Promise<any[]> => {
+export const generateFullWeeklyDetails = async (planOverview: any[], _targets: any): Promise<any[]> => {
   const overview = Array.isArray(planOverview) ? planOverview : [];
   const overviewNormalized = overview.map((d: any, idx: number) => normalizeWeeklyDay(d, idx));
 

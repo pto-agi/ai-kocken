@@ -13,7 +13,6 @@ import {
   Settings,
   ShieldCheck,
   Crown,
-  ArrowRight,
   LifeBuoy,
   ClipboardCheck,
   ShoppingBasket
@@ -27,7 +26,6 @@ const Navbar: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
-  const isPremium = profile?.membership_level === 'premium';
   const isStaff = profile?.is_staff === true;
 
   useEffect(() => {
@@ -54,9 +52,9 @@ const Navbar: React.FC = () => {
         { path: '/', label: 'HEM', icon: Home },
         { path: '/recept', label: 'RECEPT', icon: ChefHat },
         { path: '/support', label: 'CHATT', icon: LifeBuoy },
-        ...(session ? [{ path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ClipboardCheck }] : []),
-        ...(session ? [{ path: '/forlangning', label: 'MEDLEMSKAP', icon: Crown, badge: 'Erbjudande' }] : []),
-        ...(session ? [{ path: '/refill', label: 'SHOP', icon: ShoppingBasket }] : []),
+        { path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ClipboardCheck },
+        { path: '/forlangning', label: 'FÖRLÄNGNING', icon: Crown, badge: 'Erbjudande' },
+        { path: '/refill', label: 'SHOP', icon: ShoppingBasket },
       ];
 
   return (
@@ -107,17 +105,39 @@ const Navbar: React.FC = () => {
             ))}
             
             {session ? (
-              <button 
-                onClick={handleSignOut} 
-                className="ml-2 p-2 text-white/70 hover:text-red-400 transition-colors"
-                title="Logga ut"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
+              <div className="ml-2 flex items-center gap-2">
+                {!isStaff && (
+                  <Link
+                    to="/profile"
+                    className="p-2 text-white/70 hover:text-[#a0c81d] transition-colors"
+                    title="Mina sidor"
+                  >
+                    <User className="w-5 h-5" />
+                  </Link>
+                )}
+                <button 
+                  onClick={handleSignOut} 
+                  className="p-2 text-white/70 hover:text-red-400 transition-colors"
+                  title="Logga ut"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
             ) : (
-                <Link to="/auth" className="ml-2 px-4 py-2 bg-transparent border border-white/70 rounded-lg text-xs font-bold text-white uppercase tracking-wide hover:text-[#a0c81d] hover:border-[#a0c81d] transition-all">
-                    Logga in
+              <div className="ml-2 flex items-center gap-2">
+                {!isStaff && (
+                  <Link
+                    to="/profile"
+                    className="p-2 text-white/70 hover:text-[#a0c81d] transition-colors"
+                    title="Mina sidor"
+                  >
+                    <User className="w-5 h-5" />
+                  </Link>
+                )}
+                <Link to="/auth" className="px-4 py-2 bg-transparent border border-white/70 rounded-lg text-xs font-bold text-white uppercase tracking-wide hover:text-[#a0c81d] hover:border-[#a0c81d] transition-all">
+                  Logga in
                 </Link>
+              </div>
             )}
           </div>
 
@@ -209,10 +229,20 @@ const Navbar: React.FC = () => {
                  </button>
                </>
              ) : (
-               <Link to="/auth" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
-                  <User className="w-4 h-4" />
-                  <span className="font-medium text-sm">Logga in</span>
-               </Link>
+               <>
+                 <Link to="/profile" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
+                    <User className="w-4 h-4" />
+                    <span className="font-medium text-sm">Mina sidor</span>
+                 </Link>
+                 <Link to="/profile?tab=settings" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
+                    <Settings className="w-4 h-4" />
+                    <span className="font-medium text-sm">Inställningar</span>
+                 </Link>
+                 <Link to="/auth" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
+                    <User className="w-4 h-4" />
+                    <span className="font-medium text-sm">Logga in</span>
+                 </Link>
+               </>
              )}
           </div>
         </div>

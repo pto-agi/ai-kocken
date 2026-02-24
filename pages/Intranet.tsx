@@ -134,7 +134,6 @@ const getNextWorkday = (date: Date) => {
 };
 
 const formatDateInput = (date: Date) => date.toISOString().slice(0, 10);
-const formatTimeInput = (date: Date) => date.toTimeString().slice(0, 5);
 
 const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const;
 
@@ -222,7 +221,6 @@ const Intranet: React.FC = () => {
     return new Date(`${reportForm.date}T00:00:00`);
   }, [reportForm.date]);
 
-  const nextWorkday = useMemo(() => getNextWorkday(selectedDate), [selectedDate]);
   const [agendaTemplates, setAgendaTemplates] = useState<AgendaTemplate[]>([]);
   const [agendaStatus, setAgendaStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [agendaError, setAgendaError] = useState<string | null>(null);
@@ -349,7 +347,7 @@ const Intranet: React.FC = () => {
         if (!active) return;
         setAgendaTemplates(data || []);
         setAgendaStatus('idle');
-      } catch (err) {
+      } catch {
         if (!active) return;
         setAgendaStatus('error');
         setAgendaError('Kunde inte hämta basuppgifter.');
@@ -389,7 +387,7 @@ const Intranet: React.FC = () => {
       try {
         const stored = JSON.parse(localStorage.getItem(`staff-agenda-completed-${dateKey}`) || '[]');
         setAgendaCompletionByDate((prev) => ({ ...prev, [dateKey]: stored }));
-      } catch (err) {
+      } catch {
         setAgendaCompletionByDate((prev) => ({ ...prev, [dateKey]: [] }));
       }
     };
@@ -664,23 +662,6 @@ const Intranet: React.FC = () => {
     }
 
     setUpdatingId(null);
-  };
-
-  const handleStartPlanning = () => {
-    if (planningStartedAt) return;
-    setPlanningStartedAt(new Date().toISOString());
-  };
-
-  const handleStopPlanning = () => {
-    if (!planningStartedAt || planningEndedAt) return;
-    setPlanningEndedAt(new Date().toISOString());
-  };
-
-  const handleStartShift = () => {
-    if (shiftStartedAt) return;
-    const now = new Date();
-    setShiftStartedAt(now.toISOString());
-    setReportForm((prev) => ({ ...prev, startTime: formatTimeInput(now) }));
   };
 
   const handleReportSubmit = async (event: React.FormEvent) => {

@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles, Loader2, CalendarDays, Printer, Coffee, Sun, Moon, X,
-  Save, ArrowRight, Brain, ChefHat, Settings2, AlertTriangle, Minus,
+  Save, Brain, ChefHat, Settings2, AlertTriangle, Minus,
   Plus, Leaf, Beef, Fish, Check, Target, ShoppingBasket,
-  Users, RefreshCw, List, CheckCircle2, Flame, PieChart, ChevronRight,
-  ArrowLeft, FileDown, Utensils, Info
+  RefreshCw, CheckCircle2, Flame, PieChart, ChevronRight,
+  ArrowLeft, Utensils, Info
 } from 'lucide-react';
 import { generateWeeklyPlan, generateFullRecipe, swapMeal, WeeklyPlanRequest, generateFullWeeklyDetails } from '../services/geminiService';
 import { databaseService } from '../services/databaseService';
@@ -82,19 +82,19 @@ const macroLine = (meal: any) => {
 
 // Custom Markdown Components for consistent styling
 const MarkdownComponents = {
-  h1: ({node, ...props}: any) => <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D] mb-6 mt-2 font-heading" {...props} />,
-  h2: ({node, ...props}: any) => <h2 className="text-lg md:text-xl font-bold text-[#a0c81d] mb-4 mt-8 border-b border-[#E6E1D8] pb-2 flex items-center gap-2 uppercase tracking-wide" {...props} />, 
-  p: ({node, ...props}: any) => <p className="text-[#6B6158] leading-relaxed mb-4 text-sm md:text-base font-medium" {...props} />,
-  ul: ({node, ...props}: any) => <ul className="space-y-3 mb-6 bg-[#ffffff]/70 p-6 rounded-2xl border border-[#E6E1D8]" {...props} />,
-  ol: ({node, ...props}: any) => <ol className="space-y-4 mb-6 list-decimal pl-5 text-[#6B6158]" {...props} />,
-  li: ({node, ...props}: any) => (
+  h1: ({ node: _node, ...props }: any) => <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D] mb-6 mt-2 font-heading" {...props} />,
+  h2: ({ node: _node, ...props }: any) => <h2 className="text-lg md:text-xl font-bold text-[#a0c81d] mb-4 mt-8 border-b border-[#E6E1D8] pb-2 flex items-center gap-2 uppercase tracking-wide" {...props} />, 
+  p: ({ node: _node, ...props }: any) => <p className="text-[#6B6158] leading-relaxed mb-4 text-sm md:text-base font-medium" {...props} />,
+  ul: ({ node: _node, ...props }: any) => <ul className="space-y-3 mb-6 bg-[#ffffff]/70 p-6 rounded-2xl border border-[#E6E1D8]" {...props} />,
+  ol: ({ node: _node, ...props }: any) => <ol className="space-y-4 mb-6 list-decimal pl-5 text-[#6B6158]" {...props} />,
+  li: ({ node: _node, ...props }: any) => (
     <li className="flex items-start gap-3 text-[#6B6158] text-sm md:text-base">
       <span className="mt-2 w-1.5 h-1.5 rounded-full bg-[#a0c81d] shrink-0" />
       <span className="flex-1">{props.children}</span>
     </li>
   ),
-  strong: ({node, ...props}: any) => <strong className="text-[#3D3D3D] font-black" {...props} />,
-  hr: ({node, ...props}: any) => <hr className="border-[#E6E1D8] my-8" {...props} />
+  strong: ({ node: _node, ...props }: any) => <strong className="text-[#3D3D3D] font-black" {...props} />,
+  hr: ({ node: _node, ...props }: any) => <hr className="border-[#E6E1D8] my-8" {...props} />
 };
 
 const WeeklyPlanner: React.FC = () => {
@@ -240,7 +240,7 @@ const WeeklyPlanner: React.FC = () => {
       }
       
       setCurrentPlan(newPlan);
-    } catch (e) {
+    } catch {
       alert("Kunde inte byta ut rätten.");
     } finally {
       setSwappingMeals(prev => ({ ...prev, [key]: false }));
@@ -309,7 +309,7 @@ ${meal.instructions}
                 request.diet?.allergies
             );
             setRecipeContent(typeof content === 'string' ? content : "Receptdata felaktig.");
-        } catch (e) {
+        } catch {
             setRecipeContent("Kunde inte ladda receptet. Kontrollera din anslutning.");
         } finally {
             setRecipeLoading(false);

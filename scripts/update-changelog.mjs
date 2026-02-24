@@ -9,7 +9,7 @@ const run = (cmd) => execSync(cmd, { encoding: 'utf8' }).trim();
 const safeRun = (cmd) => {
   try {
     return run(cmd);
-  } catch (err) {
+  } catch {
     return '';
   }
 };

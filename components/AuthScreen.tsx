@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { Lock, Mail, AlertCircle, Cpu, CheckCircle2, Database, User, Loader2, ArrowRight } from 'lucide-react';
+import { Lock, Mail, AlertCircle, CheckCircle2, Database, User, Loader2, ArrowRight } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -38,7 +38,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
         options: { redirectTo: window.location.origin },
       });
       if (error) throw error;
-    } catch (error: any) {
+    } catch {
       setError('Kunde inte ansluta till Google.');
     } finally {
       setGoogleLoading(false);
@@ -60,7 +60,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
     try {
       if (isLogin) {
         // --- LOGIN ---
-        const { error, user } = await signInUser(email, password);
+        const { error } = await signInUser(email, password);
         if (error) throw error;
         if (onSuccess) {
             onSuccess();

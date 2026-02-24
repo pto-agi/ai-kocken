@@ -74,7 +74,7 @@ export const Forlangning: React.FC = () => {
     firstName: '',
     lastName: '',
     email: '',
-    plan: '',
+    plan: '12',
     payment: '',
     portal: ''
   });
@@ -293,8 +293,9 @@ export const Forlangning: React.FC = () => {
                 går du in i portalen, söker efter <strong>Private Training Online</strong> och genomför betalningen där.
               </p>
               <p>
-                Vill du delbetala? Använd friskvårdsbidraget i portalen så skickar vi faktura utan extra kostnad
-                på mellanskillnaden.
+                Ditt klientpris här är oftast bättre än priset i portalen, så välj ett alternativ med samma pris – eller
+                ange eget belopp om det finns. Vi justerar sedan antalet månader i portalen så att det matchar din
+                förlängning här.
               </p>
             </div>
           </div>
@@ -352,7 +353,10 @@ export const Forlangning: React.FC = () => {
                   }`}>
                     <div>
                       <p className="font-bold text-[#3D3D3D]">{plan.label}</p>
-                      <p className="text-xs text-[#6B6158]">{plan.price} ({plan.discounted})</p>
+                      <p className="text-xs text-[#6B6158]">
+                        Ordinarie: <span className="line-through">{plan.price}</span>
+                        <span className="ml-2 text-[#3D3D3D] font-black">Klientpris: {plan.discounted}</span>
+                      </p>
                     </div>
                     <input
                       type="radio"

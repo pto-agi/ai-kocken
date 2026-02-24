@@ -3,7 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { 
   User, LogOut, Mail, Settings, Trash2, Loader2,
   FileText, FileDown, Plus, Clock, RefreshCw,
-  LayoutDashboard, ArrowRight
+  ArrowRight
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { databaseService } from '../services/databaseService';
@@ -255,7 +255,7 @@ export const Profile: React.FC = () => {
       };
       const detailedPlan = await generateFullWeeklyDetails(plan.plan_data, targets);
       generateWeeklySchedulePDF(detailedPlan, targets);
-    } catch (e) {
+    } catch {
       alert('Kunde inte generera PDF.');
     } finally {
       setIsDownloadingPdf(null);
@@ -263,11 +263,10 @@ export const Profile: React.FC = () => {
   };
 
   const ui = {
-    page: 'min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-32 pt-24 px-4 overflow-x-hidden',
-    panel: 'bg-[#E8F1D5] rounded-[2.5rem] p-8 md:p-10 border border-[#E6E1D8] shadow-2xl relative overflow-hidden',
-    panelMuted: 'bg-[#E8F1D5]/60 backdrop-blur-md rounded-[2rem] p-4 border border-[#E6E1D8] shadow-xl',
-    card: 'rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-6',
-    cardSoft: 'rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-4 py-3',
+    page: 'min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-24 pt-16 md:pt-24 px-4 md:px-6 overflow-x-hidden',
+    panel: 'bg-[#E8F1D5] rounded-[2.5rem] p-5 md:p-10 border border-[#E6E1D8] shadow-2xl relative overflow-hidden',
+    card: 'rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-4 md:p-6',
+    cardSoft: 'rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-3 py-3 md:px-4',
     label: 'text-[11px] font-black uppercase tracking-widest text-[#8A8177]',
     labelTight: 'text-[11px] font-black uppercase tracking-widest text-[#8A8177] mb-2',
     titleLg: 'text-2xl md:text-3xl font-black text-[#3D3D3D]',
@@ -301,24 +300,6 @@ export const Profile: React.FC = () => {
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
-  );
-
-  const NavButton = ({ id, label, icon: Icon }: { id: MainTab, label: string, icon: any }) => (
-    <button
-      onClick={() => { setActiveTab(id); window.scrollTo({top: 0, behavior: 'smooth'}); }}
-      className={
-        `relative flex items-center justify-start gap-3 px-4 py-3.5 rounded-2xl transition-all duration-300 outline-none w-full group
-        ${activeTab === id 
-          ? 'bg-[#E8F1D5] text-[#3D3D3D] shadow-[0_0_20px_rgba(160,200,29,0.12)] border border-[#a0c81d]/40 translate-x-1' 
-          : 'text-[#6B6158] hover:bg-[#E8F1D5]/50 hover:text-[#3D3D3D] border border-transparent'}`
-      }
-    >
-      <div className={`p-2 rounded-xl transition-all ${activeTab === id ? 'bg-[#a0c81d] text-[#F6F1E7] shadow-[0_0_10px_#a0c81d]' : 'bg-[#F6F1E7] text-[#8A8177] group-hover:text-[#6B6158]'}`}>
-         <Icon className="w-4 h-4" />
-      </div>
-      <span className="font-black text-[11px] uppercase tracking-widest">{label}</span>
-      {activeTab === id && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#a0c81d] shadow-[0_0_10px_#a0c81d]"></div>}
-    </button>
   );
 
   const formatDate = (value?: string | null) => {
@@ -355,6 +336,14 @@ export const Profile: React.FC = () => {
     return bTime - aTime;
   });
 
+  const tabOptions: { id: MainTab; label: string }[] = [
+    { id: 'OVERVIEW', label: 'Översikt' },
+    { id: 'SUBMISSIONS', label: 'Mina inlämningar' },
+    { id: 'PLANS', label: 'Veckomenyer' },
+    { id: 'SETTINGS', label: 'Mina uppgifter' },
+    { id: 'MEMBERSHIP', label: 'Medlemskap' }
+  ];
+
   return (
     <div className={ui.page}>
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
@@ -363,169 +352,147 @@ export const Profile: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto relative z-10 animate-fade-in">
-        <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2.5rem] p-6 md:p-10 border border-[#E6E1D8] shadow-2xl mb-10 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="relative group">
-              <div className="w-24 h-24 rounded-3xl bg-[#F6F1E7] flex items-center justify-center border-2 border-[#E6E1D8] group-hover:border-[#a0c81d]/50 transition-all duration-500 shadow-2xl overflow-hidden">
-                <span className="text-4xl font-black text-[#a0c81d]">{user.email?.charAt(0).toUpperCase()}</span>
-                <div className="absolute inset-0 bg-gradient-to-tr from-[#a0c81d]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div className="bg-[#E8F1D5]/70 backdrop-blur-xl rounded-[2.5rem] p-5 md:p-8 border border-[#E6E1D8] shadow-2xl mb-6">
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="flex-1 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className={ui.labelTight}>Mina sidor</p>
+                  <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D]">Översikt och historik</h1>
+                </div>
+                <button 
+                  onClick={async () => { await signOut(); navigate('/'); }}
+                  className="flex items-center gap-2 text-red-400 hover:bg-red-500/10 px-3 py-2 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logga ut
+                </button>
               </div>
-            </div>
-            <div className="text-center md:text-left">
-              <h1 className="text-3xl md:text-4xl font-black text-[#3D3D3D] font-heading tracking-tight mb-1">{user.full_name || 'Användare'}</h1>
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
-                <span className={`${ui.label} flex items-center gap-1.5`}>
-                  <Mail className="w-3 h-3" /> {user.email}
-                </span>
-              </div>
-            </div>
-          </div>
 
-          <button 
-            onClick={async () => { await signOut(); navigate('/'); }}
-            className="flex items-center gap-3 text-red-400 hover:bg-red-500/10 px-4 py-3 rounded-2xl transition-all text-[11px] font-black uppercase tracking-widest"
-          >
-            <LogOut className="w-4 h-4" />
-            Logga ut
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-3 space-y-4">
-            <div className={`${ui.panelMuted} sticky top-28`}>
-              <NavButton id="OVERVIEW" label="Översikt" icon={LayoutDashboard} />
-              <NavButton id="PLANS" label="Veckomenyer" icon={FileText} />
-              <NavButton id="SUBMISSIONS" label="Mina inlämningar" icon={FileDown} />
-              <NavButton id="MEMBERSHIP" label="Medlemskap" icon={User} />
-              <NavButton id="SETTINGS" label="Mina uppgifter" icon={Settings} />
-            </div>
-          </div>
-
-          <div className="lg:col-span-9 min-h-[600px]">
-            {activeTab === 'OVERVIEW' && (
-              <div className="space-y-8 animate-fade-in">
-                <div className={ui.panel}>
-                  <div className="absolute -top-10 -right-10 w-[220px] h-[220px] bg-[#a0c81d]/10 rounded-full blur-[90px]"></div>
-                  <div className="relative z-10 flex flex-col gap-7">
-                    <div>
-                      <p className={ui.labelTight}>Medlemskap</p>
-                      <h3 className={ui.titleLg}>Dina prenumerationer</h3>
-                      <p className={`${ui.body} mt-2 max-w-2xl`}>
-                        Här hittar du alla aktiva prenumerationer kopplade till ditt konto. Fler produkter kan läggas till framöver.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4">
-                      <div className={`${ui.card} flex flex-col gap-4`}>
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                          <div>
-                            <p className={ui.label}>App‑prenumeration</p>
-                            <h4 className="text-lg md:text-xl font-black text-[#3D3D3D]">PTO Ai Premium</h4>
-                            <p className={`${ui.body} mt-2 max-w-xl`}>
-                              Full tillgång till kost, recept, veckomenyer och uppföljning.
-                            </p>
-                          </div>
-                          <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                            user.membership_level === 'premium'
-                              ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                              : 'bg-white/80 text-[#6B6158] border-[#E6E1D8]'
-                          }`}>
-                          {user.membership_level === 'premium' ? 'Aktiv' : 'Inte aktiv'}
-                        </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-[#6B6158]">
-                          {[
-                            'AI‑recept och veckomenyer utan begränsningar',
-                            'Automatisk inköpslista och kostschema',
-                            'Spara planer och följ utveckling i Mina sidor',
-                            'Prioriterad tillgång till nya funktioner'
-                          ].map((text) => (
-                            <div key={text} className="flex items-start gap-3">
-                              <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
-                              <span>{text}</span>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                            {user.membership_level === 'premium'
-                              ? 'Premium är aktivt på ditt konto'
-                              : 'Ingen aktiv prenumeration hittades'}
-                          </div>
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                            Utgångsdatum: {user.coaching_expires_at ? formatDate(user.coaching_expires_at) : 'Ej angivet'}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {cancelStatus === 'success' && (
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-                                Begäran skickad
-                              </span>
-                            )}
-                            {cancelStatus === 'error' && (
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
-                                Kunde inte skicka
-                              </span>
-                            )}
-                            {user.membership_level === 'premium' ? (
-                              <button
-                                onClick={handleCancelSubscription}
-                                disabled={isCancelling}
-                                className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
-                              >
-                                {isCancelling ? 'Skickar...' : 'Avsluta prenumeration'}
-                              </button>
-                            ) : (
-                              <a
-                                href="https://betalning.privatetrainingonline.se/b/cNi00i4bN9lBaqO4sDcfK0v?locale=sv"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all"
-                              >
-                                Aktivera Premium
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#F6F1E7] border border-[#E6E1D8] flex items-center justify-center text-[#a0c81d] font-black">
+                  {user.email?.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className={ui.label}>Data</p>
+                  <div className="text-sm font-bold text-[#3D3D3D]">{user.full_name || 'Användare'}</div>
+                  <div className="text-xs text-[#6B6158] flex items-center gap-1.5">
+                    <Mail className="w-3 h-3" /> {user.email}
                   </div>
                 </div>
+              </div>
 
+              <div className="bg-[#F6F1E7]/70 border border-[#E6E1D8] rounded-2xl p-4">
+                <label className={`${ui.label} mb-2 block`}>Navigera</label>
+                <select
+                  value={activeTab}
+                  onChange={(e) => {
+                    setActiveTab(e.target.value as MainTab);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="w-full p-3 rounded-xl bg-white/80 border border-[#E6E1D8] text-[#3D3D3D] font-semibold focus:border-[#a0c81d] outline-none transition"
+                >
+                  {tabOptions.map((tab) => (
+                    <option key={tab.id} value={tab.id}>
+                      {tab.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex-1">
+              <div className="bg-[#F6F1E7]/80 border border-[#E6E1D8] rounded-2xl p-4 h-full flex flex-col justify-between gap-4">
+                <div>
+                  <p className={ui.label}>Uppföljningar</p>
+                  <div className="text-lg font-black text-[#3D3D3D] mt-1">Senast inskickad</div>
+                  <div className="text-sm text-[#6B6158]">{formatDate(latestUppfoljning?.created_at)}</div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                    uppStatus === 'Genomförd'
+                      ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
+                      : uppStatus === 'Pågående'
+                        ? 'bg-amber-500/15 text-amber-700 border-amber-500/30'
+                        : 'bg-white/80 text-[#6B6158] border-[#E6E1D8]'
+                  }`}>
+                    {uppStatus}
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                    Totalt inskickade: {uppSubmissions.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Link to="/uppfoljning" className={ui.primaryBtnSm}>
+                    Skicka uppföljning
+                  </Link>
+                  <button
+                    onClick={() => setActiveTab('SUBMISSIONS')}
+                    className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
+                  >
+                    Se historik
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="min-h-[600px]">
+            {activeTab === 'OVERVIEW' && (
+              <div className="space-y-6 animate-fade-in">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="bg-[#E8F1D5] rounded-[2.5rem] p-6 md:p-8 border border-[#E6E1D8] shadow-2xl relative overflow-hidden">
-                    <div className="absolute -top-16 -right-10 w-[240px] h-[240px] bg-emerald-500/10 rounded-full blur-[90px]"></div>
-                    <div className="relative z-10 flex flex-col items-start justify-between gap-6">
+                    <div className="absolute -top-16 -right-10 w-[240px] h-[240px] bg-cyan-500/10 rounded-full blur-[90px]"></div>
+                    <div className="relative z-10 flex flex-col gap-6">
                       <div className="w-full">
                         <CardHeader
-                          label="Uppföljning"
-                          title="Senast inskickad"
-                          icon={Clock}
+                          label="Inlämningar"
+                          title="Senaste inskickat"
+                          icon={FileDown}
                           action={
-                            <span className={`${ui.label} text-[#6B6158]`}>{formatDate(latestUppfoljning?.created_at)}</span>
+                            <span className={`${ui.label} text-[#6B6158]`}>
+                              {combinedSubmissions.length === 0 ? 'Inga inlämningar' : `${combinedSubmissions.length} totalt`}
+                            </span>
                           }
                         />
+                        <p className={`${ui.body} mt-2`}>
+                          Startformulär och uppföljningar samlat på ett ställe.
+                        </p>
                       </div>
-                      <div className="flex flex-col items-start gap-3">
-                        <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                          uppStatus === 'Genomförd'
-                            ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                            : uppStatus === 'Pågående'
-                              ? 'bg-amber-500/15 text-amber-700 border-amber-500/30'
-                              : 'bg-white/80 text-[#6B6158] border-[#E6E1D8]'
-                        }`}>
-                          {uppStatus}
-                        </span>
-                        {uppStatus === 'Genomförd' && (
-                          <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                            Klarmarkerad {formatDate(latestUppfoljning?.done_at)}
-                          </span>
+                      <div className="space-y-3">
+                        {combinedSubmissions.length === 0 ? (
+                          <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-4 py-4 text-sm text-[#8A8177]">
+                            Inga inlämningar ännu.
+                          </div>
+                        ) : (
+                          combinedSubmissions.slice(0, 3).map((submission) => {
+                            const isStart = submission.kind === 'start';
+                            const label = isStart ? 'Startformulär' : 'Uppföljning';
+                            return (
+                              <div key={`${submission.kind}-${submission.data.id}`} className={`flex items-center justify-between ${ui.cardSoft}`}>
+                                <div>
+                                  <p className="text-sm font-bold text-[#3D3D3D]">{label}</p>
+                                  <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">
+                                    {formatDateTime(submission.data.created_at)}
+                                  </p>
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-[#6B6158]">
+                                  {submission.data.is_done ? 'Klarmarkerad' : 'Mottagen'}
+                                </span>
+                              </div>
+                            );
+                          })
                         )}
-                        <Link
-                          to="/uppfoljning"
-                          className={ui.primaryBtn}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setActiveTab('SUBMISSIONS')}
+                          className={ui.outlineBtn}
                         >
+                          Visa allt
+                        </button>
+                        <Link to="/uppfoljning" className={ui.primaryBtnSm}>
                           Skicka uppföljning
                         </Link>
                       </div>
@@ -1073,7 +1040,6 @@ export const Profile: React.FC = () => {
               </div>
             )}
 
-          </div>
         </div>
       </div>
     </div>

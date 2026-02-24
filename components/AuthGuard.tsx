@@ -2,7 +2,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import PremiumAccess from './PremiumAccess';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -30,12 +29,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
 
   // 2. Om användaren är helt UTLOGGAD
   if (!session) {
-    // Om sidan är en "Premium-sida" (t.ex. Kocken), visa den säljande Paywallen
-    if (requirePremium) {
-      return <PremiumAccess mode="logged_out" />;
-    }
-    // Redirect to /auth for consistent login experience
-    return <Navigate to="/auth" state={{ from: location }} replace />;
+    return <Navigate to="/auth-required" state={{ from: location }} replace />;
   }
 
   if (requireStaff && !isStaff) {
