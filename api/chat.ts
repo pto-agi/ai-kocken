@@ -137,7 +137,7 @@ export default async function handler(req: any, res: any) {
       ...requestMeta,
       workflow_id: 'wf_698f3221c2a481909c391387fd6efe8e0a3f823293ebb086',
     });
-    const result = await runWorkflow(inputText, accessToken);
+    const result = await runWorkflow(messages, accessToken);
     const outputText =
       typeof result?.output_text === 'string' && result.output_text.trim().length > 0
         ? result.output_text

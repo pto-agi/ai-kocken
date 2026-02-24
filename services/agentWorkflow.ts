@@ -280,7 +280,43 @@ type WorkflowInput = { input_as_text: string };
 
 export type WorkflowResult = { output_text: string };
 
-export const runWorkflow = async (inputText: string, accessToken: string): Promise<WorkflowResult> => {
+type UIMessage = {
+  id?: string;
+  role?: 'user' | 'assistant' | 'system' | string;
+  content?: string;
+  parts?: Array<{ type: string; text?: string }>;
+};
+
+function extractTextParts(message: UIMessage): string[] {
+  if (Array.isArray(message.parts) && message.parts.length > 0) {
+    return message.parts
+      .filter((part) => part?.type === 'text' && typeof part.text === 'string')
+      .map((part) => part.text as string)
+      .filter((text) => text.trim().length > 0);
+  }
+  if (typeof message.content === 'string' && message.content.trim().length > 0) {
+    return [message.content];
+  }
+  return [];
+}
+
+function toAgentItems(messages: UIMessage[]): AgentInputItem[] {
+  return messages
+    .map((message) => {
+      const parts = extractTextParts(message);
+      if (!parts.length) return null;
+      const role = message.role === 'assistant' ? 'assistant' : 'user';
+      return {
+        role,
+        content: [{ type: 'input_text', text: parts.join('\n') }],
+      } as AgentInputItem;
+    })
+    .filter(Boolean) as AgentInputItem[];
+}
+
+export const runWorkflow = async (messages: UIMessage[], accessToken: string): Promise<WorkflowResult> => {
+  const lastUser = [...messages].reverse().find((m) => m?.role === 'user' && extractTextParts(m).length);
+  const inputText = lastUser ? extractTextParts(lastUser).join('\n') : '';
   const workflow: WorkflowInput = { input_as_text: inputText };
   return await withTrace('PTO Agent-1', async () => {
     const state = {
@@ -318,7 +354,7 @@ export const runWorkflow = async (inputText: string, accessToken: string): Promi
             ],
           }
         : null,
-      { role: 'user', content: [{ type: 'input_text', text: workflow.input_as_text }] },
+      ...toAgentItems(messages),
     ].filter(Boolean) as AgentInputItem[];
     const runner = new Runner({
       traceMetadata: {
