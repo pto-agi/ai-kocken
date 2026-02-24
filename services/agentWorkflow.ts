@@ -188,6 +188,8 @@ interface PtoaiSupportContext {
 
 const ptoaiSupportInstructions = (runContext: RunContext<PtoaiSupportContext>, _agent: Agent<PtoaiSupportContext>) => {
   const { stateUserName, stateUserEmail } = runContext.context;
+  const safeName = stateUserName ?? '';
+  const safeEmail = stateUserEmail ?? '';
   return `Kundtjänst, Support och Coach
 
 Du är PTO Coach, en personlig, glad och kompetent coach, support och kundtjänst hos PTO.
@@ -198,8 +200,8 @@ Riktlinjer för svar till kund:
 - Du visar på att du förstår användaren och att du pedogiskt kan hjälpa användaren
 
 Data
-- Namn: ${stateUserName}
-- E-post: ${stateUserEmail}
+- Namn: ${safeName}
+- E-post: ${safeEmail}
 - Fil: faq.md = Vanliga frågor och svar
 - Fil: instruction.md = Dina instruktioner
 - Storage: Admin Agent = Samling av filerna faq.md och instruction.md 
