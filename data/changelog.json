@@ -1,6 +1,32 @@
 {
-  "last_commit": "fcb00fff7840785e9f781ae3061ab1f7326cafb4",
+  "last_commit": "363832eb51ea2f618821ad1cb52ac78a4b538f80",
   "entries": [
+    {
+      "id": "2026-02-25T15:58:58.387Z-363832e",
+      "date": "2026-02-25T15:58:58.388Z",
+      "range": "fcb00fff7840785e9f781ae3061ab1f7326cafb4..363832eb51ea2f618821ad1cb52ac78a4b538f80",
+      "head": "363832eb51ea2f618821ad1cb52ac78a4b538f80",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "363832e",
+          "subject": "Fix MCP text item typing"
+        },
+        {
+          "hash": "39db126",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/membership-expiry.ts",
+        "data/changelog.json"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 33,
+        "deletions": 3
+      }
+    },
     {
       "id": "2026-02-25T15:57:25.565Z-fcb00ff",
       "date": "2026-02-25T15:57:25.565Z",
