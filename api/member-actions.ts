@@ -5,7 +5,9 @@ const ACTION_WEBHOOKS: Record<MemberAction, string> = {
     process.env.ZAPIER_PAUSE_WEBHOOK_URL ||
     'https://hooks.zapier.com/hooks/catch/1514319/ucxgs7s/',
   deactivate_membership: process.env.ZAPIER_DEACTIVATE_WEBHOOK_URL || '',
-  reactivate_membership: process.env.ZAPIER_REACTIVATE_WEBHOOK_URL || '',
+  reactivate_membership:
+    process.env.ZAPIER_REACTIVATE_WEBHOOK_URL ||
+    'https://hooks.zapier.com/hooks/catch/1514319/u0u1jn4/',
 };
 
 async function readBody(req: any): Promise<Record<string, unknown>> {

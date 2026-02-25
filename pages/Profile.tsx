@@ -49,6 +49,8 @@ export const Profile: React.FC = () => {
   const [isPausing, setIsPausing] = useState(false);
   const [pauseStatus, setPauseStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [pauseCooldownUntil, setPauseCooldownUntil] = useState<number | null>(null);
+  const [isReactivating, setIsReactivating] = useState(false);
+  const [reactivateStatus, setReactivateStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isSyncingMembership, setIsSyncingMembership] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const queryClient = useQueryClient();
@@ -185,6 +187,23 @@ export const Profile: React.FC = () => {
       setPauseStatus('error');
     } finally {
       setIsPausing(false);
+    }
+  };
+
+  const handleReactivateMembership = async () => {
+    if (isReactivating) return;
+    setReactivateStatus('idle');
+    setIsReactivating(true);
+    try {
+      await callMemberAction('reactivate_membership', {
+        source: 'reactivate_membership'
+      });
+      setReactivateStatus('success');
+    } catch (err) {
+      console.error('Reactivate membership webhook error:', err);
+      setReactivateStatus('error');
+    } finally {
+      setIsReactivating(false);
     }
   };
 
@@ -513,7 +532,7 @@ export const Profile: React.FC = () => {
     coachingStatusMeta[(coachingStatus as keyof typeof coachingStatusMeta) || 'inactive'] ||
     coachingStatusMeta.inactive;
   const canDeactivateMembership = false; // TODO: enable when webhook for deactivation is live
-  const canReactivateMembership = false; // TODO: enable when webhook for reactivation is live
+  const canReactivateMembership = true;
   const sectionTitle = activeTabMeta?.label || 'Översikt';
   const sectionDescription = activeTabMeta?.description || 'Samlad översikt över ditt konto.';
 
@@ -1146,6 +1165,37 @@ export const Profile: React.FC = () => {
                                 Ingen aktiv period att pausa
                               </span>
                             )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                            Vill du återaktivera? Paus avslutas och vi startar din period igen.
+                          </div>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            {reactivateStatus === 'success' && (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                                Begäran skickad
+                              </span>
+                            )}
+                            {reactivateStatus === 'error' && (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
+                                Kunde inte skicka
+                              </span>
+                            )}
+                            <button
+                              onClick={handleReactivateMembership}
+                              disabled={isReactivating || !canReactivateMembership || coachingStatus === 'active'}
+                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              {isReactivating ? 'Skickar...' : 'Återaktivera medlemskap'}
+                            </button>
+                            <Link
+                              to="/support"
+                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all"
+                            >
+                              Kontakta support
+                            </Link>
                           </div>
                         </div>
 
