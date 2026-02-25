@@ -68,6 +68,7 @@ type AgendaTemplate = {
   input_type: string | null;
   sort_order: number | null;
   is_active?: boolean | null;
+  estimated_minutes?: number | null;
 };
 
 type AgendaItem = {
@@ -76,6 +77,7 @@ type AgendaItem = {
   inputType: 'none' | 'count' | 'text';
   sortOrder: number;
   count?: string | number | null;
+  estimatedMinutes?: number | null;
 };
 
 type FilterValue = 'uppfoljning' | 'start' | 'done';
@@ -521,7 +523,7 @@ const Intranet: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('agenda_templates')
-          .select('id,title,schedule_days,interval_weeks,input_type,sort_order,is_active')
+          .select('id,title,schedule_days,interval_weeks,input_type,sort_order,is_active,estimated_minutes')
           .eq('is_active', true)
           .order('sort_order', { ascending: true });
         if (error) throw error;
@@ -599,7 +601,8 @@ const Intranet: React.FC = () => {
           title: template.title,
           inputType,
           sortOrder: template.sort_order ?? 0,
-          count
+          count,
+          estimatedMinutes: template.estimated_minutes ?? null
         };
       });
   }, [agendaTemplates, reportForm.date, resolveTaskCount, weeklyReports]);
@@ -1719,19 +1722,24 @@ const Intranet: React.FC = () => {
                                 onChange={() => toggleAgendaTask(task.id)}
                                 className="mt-1 accent-[#a0c81d]"
                               />
-                              <span className="flex flex-wrap items-baseline gap-2">
-                                <span className={isChecked ? 'line-through text-[#8A8177]' : undefined}>
-                                  {task.title}
-                                </span>
-                                {showCount && (
-                                  <span className="text-[11px] font-black uppercase tracking-widest text-[#8A8177]">
-                                    {task.count}
+                                <span className="flex flex-wrap items-baseline gap-2">
+                                  <span className={isChecked ? 'line-through text-[#8A8177]' : undefined}>
+                                    {task.title}
                                   </span>
-                                )}
-                              </span>
-                            </label>
-                          </li>
-                        );
+                                  {showCount && (
+                                    <span className="text-[11px] font-black uppercase tracking-widest text-[#8A8177]">
+                                      {task.count}
+                                    </span>
+                                  )}
+                                  {task.estimatedMinutes && (
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] border border-[#E6E1D8] rounded-full px-2 py-0.5 bg-white/80">
+                                      {task.estimatedMinutes}
+                                    </span>
+                                  )}
+                                </span>
+                              </label>
+                            </li>
+                          );
                       })}
                     </ul>
                   )}
@@ -1763,12 +1771,17 @@ const Intranet: React.FC = () => {
                                             className="mt-1 accent-[#a0c81d]"
                                           />
                                           <span className="flex items-baseline gap-2">
-                                            <span className={isChecked ? 'line-through text-[#8A8177]' : undefined}>
+                                          <span className={isChecked ? 'line-through text-[#8A8177]' : undefined}>
                                               {task.title}
                                             </span>
                                             <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
                                               {entry.date.toLocaleDateString('sv-SE', { weekday: 'short' })}
                                             </span>
+                                            {task.estimatedMinutes && (
+                                              <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] border border-[#E6E1D8] rounded-full px-2 py-0.5 bg-white/80">
+                                                {task.estimatedMinutes}
+                                              </span>
+                                            )}
                                           </span>
                                         </label>
                                       </li>
@@ -1846,6 +1859,11 @@ const Intranet: React.FC = () => {
                                         {showCount && (
                                           <span className="ml-1 text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
                                             {task.count}
+                                          </span>
+                                        )}
+                                        {task.estimatedMinutes && (
+                                          <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-[#8A8177] border border-[#E6E1D8] rounded-full px-2 py-0.5 bg-white/80">
+                                            {task.estimatedMinutes}
                                           </span>
                                         )}
                                       </span>
