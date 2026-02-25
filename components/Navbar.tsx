@@ -212,7 +212,7 @@ const Navbar: React.FC = () => {
                     <User className="w-4 h-4" />
                     <span className="font-medium text-sm">Mina sidor</span>
                  </Link>
-                 <Link to="/profile?tab=settings" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
+                 <Link to="/profile/konto" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
                     <Settings className="w-4 h-4" />
                     <span className="font-medium text-sm">Inställningar</span>
                  </Link>
@@ -230,7 +230,7 @@ const Navbar: React.FC = () => {
                     <User className="w-4 h-4" />
                     <span className="font-medium text-sm">Mina sidor</span>
                  </Link>
-                 <Link to="/profile?tab=settings" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
+                 <Link to="/profile/konto" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
                     <Settings className="w-4 h-4" />
                     <span className="font-medium text-sm">Inställningar</span>
                  </Link>

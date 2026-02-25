@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link, useLocation, NavLink } from 'react-router-dom';
 import { 
   User, LogOut, Mail, Settings, Trash2, Loader2,
   FileText, FileDown, Plus, Clock, RefreshCw,
-  ArrowRight
+  ArrowRight, LayoutDashboard, ClipboardList, CreditCard, Sparkles
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { databaseService } from '../services/databaseService';
@@ -41,10 +41,10 @@ export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { session, profile: user, signOut, refreshProfile, profileError } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<MainTab>('OVERVIEW');
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelStatus, setCancelStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [cancelMessage, setCancelMessage] = useState<string | null>(null);
   const [isPausing, setIsPausing] = useState(false);
   const [pauseStatus, setPauseStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const queryClient = useQueryClient();
@@ -92,10 +92,27 @@ export const Profile: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
+    if (!tab) return;
     if (tab === 'settings') {
-      setActiveTab('SETTINGS');
+      navigate('/profile/konto', { replace: true });
+      return;
     }
-  }, [location.search]);
+    if (tab === 'membership') {
+      navigate('/profile/medlemskap', { replace: true });
+      return;
+    }
+    if (tab === 'submissions') {
+      navigate('/profile/inlamningar', { replace: true });
+      return;
+    }
+    if (tab === 'plans') {
+      navigate('/profile/veckomenyer', { replace: true });
+      return;
+    }
+    if (tab === 'overview') {
+      navigate('/profile', { replace: true });
+    }
+  }, [location.search, navigate]);
 
   useEffect(() => {
     if (!user) return;
@@ -108,47 +125,25 @@ export const Profile: React.FC = () => {
   }, [user?.address_line1, user?.address_line2, user?.postal_code, user?.city, user?.country, user?.phone]);
 
   const handleCancelSubscription = async () => {
+    if (!canDeactivateMembership) {
+      setCancelStatus('error');
+      setCancelMessage('Funktionen lanseras snart.');
+      return;
+    }
     if (isCancelling) return;
     setCancelStatus('idle');
+    setCancelMessage(null);
     setIsCancelling(true);
     try {
-      const payload = {
-        user_id: user.id,
-        email: user.email,
+      await callMemberAction('deactivate_membership', {
         stripe_email: user.email,
-        name: user.full_name || '',
-        membership_level: user.membership_level || '',
-        requested_at: new Date().toISOString(),
-        source: 'cancel_premium'
-      };
-
-      const body = new URLSearchParams(
-        Object.entries(payload).map(([key, value]) => [key, String(value ?? '')])
-      ).toString();
-
-      let res: Response | null = null;
-      try {
-        res = await fetch('https://hooks.zapier.com/hooks/catch/1514319/uc2m2ex/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body
-        });
-      } catch (err) {
-        console.warn('Cancel webhook primary failed, retrying no-cors:', err);
-        await fetch('https://hooks.zapier.com/hooks/catch/1514319/uc2m2ex/', {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body
-        });
-        res = null;
-      }
-
-      if (res && !res.ok) throw new Error('Webhook failed');
+        source: 'deactivate_membership'
+      });
       setCancelStatus('success');
     } catch (err) {
       console.error('Cancel subscription webhook error:', err);
       setCancelStatus('error');
+      setCancelMessage(err instanceof Error ? err.message : 'Kunde inte skicka.');
     } finally {
       setIsCancelling(false);
     }
@@ -159,39 +154,10 @@ export const Profile: React.FC = () => {
     setPauseStatus('idle');
     setIsPausing(true);
     try {
-      const payload = {
-        user_id: user.id,
-        email: user.email,
-        name: user.full_name || '',
-        membership_level: user.membership_level || '',
+      await callMemberAction('pause_membership', {
         coaching_expires_at: user.coaching_expires_at || '',
-        requested_at: new Date().toISOString(),
         source: 'pause_membership'
-      };
-
-      const body = new URLSearchParams(
-        Object.entries(payload).map(([key, value]) => [key, String(value ?? '')])
-      ).toString();
-
-      let res: Response | null = null;
-      try {
-        res = await fetch('https://hooks.zapier.com/hooks/catch/1514319/ucitm55/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body
-        });
-      } catch (err) {
-        console.warn('Pause webhook primary failed, retrying no-cors:', err);
-        await fetch('https://hooks.zapier.com/hooks/catch/1514319/ucitm55/', {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body
-        });
-        res = null;
-      }
-
-      if (res && !res.ok) throw new Error('Webhook failed');
+      });
       setPauseStatus('success');
     } catch (err) {
       console.error('Pause membership webhook error:', err);
@@ -276,6 +242,45 @@ export const Profile: React.FC = () => {
     outlineBtn: 'px-4 py-2 rounded-xl bg-white/80 border border-[#E6E1D8] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:bg-white/40 transition-all',
   };
 
+  const callMemberAction = async (
+    actionType: 'pause_membership' | 'deactivate_membership' | 'reactivate_membership',
+    extra: Record<string, any> = {}
+  ) => {
+    const requestId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const payload = {
+      action_type: actionType,
+      request_id: requestId,
+      user_id: user.id,
+      email: user.email,
+      name: user.full_name || '',
+      membership_level: user.membership_level || '',
+      requested_at: new Date().toISOString(),
+      ...extra
+    };
+
+    const response = await fetch('/api/member-actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      let message = 'Kunde inte skicka.';
+      try {
+        const data = await response.json();
+        if (data?.error) message = data.error;
+      } catch {
+        // ignore
+      }
+      throw new Error(message);
+    }
+
+    return response.json().catch(() => ({}));
+  };
+
   const CardHeader = ({
     label,
     title,
@@ -335,13 +340,42 @@ export const Profile: React.FC = () => {
     return bTime - aTime;
   });
 
-  const tabOptions: { id: MainTab; label: string }[] = [
-    { id: 'OVERVIEW', label: 'Översikt' },
-    { id: 'SUBMISSIONS', label: 'Mina inlämningar' },
-    { id: 'PLANS', label: 'Veckomenyer' },
-    { id: 'SETTINGS', label: 'Mina uppgifter' },
-    { id: 'MEMBERSHIP', label: 'Medlemskap' }
+  const tabItems: { id: MainTab; label: string; path: string; description: string; icon: any }[] = [
+    { id: 'OVERVIEW', label: 'Översikt', path: '/profile', description: 'Status och genvägar', icon: LayoutDashboard },
+    { id: 'SUBMISSIONS', label: 'Inlämningar', path: '/profile/inlamningar', description: 'Startformulär & uppföljning', icon: ClipboardList },
+    { id: 'PLANS', label: 'Veckomenyer', path: '/profile/veckomenyer', description: 'Sparade planer', icon: FileText },
+    { id: 'MEMBERSHIP', label: 'Medlemskap', path: '/profile/medlemskap', description: 'Pausa, deaktivera, återaktivera', icon: CreditCard },
+    { id: 'SETTINGS', label: 'Konto', path: '/profile/konto', description: 'Uppgifter & säkerhet', icon: Settings }
   ];
+
+  const tabPathById = tabItems.reduce((acc, item) => {
+    acc[item.id] = item.path;
+    return acc;
+  }, {} as Record<MainTab, string>);
+
+  const normalizedPath = location.pathname.endsWith('/') && location.pathname !== '/'
+    ? location.pathname.slice(0, -1)
+    : location.pathname;
+
+  const activeTab: MainTab = normalizedPath.startsWith('/profile/inlamningar')
+    ? 'SUBMISSIONS'
+    : normalizedPath.startsWith('/profile/veckomenyer')
+      ? 'PLANS'
+      : normalizedPath.startsWith('/profile/medlemskap')
+        ? 'MEMBERSHIP'
+        : normalizedPath.startsWith('/profile/konto')
+          ? 'SETTINGS'
+          : 'OVERVIEW';
+
+  const activeTabMeta = tabItems.find((item) => item.id === activeTab);
+
+  const navigateToTab = (tab: MainTab) => {
+    const target = tabPathById[tab] || '/profile';
+    if (normalizedPath !== target) {
+      navigate(target);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   if (!session) return null;
 
@@ -388,6 +422,12 @@ export const Profile: React.FC = () => {
     );
   }
 
+  const isPremium = user.membership_level === 'premium';
+  const canDeactivateMembership = false; // TODO: enable when webhook for deactivation is live
+  const canReactivateMembership = false; // TODO: enable when webhook for reactivation is live
+  const sectionTitle = activeTabMeta?.label || 'Översikt';
+  const sectionDescription = activeTabMeta?.description || 'Samlad översikt över ditt konto.';
+
   return (
     <div className={ui.page}>
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
@@ -396,13 +436,85 @@ export const Profile: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto relative z-10 animate-fade-in">
-        <div className="bg-[#E8F1D5]/70 backdrop-blur-xl rounded-[2.5rem] p-5 md:p-8 border border-[#E6E1D8] shadow-2xl mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
+          <aside className="space-y-4">
+            <div className="bg-[#E8F1D5]/70 backdrop-blur-xl rounded-[2rem] p-4 border border-[#E6E1D8] shadow-xl">
+              <p className={ui.labelTight}>Navigering</p>
+              <nav className="space-y-2">
+                {tabItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.id}
+                      to={item.path}
+                      end={item.path === '/profile'}
+                      className={({ isActive }) =>
+                        `flex items-start gap-3 rounded-2xl border px-3 py-3 transition-all ${
+                          isActive
+                            ? 'bg-white/90 border-[#a0c81d]/40 text-[#3D3D3D] shadow-md'
+                            : 'bg-white/60 border-[#E6E1D8] text-[#6B6158] hover:bg-white/90 hover:border-[#a0c81d]/20'
+                        }`
+                      }
+                    >
+                      <span className="mt-0.5 w-9 h-9 rounded-xl bg-[#F6F1E7] border border-[#E6E1D8] flex items-center justify-center text-[#6B6158]">
+                        <Icon className="w-4 h-4" />
+                      </span>
+                      <span className="flex-1">
+                        <span className="block text-sm font-bold text-[#3D3D3D]">{item.label}</span>
+                        <span className="block text-[10px] font-bold uppercase tracking-widest text-[#8A8177] mt-1">
+                          {item.description}
+                        </span>
+                      </span>
+                    </NavLink>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <div className="bg-[#F6F1E7]/80 border border-[#E6E1D8] rounded-[2rem] p-4 shadow-lg">
+              <div className="flex items-center justify-between">
+                <p className={ui.label}>Snabbåtgärder</p>
+                <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                  isPremium
+                    ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
+                    : 'bg-white/80 text-[#6B6158] border-[#E6E1D8]'
+                }`}>
+                  {isPremium ? 'Aktiv' : 'Inaktiv'}
+                </span>
+              </div>
+              <div className="mt-3 text-xs text-[#6B6158] space-y-1">
+                <div>Medlemskap: {isPremium ? 'Premium' : 'Gratis'}</div>
+                <div>Utgångsdatum: {user.coaching_expires_at ? formatDate(user.coaching_expires_at) : 'Ej angivet'}</div>
+              </div>
+              <div className="mt-4 flex flex-col gap-2">
+                <button
+                  onClick={() => navigateToTab('MEMBERSHIP')}
+                  className={`${ui.primaryBtnSm} w-full flex items-center justify-center`}
+                >
+                  Hantera medlemskap
+                </button>
+                <Link to="/uppfoljning" className={`${ui.outlineBtn} w-full text-center`}>
+                  Skicka uppföljning
+                </Link>
+                <Link to="/recept" className={`${ui.outlineBtn} w-full text-center`}>
+                  Ny veckomeny
+                </Link>
+                <Link to="/support" className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] text-center hover:text-[#3D3D3D]">
+                  Support
+                </Link>
+              </div>
+            </div>
+          </aside>
+
+          <div className="min-w-0">
+            <div className="bg-[#E8F1D5]/70 backdrop-blur-xl rounded-[2.5rem] p-5 md:p-8 border border-[#E6E1D8] shadow-2xl mb-6">
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="flex-1 space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className={ui.labelTight}>Mina sidor</p>
-                  <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D]">Översikt och historik</h1>
+                  <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D]">{sectionTitle}</h1>
+                  <p className={`${ui.body} mt-2 max-w-xl`}>{sectionDescription}</p>
                 </div>
                 <button 
                   onClick={async () => { await signOut(); navigate('/'); }}
@@ -426,23 +538,6 @@ export const Profile: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-[#F6F1E7]/70 border border-[#E6E1D8] rounded-2xl p-4">
-                <label className={`${ui.label} mb-2 block`}>Navigera</label>
-                <select
-                  value={activeTab}
-                  onChange={(e) => {
-                    setActiveTab(e.target.value as MainTab);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="w-full p-3 rounded-xl bg-white/80 border border-[#E6E1D8] text-[#3D3D3D] font-semibold focus:border-[#a0c81d] outline-none transition"
-                >
-                  {tabOptions.map((tab) => (
-                    <option key={tab.id} value={tab.id}>
-                      {tab.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             <div className="flex-1">
@@ -471,7 +566,7 @@ export const Profile: React.FC = () => {
                     Skicka uppföljning
                   </Link>
                   <button
-                    onClick={() => setActiveTab('SUBMISSIONS')}
+                    onClick={() => navigateToTab('SUBMISSIONS')}
                     className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
                   >
                     Se historik
@@ -485,6 +580,33 @@ export const Profile: React.FC = () => {
         <div className="min-h-[600px]">
             {activeTab === 'OVERVIEW' && (
               <div className="space-y-6 animate-fade-in">
+                <div className={ui.panel}>
+                  <div className="absolute top-[-20%] left-[-10%] w-[360px] h-[360px] bg-[#a0c81d]/10 rounded-full blur-[110px]"></div>
+                  <div className="relative z-10 space-y-5">
+                    <CardHeader
+                      label="Åtgärder"
+                      title="Snabbkommandon"
+                      icon={Sparkles}
+                    />
+                    <p className={ui.body}>
+                      Starta viktiga flöden direkt utan att leta i menyerna.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <button
+                        onClick={() => navigateToTab('MEMBERSHIP')}
+                        className={`${ui.primaryBtnSm} w-full flex items-center justify-center`}
+                      >
+                        Hantera medlemskap
+                      </button>
+                      <Link to="/uppfoljning" className={`${ui.outlineBtn} w-full text-center`}>
+                        Skicka uppföljning
+                      </Link>
+                      <Link to="/recept" className={`${ui.outlineBtn} w-full text-center`}>
+                        Skapa veckomeny
+                      </Link>
+                    </div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="bg-[#E8F1D5] rounded-[2.5rem] p-6 md:p-8 border border-[#E6E1D8] shadow-2xl relative overflow-hidden">
                     <div className="absolute -top-16 -right-10 w-[240px] h-[240px] bg-cyan-500/10 rounded-full blur-[90px]"></div>
@@ -531,7 +653,7 @@ export const Profile: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-3">
                         <button
-                          onClick={() => setActiveTab('SUBMISSIONS')}
+                          onClick={() => navigateToTab('SUBMISSIONS')}
                           className={ui.outlineBtn}
                         >
                           Visa allt
@@ -593,7 +715,7 @@ export const Profile: React.FC = () => {
                           Skapa ny plan
                         </Link>
                         <button
-                          onClick={() => setActiveTab('PLANS')}
+                          onClick={() => navigateToTab('PLANS')}
                           className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
                         >
                           Visa alla
@@ -825,7 +947,7 @@ export const Profile: React.FC = () => {
                       <p className={ui.labelTight}>Medlemskap</p>
                       <h2 className={ui.titleLg}>Hantera din prenumeration</h2>
                       <p className={`${ui.body} mt-2 max-w-2xl`}>
-                        Här kan du se status på ditt medlemskap och göra ändringar som paus eller avslut.
+                        Här kan du se status på ditt medlemskap och göra ändringar som paus, deaktivering eller återaktivering.
                       </p>
                     </div>
 
@@ -891,9 +1013,11 @@ export const Profile: React.FC = () => {
 
                       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
                         <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                          Vill du avsluta? Du kan alltid aktivera igen senare.
+                          {isPremium
+                            ? 'Vill du deaktivera? Du kan alltid återaktivera senare.'
+                            : 'Vill du återaktivera? Funktionen lanseras snart.'}
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           {cancelStatus === 'success' && (
                             <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
                               Begäran skickad
@@ -901,26 +1025,38 @@ export const Profile: React.FC = () => {
                           )}
                           {cancelStatus === 'error' && (
                             <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
-                              Kunde inte skicka
+                              {cancelMessage || 'Kunde inte skicka'}
                             </span>
                           )}
-                          {user.membership_level === 'premium' ? (
+                          {isPremium ? (
                             <button
                               onClick={handleCancelSubscription}
-                              disabled={isCancelling}
-                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
+                              disabled={isCancelling || !canDeactivateMembership}
+                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                              {isCancelling ? 'Skickar...' : 'Avsluta prenumeration'}
+                              {isCancelling
+                                ? 'Skickar...'
+                                : canDeactivateMembership
+                                  ? 'Deaktivera medlemskap'
+                                  : 'Deaktivera (kommer snart)'}
                             </button>
                           ) : (
-                            <a
-                              href="https://betalning.privatetrainingonline.se/b/cNi00i4bN9lBaqO4sDcfK0v?locale=sv"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all"
-                            >
-                              Aktivera Premium
-                            </a>
+                            <>
+                              <button
+                                disabled={!canReactivateMembership}
+                                className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                              >
+                                Återaktivera (kommer snart)
+                              </button>
+                              <a
+                                href="https://betalning.privatetrainingonline.se/b/cNi00i4bN9lBaqO4sDcfK0v?locale=sv"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all"
+                              >
+                                Aktivera Premium
+                              </a>
+                            </>
                           )}
                         </div>
                       </div>
@@ -1087,6 +1223,8 @@ export const Profile: React.FC = () => {
         </div>
       </div>
     </div>
+  </div>
+</div>
   );
 };
 

@@ -1,6 +1,64 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 
+const EXPIRY_SYNC_TTL_MS = 12 * 60 * 60 * 1000;
+
+const maybeSyncMembershipExpiry = async (
+  profile: any,
+  session: any,
+  refreshProfile: () => Promise<void>,
+  set: (state: Partial<AuthState>) => void,
+) => {
+  if (!profile?.email || !session?.access_token) return;
+  if (typeof window === 'undefined') return;
+
+  const key = `pto_membership_expiry_sync:${profile.id}`;
+  const now = Date.now();
+  const lastSync = Number(localStorage.getItem(key) || 0);
+  if (Number.isFinite(lastSync) && now - lastSync < EXPIRY_SYNC_TTL_MS) return;
+
+  localStorage.setItem(key, String(now));
+
+  try {
+    const response = await fetch('/api/membership-expiry', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ email: profile.email, user_id: profile.id }),
+    });
+
+    if (!response.ok) {
+      console.warn('Membership expiry sync failed', response.status);
+      return;
+    }
+
+    const data = await response.json();
+    if (!data?.found || !data?.coaching_expires_at) return;
+
+    if (data.updated) {
+      await refreshProfile();
+      return;
+    }
+
+    if (profile.coaching_expires_at === data.coaching_expires_at) return;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ coaching_expires_at: data.coaching_expires_at })
+      .eq('id', profile.id);
+    if (error) {
+      console.warn('Membership expiry update failed', error);
+      return;
+    }
+
+    set({ profile: { ...profile, coaching_expires_at: data.coaching_expires_at } });
+  } catch (error) {
+    console.warn('Membership expiry sync error', error);
+  }
+};
+
 interface AuthState {
   session: any;
   profile: any;
@@ -37,6 +95,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 .maybeSingle();
 
             set({ session, profile });
+            if (profile) {
+              await maybeSyncMembershipExpiry(profile, session, get().refreshProfile, set);
+            }
         } else {
             set({ session: null, profile: null });
         }

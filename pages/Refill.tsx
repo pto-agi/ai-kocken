@@ -450,7 +450,7 @@ const Refill: React.FC = () => {
                   <div>{profileShipping.country}</div>
                   <div>{profileShipping.phone}</div>
                   <Link
-                    to="/profile?tab=settings"
+                    to="/profile/konto"
                     className="inline-flex mt-2 text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition"
                   >
                     Redigera adressuppgifter

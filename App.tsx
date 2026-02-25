@@ -42,7 +42,23 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   },
   '/profile': {
     title: 'Mina sidor',
-    description: 'Hantera konto, medlemskap, adresser och sparade planer. Se premiumstatus, uppdatera leveransuppgifter och prenumerationer, allt samlat på ett ställe.'
+    description: 'Dashboard för översikt, snabbåtgärder och genvägar. Se status, senaste inlämningar, sparade planer och medlemskap.'
+  },
+  '/profile/inlamningar': {
+    title: 'Inlämningar',
+    description: 'Historik för startformulär och uppföljningar. Skicka nya inlämningar och se status på tidigare.'
+  },
+  '/profile/medlemskap': {
+    title: 'Medlemskap',
+    description: 'Hantera medlemskap med paus, deaktivering, återaktivering och status. Se utgångsdatum och plan.'
+  },
+  '/profile/veckomenyer': {
+    title: 'Veckomenyer',
+    description: 'Arkiv över sparade veckomenyer. Ladda ner PDF eller skapa en ny plan.'
+  },
+  '/profile/konto': {
+    title: 'Konto',
+    description: 'Uppdatera kontaktuppgifter, leveransadress och säkerhet.'
   },
   '/start': {
     title: 'Startformulär',
@@ -206,7 +222,7 @@ function App() {
             />
 
             <Route 
-              path="/profile" 
+              path="/profile/*" 
               element={
                 <PageContainer>
                   <AuthGuard requirePremium={false}>
