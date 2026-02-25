@@ -543,79 +543,109 @@ export const Profile: React.FC = () => {
           </aside>
 
           <div className="min-w-0">
-            <div className="bg-[#E8F1D5]/70 backdrop-blur-xl rounded-[2.5rem] p-5 md:p-8 border border-[#E6E1D8] shadow-2xl mb-6">
-          <div className="flex flex-col lg:flex-row gap-6">
-            <div className="flex-1 space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className={ui.labelTight}>Mina sidor</p>
-                  <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D]">{sectionTitle}</h1>
-                  <p className={`${ui.body} mt-2 max-w-xl`}>{sectionDescription}</p>
-                </div>
-                <button 
-                  onClick={async () => { await signOut(); navigate('/'); }}
-                  className="flex items-center gap-2 text-red-400 hover:bg-red-500/10 px-3 py-2 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Logga ut
-                </button>
-              </div>
+            {activeTab === 'OVERVIEW' && (
+              <div className="bg-[#E8F1D5]/70 backdrop-blur-xl rounded-[2.5rem] p-5 md:p-8 border border-[#E6E1D8] shadow-2xl mb-6">
+                <div className="flex flex-col lg:flex-row gap-6">
+                  <div className="flex-1 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className={ui.labelTight}>Mina sidor</p>
+                        <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D]">{sectionTitle}</h1>
+                        <p className={`${ui.body} mt-2 max-w-xl`}>{sectionDescription}</p>
+                      </div>
+                      <button 
+                        onClick={async () => { await signOut(); navigate('/'); }}
+                        className="flex items-center gap-2 text-red-400 hover:bg-red-500/10 px-3 py-2 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Logga ut
+                      </button>
+                    </div>
 
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#F6F1E7] border border-[#E6E1D8] flex items-center justify-center text-[#a0c81d] font-black">
-                  {user.email?.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p className={ui.label}>Data</p>
-                  <div className="text-sm font-bold text-[#3D3D3D]">{user.full_name || 'Användare'}</div>
-                  <div className="text-xs text-[#6B6158] flex items-center gap-1.5">
-                    <Mail className="w-3 h-3" /> {user.email}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#F6F1E7] border border-[#E6E1D8] flex items-center justify-center text-[#a0c81d] font-black">
+                        {user.email?.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className={ui.label}>Data</p>
+                        <div className="text-sm font-bold text-[#3D3D3D]">{user.full_name || 'Användare'}</div>
+                        <div className="text-xs text-[#6B6158] flex items-center gap-1.5">
+                          <Mail className="w-3 h-3" /> {user.email}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <div className="flex-1">
+                    <div className="bg-[#F6F1E7]/80 border border-[#E6E1D8] rounded-2xl p-4 h-full flex flex-col justify-between gap-4">
+                      <div>
+                        <p className={ui.label}>Uppföljningar</p>
+                        <div className="text-lg font-black text-[#3D3D3D] mt-1">Senast inskickad</div>
+                        <div className="text-sm text-[#6B6158]">{formatDate(latestUppfoljning?.created_at)}</div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                          uppStatus === 'Genomförd'
+                            ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
+                            : uppStatus === 'Pågående'
+                              ? 'bg-amber-500/15 text-amber-700 border-amber-500/30'
+                              : 'bg-white/80 text-[#6B6158] border-[#E6E1D8]'
+                        }`}>
+                          {uppStatus}
+                        </span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                          Totalt inskickade: {uppSubmissions.length}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Link to="/uppfoljning" className={ui.primaryBtnSm}>
+                          Skicka uppföljning
+                        </Link>
+                        <button
+                          onClick={() => navigateToTab('SUBMISSIONS')}
+                          className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
+                        >
+                          Se historik
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-
-            </div>
-
-            <div className="flex-1">
-              <div className="bg-[#F6F1E7]/80 border border-[#E6E1D8] rounded-2xl p-4 h-full flex flex-col justify-between gap-4">
-                <div>
-                  <p className={ui.label}>Uppföljningar</p>
-                  <div className="text-lg font-black text-[#3D3D3D] mt-1">Senast inskickad</div>
-                  <div className="text-sm text-[#6B6158]">{formatDate(latestUppfoljning?.created_at)}</div>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                    uppStatus === 'Genomförd'
-                      ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                      : uppStatus === 'Pågående'
-                        ? 'bg-amber-500/15 text-amber-700 border-amber-500/30'
-                        : 'bg-white/80 text-[#6B6158] border-[#E6E1D8]'
-                  }`}>
-                    {uppStatus}
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                    Totalt inskickade: {uppSubmissions.length}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Link to="/uppfoljning" className={ui.primaryBtnSm}>
-                    Skicka uppföljning
-                  </Link>
-                  <button
-                    onClick={() => navigateToTab('SUBMISSIONS')}
-                    className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
-                  >
-                    Se historik
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+            )}
 
         <div className="min-h-[600px]">
             {activeTab === 'OVERVIEW' && (
               <div className="space-y-6 animate-fade-in">
+                <div className="bg-[#F6F1E7]/80 border border-[#E6E1D8] rounded-2xl p-4 flex flex-col justify-between gap-4">
+                  <div>
+                    <p className={ui.label}>PTO Coaching</p>
+                    <div className="text-lg font-black text-[#3D3D3D] mt-1">Medlemskap</div>
+                    <div className="text-sm text-[#6B6158]">
+                      {coachingStatus === 'paused'
+                        ? 'Pausat'
+                        : coachingStatus === 'deactivated'
+                          ? 'Deaktiverad'
+                          : coachingStatus === 'expired'
+                            ? 'På väg att avslutas'
+                            : user.coaching_expires_at
+                              ? `Utgångsdatum ${formatDate(user.coaching_expires_at)}`
+                              : 'Ej angivet'}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${coachingMeta.style}`}>
+                      {coachingMeta.label}
+                    </span>
+                    <button
+                      onClick={() => navigateToTab('MEMBERSHIP')}
+                      className={ui.outlineBtn}
+                    >
+                      Hantera coaching
+                    </button>
+                  </div>
+                </div>
                 <div className={ui.panel}>
                   <div className="absolute top-[-20%] left-[-10%] w-[360px] h-[360px] bg-[#a0c81d]/10 rounded-full blur-[110px]"></div>
                   <div className="relative z-10 space-y-5">
