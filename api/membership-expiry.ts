@@ -202,14 +202,8 @@ export default async function handler(req: any, res: any) {
   }
 
   const body = await readJsonBody(req);
-  const email = typeof body.email === 'string' ? body.email.trim() : '';
+  let email = typeof body.email === 'string' ? body.email.trim() : '';
   const userId = typeof body.user_id === 'string' ? body.user_id.trim() : '';
-
-  if (!email) {
-    setCors(res, origin);
-    res.status(400).json({ error: 'Missing email' });
-    return;
-  }
 
   const supabaseUrl = getEnv('SUPABASE_URL') || getEnv('VITE_SUPABASE_URL');
   const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY') || getEnv('VITE_SUPABASE_ANON_KEY');
@@ -226,6 +220,16 @@ export default async function handler(req: any, res: any) {
   if (authError || !authData?.user) {
     setCors(res, origin);
     res.status(401).json({ error: 'Invalid session' });
+    return;
+  }
+
+  if (!email && authData.user.email) {
+    email = authData.user.email;
+  }
+
+  if (!email) {
+    setCors(res, origin);
+    res.status(400).json({ error: 'Missing email' });
     return;
   }
 
