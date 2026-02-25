@@ -84,14 +84,15 @@ async function lookupExpiry(email: string): Promise<SheetLookupResult> {
       CallToolResultSchema,
     );
 
-    const textItem = result?.content?.find((item: any) => item?.type === 'text' && typeof item?.text === 'string');
-    if (!textItem) {
+    const textItem = result?.content?.find((item: any) => item?.type === 'text');
+    const text = typeof textItem?.text === 'string' ? textItem.text : null;
+    if (!text) {
       return { found: false };
     }
 
     let parsed: any = null;
     try {
-      parsed = JSON.parse(textItem.text);
+      parsed = JSON.parse(text);
     } catch {
       parsed = null;
     }
