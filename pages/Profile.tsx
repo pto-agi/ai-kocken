@@ -48,6 +48,7 @@ export const Profile: React.FC = () => {
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
   const [isPausing, setIsPausing] = useState(false);
   const [pauseStatus, setPauseStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [pauseCooldownUntil, setPauseCooldownUntil] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const [expandedSubmissions, setExpandedSubmissions] = useState<Record<string, boolean>>({});
 
@@ -123,7 +124,15 @@ export const Profile: React.FC = () => {
     setCity(user.city || '');
     setCountry(user.country || 'Sverige');
     setPhone(user.phone || '');
-  }, [user?.address_line1, user?.address_line2, user?.postal_code, user?.city, user?.country, user?.phone]);
+    const cooldownKey = `pto_pause_request:${user.id}`;
+    const rawCooldown = localStorage.getItem(cooldownKey);
+    if (rawCooldown) {
+      const parsed = Number(rawCooldown);
+      setPauseCooldownUntil(Number.isFinite(parsed) ? parsed : null);
+    } else {
+      setPauseCooldownUntil(null);
+    }
+  }, [user?.id, user?.address_line1, user?.address_line2, user?.postal_code, user?.city, user?.country, user?.phone]);
 
   const handleCancelSubscription = async () => {
     if (!canDeactivateMembership) {
@@ -151,6 +160,12 @@ export const Profile: React.FC = () => {
   };
 
   const handlePauseMembership = async () => {
+    const cooldownKey = `pto_pause_request:${user.id}`;
+    const now = Date.now();
+    if (pauseCooldownUntil && now < pauseCooldownUntil) {
+      setPauseStatus('success');
+      return;
+    }
     if (isPausing) return;
     setPauseStatus('idle');
     setIsPausing(true);
@@ -160,6 +175,9 @@ export const Profile: React.FC = () => {
         source: 'pause_membership'
       });
       setPauseStatus('success');
+      const until = now + 24 * 60 * 60 * 1000;
+      localStorage.setItem(cooldownKey, String(until));
+      setPauseCooldownUntil(until);
     } catch (err) {
       console.error('Pause membership webhook error:', err);
       setPauseStatus('error');
@@ -427,6 +445,7 @@ export const Profile: React.FC = () => {
     (typeof user.subscription_status === 'string' && user.subscription_status) ||
     (user.coaching_expires_at ? 'active' : 'inactive');
   const coachingActive = coachingStatus === 'active';
+  const pauseCooldownActive = pauseCooldownUntil ? Date.now() < pauseCooldownUntil : false;
   const coachingStatusMeta = {
     active: {
       label: 'Aktiv',
@@ -1040,6 +1059,11 @@ export const Profile: React.FC = () => {
                                 Pausbegäran skickad
                               </span>
                             )}
+                            {pauseCooldownActive && (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-sky-700">
+                                Pausbegäran redan registrerad. Status uppdateras inom 24 timmar.
+                              </span>
+                            )}
                             {pauseStatus === 'error' && (
                               <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
                                 Kunde inte skicka
@@ -1048,10 +1072,14 @@ export const Profile: React.FC = () => {
                             {coachingActive ? (
                               <button
                                 onClick={handlePauseMembership}
-                                disabled={isPausing}
+                                disabled={isPausing || pauseCooldownActive}
                                 className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
                               >
-                                {isPausing ? 'Skickar...' : 'Pausa medlemskap'}
+                                {isPausing
+                                  ? 'Skickar...'
+                                  : pauseCooldownActive
+                                    ? 'Paus begärd'
+                                    : 'Pausa medlemskap'}
                               </button>
                             ) : (
                               <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
