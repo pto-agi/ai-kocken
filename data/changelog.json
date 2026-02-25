@@ -1,6 +1,32 @@
 {
-  "last_commit": "fd73d4c668105b00a10c2c5ad58df03ef481a04b",
+  "last_commit": "4b1fa254bece424200598ade534c942e4dde3418",
   "entries": [
+    {
+      "id": "2026-02-25T17:26:54.341Z-4b1fa25",
+      "date": "2026-02-25T17:26:54.342Z",
+      "range": "fd73d4c668105b00a10c2c5ad58df03ef481a04b..4b1fa254bece424200598ade534c942e4dde3418",
+      "head": "4b1fa254bece424200598ade534c942e4dde3418",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "4b1fa25",
+          "subject": "Throttle pause requests for 24h"
+        },
+        {
+          "hash": "7d64b1f",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "pages/Profile.tsx"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 58,
+        "deletions": 4
+      }
+    },
     {
       "id": "2026-02-25T17:17:08.422Z-fd73d4c",
       "date": "2026-02-25T17:17:08.423Z",
