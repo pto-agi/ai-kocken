@@ -12,7 +12,6 @@ import {
   ChevronRight,
   Settings,
   ShieldCheck,
-  LifeBuoy,
   ClipboardCheck,
   ShoppingBasket
 } from 'lucide-react';
@@ -50,7 +49,6 @@ const Navbar: React.FC = () => {
     : [
         { path: '/', label: 'HEM', icon: Home },
         { path: '/recept', label: 'RECEPT', icon: ChefHat },
-        { path: '/support', label: 'CHATT', icon: LifeBuoy, aiBadge: true },
         { path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ClipboardCheck },
         { path: '/refill', label: 'SHOP', icon: ShoppingBasket },
       ];
