@@ -1,6 +1,32 @@
 {
-  "last_commit": "09c3aeaaf190dddc9f9c2709b68ccfd807336cb0",
+  "last_commit": "fa0b393691ceed073079b94e6a3cf5347ed09a98",
   "entries": [
+    {
+      "id": "2026-02-25T17:49:18.329Z-fa0b393",
+      "date": "2026-02-25T17:49:18.329Z",
+      "range": "09c3aeaaf190dddc9f9c2709b68ccfd807336cb0..fa0b393691ceed073079b94e6a3cf5347ed09a98",
+      "head": "fa0b393691ceed073079b94e6a3cf5347ed09a98",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "fa0b393",
+          "subject": "Add manual membership status refresh"
+        },
+        {
+          "hash": "c2fd4e8",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "pages/Profile.tsx"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 89,
+        "deletions": 3
+      }
+    },
     {
       "id": "2026-02-25T17:43:55.878Z-09c3aea",
       "date": "2026-02-25T17:43:55.878Z",
