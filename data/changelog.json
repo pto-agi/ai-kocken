@@ -1,6 +1,32 @@
 {
-  "last_commit": "cd8b5b5cb648b3afbe8fd53d047bebde3963c586",
+  "last_commit": "fd73d4c668105b00a10c2c5ad58df03ef481a04b",
   "entries": [
+    {
+      "id": "2026-02-25T17:17:08.422Z-fd73d4c",
+      "date": "2026-02-25T17:17:08.423Z",
+      "range": "cd8b5b5cb648b3afbe8fd53d047bebde3963c586..fd73d4c668105b00a10c2c5ad58df03ef481a04b",
+      "head": "fd73d4c668105b00a10c2c5ad58df03ef481a04b",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "fd73d4c",
+          "subject": "Move membership summary into overview hero"
+        },
+        {
+          "hash": "f766012",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "pages/Profile.tsx"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 78,
+        "deletions": 95
+      }
+    },
     {
       "id": "2026-02-25T17:08:35.065Z-cd8b5b5",
       "date": "2026-02-25T17:08:35.065Z",
