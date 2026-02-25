@@ -1,6 +1,32 @@
 {
-  "last_commit": "94e0f6be2a517cf1ee76880ac31f8ff487618d6c",
+  "last_commit": "3d38547b6142187fc8a36074022fc24dc7a6c6c7",
   "entries": [
+    {
+      "id": "2026-02-25T19:28:31.535Z-3d38547",
+      "date": "2026-02-25T19:28:31.536Z",
+      "range": "94e0f6be2a517cf1ee76880ac31f8ff487618d6c..3d38547b6142187fc8a36074022fc24dc7a6c6c7",
+      "head": "3d38547b6142187fc8a36074022fc24dc7a6c6c7",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "3d38547",
+          "subject": "Show reactivate only for paused or deactivated"
+        },
+        {
+          "hash": "0be34b7",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "pages/Profile.tsx"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 59,
+        "deletions": 30
+      }
+    },
     {
       "id": "2026-02-25T19:26:46.100Z-94e0f6b",
       "date": "2026-02-25T19:26:46.100Z",
