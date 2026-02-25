@@ -1,6 +1,32 @@
 {
-  "last_commit": "4b1fa254bece424200598ade534c942e4dde3418",
+  "last_commit": "c221cf3204500cc4cec19227f0c05c256d902852",
   "entries": [
+    {
+      "id": "2026-02-25T17:37:38.208Z-c221cf3",
+      "date": "2026-02-25T17:37:38.208Z",
+      "range": "4b1fa254bece424200598ade534c942e4dde3418..c221cf3204500cc4cec19227f0c05c256d902852",
+      "head": "c221cf3204500cc4cec19227f0c05c256d902852",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "c221cf3",
+          "subject": "Derive email from token for membership sync"
+        },
+        {
+          "hash": "e31fe92",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/membership-expiry.ts",
+        "data/changelog.json"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 38,
+        "deletions": 8
+      }
+    },
     {
       "id": "2026-02-25T17:26:54.341Z-4b1fa25",
       "date": "2026-02-25T17:26:54.342Z",
