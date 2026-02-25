@@ -36,7 +36,7 @@ const Footer: React.FC = () => {
               <li><Link to="/forlangning" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Förlängning (erbjudande)</Link></li>
               <li><Link to="/recept" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Veckomeny</Link></li>
               <li><Link to="/uppfoljning" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Uppföljning</Link></li>
-              <li><Link to="/support" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Supportchatt</Link></li>
+              <li><Link to="/support" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Chatt</Link></li>
               <li><Link to="/refill" className="text-white hover:text-[#a0c81d] transition-colors duration-200 block py-1">Shop</Link></li>
             </ul>
           </div>

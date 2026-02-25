@@ -50,7 +50,7 @@ const Navbar: React.FC = () => {
     : [
         { path: '/', label: 'HEM', icon: Home },
         { path: '/recept', label: 'RECEPT', icon: ChefHat },
-        { path: '/support', label: 'SUPPORT', icon: LifeBuoy, aiBadge: true },
+        { path: '/support', label: 'CHATT', icon: LifeBuoy, aiBadge: true },
         { path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ClipboardCheck },
         { path: '/refill', label: 'SHOP', icon: ShoppingBasket },
       ];

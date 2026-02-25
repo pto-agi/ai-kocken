@@ -37,8 +37,8 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
     description: 'Skapa veckomeny med recept, inköpslista och makron. Anpassa efter mål, preferenser och budget, spara favoriter och exportera när du vill. Perfekt för veckans planering.'
   },
   '/support': {
-    title: 'Support',
-    description: 'Chatta med teamet och få snabb hjälp med kost, medlemskap och teknik. Vi guidar dig vidare, svarar på frågor och hjälper i appen när du behöver.'
+    title: 'Chatt',
+    description: 'Chatt med teamet för snabb hjälp kring kost, medlemskap och teknik. Lanseras i mars 2026.'
   },
   '/profile': {
     title: 'Mina sidor',

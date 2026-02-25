@@ -22,8 +22,8 @@ const quickLinks = [
     tone: 'from-[#3D3D3D]/10 via-[#F29B7B]/12 to-transparent'
   },
   {
-    title: 'Support',
-    description: 'Chatta med teamet och få snabb hjälp.',
+    title: 'Chatt',
+    description: 'Lanseras i mars 2026.',
     to: '/support',
     icon: LifeBuoy,
     tone: 'from-[#3D3D3D]/10 via-[#F29B7B]/12 to-transparent'
@@ -95,7 +95,7 @@ export const Home: React.FC = () => {
                   'AI‑coach för träning, kost och snabba frågor',
                   'Veckomeny med recept och inköpslista',
                   'Uppföljning av mål och framsteg',
-                  'Supportchatt när du behöver hjälp',
+                  'Chatt som öppnar i mars 2026',
                   'Shop med medlemspris',
                   'Förlängning av medlemskap'
                 ].map((text) => (
@@ -114,9 +114,9 @@ export const Home: React.FC = () => {
                 </Link>
                 <Link
                   to="/support"
-                  className="inline-flex items-center gap-2 rounded-full border border-[#E6E1D8] bg-white/80 px-6 py-3 text-xs font-black uppercase tracking-widest text-[#3D3D3D] transition-all hover:border-[#a0c81d]/40 hover:text-[#a0c81d] shadow-[0_10px_28px_rgba(61,61,61,0.12)] hover:shadow-[0_16px_36px_rgba(61,61,61,0.18)]"
-                >
-                  Chatta med support
+                className="inline-flex items-center gap-2 rounded-full border border-[#E6E1D8] bg-white/80 px-6 py-3 text-xs font-black uppercase tracking-widest text-[#3D3D3D] transition-all hover:border-[#a0c81d]/40 hover:text-[#a0c81d] shadow-[0_10px_28px_rgba(61,61,61,0.12)] hover:shadow-[0_16px_36px_rgba(61,61,61,0.18)]"
+              >
+                  Öppna chatt
                 </Link>
               </div>
             </div>
