@@ -283,7 +283,19 @@ export default async function handler(req: any, res: any) {
 
     if (updateError) {
       setCors(res, origin);
-      res.status(502).json({ error: 'Supabase update failed' });
+      res.status(502).json({
+        error: 'Supabase update failed',
+        ...(debugEnabled
+          ? {
+              details: {
+                message: updateError.message,
+                code: updateError.code,
+                hint: updateError.hint,
+                details: updateError.details,
+              },
+            }
+          : {}),
+      });
       return;
     }
 
