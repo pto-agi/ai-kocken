@@ -1,6 +1,32 @@
 {
-  "last_commit": "c9778e243b98b9dcb5134e85d6c12ef6f45b6610",
+  "last_commit": "cd8b5b5cb648b3afbe8fd53d047bebde3963c586",
   "entries": [
+    {
+      "id": "2026-02-25T17:08:35.065Z-cd8b5b5",
+      "date": "2026-02-25T17:08:35.065Z",
+      "range": "c9778e243b98b9dcb5134e85d6c12ef6f45b6610..cd8b5b5cb648b3afbe8fd53d047bebde3963c586",
+      "head": "cd8b5b5cb648b3afbe8fd53d047bebde3963c586",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "cd8b5b5",
+          "subject": "Limit profile hero to overview and move coaching summary"
+        },
+        {
+          "hash": "1545aac",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "pages/Profile.tsx"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 123,
+        "deletions": 65
+      }
+    },
     {
       "id": "2026-02-25T16:57:49.002Z-c9778e2",
       "date": "2026-02-25T16:57:49.003Z",
