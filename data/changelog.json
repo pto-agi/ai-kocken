@@ -1,6 +1,32 @@
 {
-  "last_commit": "363832eb51ea2f618821ad1cb52ac78a4b538f80",
+  "last_commit": "d1d2a08d6f37a7873efaeb4b7a6f8b824e8db5c7",
   "entries": [
+    {
+      "id": "2026-02-25T16:06:36.645Z-d1d2a08",
+      "date": "2026-02-25T16:06:36.645Z",
+      "range": "363832eb51ea2f618821ad1cb52ac78a4b538f80..d1d2a08d6f37a7873efaeb4b7a6f8b824e8db5c7",
+      "head": "d1d2a08d6f37a7873efaeb4b7a6f8b824e8db5c7",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "d1d2a08",
+          "subject": "Use Google Sheets API for membership expiry sync"
+        },
+        {
+          "hash": "d275e6d",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/membership-expiry.ts",
+        "data/changelog.json"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 77,
+        "deletions": 69
+      }
+    },
     {
       "id": "2026-02-25T15:58:58.387Z-363832e",
       "date": "2026-02-25T15:58:58.388Z",
