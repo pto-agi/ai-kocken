@@ -499,47 +499,6 @@ export const Profile: React.FC = () => {
                 })}
               </nav>
             </div>
-
-            <div className="bg-[#F6F1E7]/80 border border-[#E6E1D8] rounded-[2rem] p-4 shadow-lg">
-              <div className="flex items-center justify-between">
-                <p className={ui.label}>Snabbåtgärder</p>
-                <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${coachingMeta.style}`}>
-                  {coachingMeta.label}
-                </span>
-              </div>
-              <div className="mt-3 text-xs text-[#6B6158] space-y-1">
-                <div>Medlemskap: PTO Coaching</div>
-                <div>
-                  Utgångsdatum:{' '}
-                  {coachingStatus === 'paused'
-                    ? 'Pausat'
-                    : coachingStatus === 'deactivated'
-                      ? 'Deaktiverad'
-                      : coachingStatus === 'expired'
-                        ? 'På väg att avslutas'
-                        : user.coaching_expires_at
-                          ? formatDate(user.coaching_expires_at)
-                          : 'Ej angivet'}
-                </div>
-              </div>
-              <div className="mt-4 flex flex-col gap-2">
-                <button
-                  onClick={() => navigateToTab('MEMBERSHIP')}
-                  className={`${ui.primaryBtnSm} w-full flex items-center justify-center`}
-                >
-                  Hantera medlemskap
-                </button>
-                <Link to="/uppfoljning" className={`${ui.outlineBtn} w-full text-center`}>
-                  Skicka uppföljning
-                </Link>
-                <Link to="/recept" className={`${ui.outlineBtn} w-full text-center`}>
-                  Ny veckomeny
-                </Link>
-                <Link to="/support" className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] text-center hover:text-[#3D3D3D]">
-                  Support
-                </Link>
-              </div>
-            </div>
           </aside>
 
           <div className="min-w-0">
@@ -578,37 +537,63 @@ export const Profile: React.FC = () => {
                   </div>
 
                   <div className="flex-1">
-                    <div className="bg-[#F6F1E7]/80 border border-[#E6E1D8] rounded-2xl p-4 h-full flex flex-col justify-between gap-4">
-                      <div>
-                        <p className={ui.label}>Uppföljningar</p>
-                        <div className="text-lg font-black text-[#3D3D3D] mt-1">Senast inskickad</div>
-                        <div className="text-sm text-[#6B6158]">{formatDate(latestUppfoljning?.created_at)}</div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                          uppStatus === 'Genomförd'
-                            ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                            : uppStatus === 'Pågående'
-                              ? 'bg-amber-500/15 text-amber-700 border-amber-500/30'
-                              : 'bg-white/80 text-[#6B6158] border-[#E6E1D8]'
-                        }`}>
-                          {uppStatus}
-                        </span>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                          Totalt inskickade: {uppSubmissions.length}
+                    <div className="bg-[#F6F1E7]/80 border border-[#E6E1D8] rounded-2xl p-4 h-full flex flex-col gap-4">
+                      <div className="flex items-center justify-between">
+                        <p className={ui.label}>Medlemskap</p>
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${coachingMeta.style}`}>
+                          {coachingMeta.label}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Link to="/uppfoljning" className={ui.primaryBtnSm}>
+                      <div className="text-xs text-[#6B6158] space-y-1">
+                        <div>PTO Coaching</div>
+                        <div>
+                          Utgångsdatum:{' '}
+                          {coachingStatus === 'paused'
+                            ? 'Pausat'
+                            : coachingStatus === 'deactivated'
+                              ? 'Deaktiverad'
+                              : coachingStatus === 'expired'
+                                ? 'På väg att avslutas'
+                                : user.coaching_expires_at
+                                  ? formatDate(user.coaching_expires_at)
+                                  : 'Ej angivet'}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => navigateToTab('MEMBERSHIP')}
+                          className={`${ui.primaryBtnSm} w-full flex items-center justify-center`}
+                        >
+                          Hantera medlemskap
+                        </button>
+                        <Link to="/uppfoljning" className={`${ui.outlineBtn} w-full text-center`}>
                           Skicka uppföljning
                         </Link>
-                        <button
-                          onClick={() => navigateToTab('SUBMISSIONS')}
-                          className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
-                        >
-                          Se historik
-                        </button>
+                        <Link to="/recept" className={`${ui.outlineBtn} w-full text-center`}>
+                          Ny veckomeny
+                        </Link>
+                        <Link to="/support" className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] text-center hover:text-[#3D3D3D]">
+                          Support
+                        </Link>
                       </div>
+                      {coachingStatus === 'paused' && (
+                        <div className="flex items-start gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[11px] text-sky-700">
+                          <PauseCircle className="w-4 h-4 mt-0.5" />
+                          <span>Medlemskapet är pausat.</span>
+                        </div>
+                      )}
+                      {coachingStatus === 'expired' && (
+                        <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700">
+                          <AlertTriangle className="w-4 h-4 mt-0.5" />
+                          <span>Din period är på väg att avslutas.</span>
+                        </div>
+                      )}
+                      {coachingStatus === 'deactivated' && (
+                        <div className="flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-700">
+                          <Ban className="w-4 h-4 mt-0.5" />
+                          <span>Medlemskapet är deaktiverat.</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -618,34 +603,6 @@ export const Profile: React.FC = () => {
         <div className="min-h-[600px]">
             {activeTab === 'OVERVIEW' && (
               <div className="space-y-6 animate-fade-in">
-                <div className="bg-[#F6F1E7]/80 border border-[#E6E1D8] rounded-2xl p-4 flex flex-col justify-between gap-4">
-                  <div>
-                    <p className={ui.label}>PTO Coaching</p>
-                    <div className="text-lg font-black text-[#3D3D3D] mt-1">Medlemskap</div>
-                    <div className="text-sm text-[#6B6158]">
-                      {coachingStatus === 'paused'
-                        ? 'Pausat'
-                        : coachingStatus === 'deactivated'
-                          ? 'Deaktiverad'
-                          : coachingStatus === 'expired'
-                            ? 'På väg att avslutas'
-                            : user.coaching_expires_at
-                              ? `Utgångsdatum ${formatDate(user.coaching_expires_at)}`
-                              : 'Ej angivet'}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${coachingMeta.style}`}>
-                      {coachingMeta.label}
-                    </span>
-                    <button
-                      onClick={() => navigateToTab('MEMBERSHIP')}
-                      className={ui.outlineBtn}
-                    >
-                      Hantera coaching
-                    </button>
-                  </div>
-                </div>
                 <div className={ui.panel}>
                   <div className="absolute top-[-20%] left-[-10%] w-[360px] h-[360px] bg-[#a0c81d]/10 rounded-full blur-[110px]"></div>
                   <div className="relative z-10 space-y-5">
