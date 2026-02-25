@@ -5,6 +5,7 @@ type SheetLookupResult = {
   found: boolean;
   expiresAt?: string;
   rawRow?: Record<string, unknown> | null;
+  debug?: Record<string, unknown>;
 };
 
 const SHEET_ID_DEFAULT = '1DHKLVUhJmaTBFooHnn_OAAlPe_kR0Fs84FibCr9zoAM';
@@ -47,6 +48,12 @@ async function lookupExpiry(email: string): Promise<SheetLookupResult> {
   const worksheetName = getEnv('CLIENT_SHEET_WORKSHEET', 'Aktiva');
   const emailColumn = getEnv('CLIENT_SHEET_EMAIL_COLUMN', 'Epost');
   const expiryColumn = getEnv('CLIENT_SHEET_EXPIRY_COLUMN', 'Utgångsdatum');
+  const debugMeta: Record<string, unknown> = {
+    sheetId,
+    worksheetName,
+    emailColumn,
+    expiryColumn,
+  };
 
   const serviceEmail = getEnv('GOOGLE_SERVICE_ACCOUNT_EMAIL');
   const privateKeyRaw = getEnv('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY');
@@ -78,10 +85,12 @@ async function lookupExpiry(email: string): Promise<SheetLookupResult> {
 
   const data = await response.json();
   const values: string[][] = Array.isArray(data?.values) ? data.values : [];
-  if (values.length === 0) return { found: false };
+  debugMeta.rowsCount = values.length;
+  if (values.length === 0) return { found: false, debug: debugMeta };
 
   const [headerRow, ...rows] = values;
-  if (!headerRow) return { found: false };
+  debugMeta.headerRow = headerRow;
+  if (!headerRow) return { found: false, debug: debugMeta };
 
   const headerMap = headerRow.reduce<Record<string, number>>((acc, value, index) => {
     if (typeof value === 'string') {
@@ -92,8 +101,10 @@ async function lookupExpiry(email: string): Promise<SheetLookupResult> {
 
   const emailIndex = headerMap[normalizeKey(emailColumn)];
   const expiryIndex = headerMap[normalizeKey(expiryColumn)];
+  debugMeta.emailIndex = emailIndex;
+  debugMeta.expiryIndex = expiryIndex;
   if (emailIndex === undefined || expiryIndex === undefined) {
-    return { found: false };
+    return { found: false, debug: debugMeta };
   }
 
   const target = email.toLowerCase();
@@ -102,11 +113,11 @@ async function lookupExpiry(email: string): Promise<SheetLookupResult> {
     if (!rowEmail || rowEmail !== target) continue;
     const rawExpiry = row[expiryIndex] ? row[expiryIndex].toString() : '';
     const normalized = normalizeExpiry(rawExpiry);
-    if (!normalized) return { found: false };
-    return { found: true, expiresAt: normalized };
+    if (!normalized) return { found: false, debug: debugMeta };
+    return { found: true, expiresAt: normalized, debug: debugMeta };
   }
 
-  return { found: false };
+  return { found: false, debug: debugMeta };
 }
 
 function getBearerToken(header: string | undefined): string | undefined {
@@ -151,6 +162,7 @@ async function readJsonBody(req: any): Promise<Record<string, unknown>> {
 
 export default async function handler(req: any, res: any) {
   const origin = req.headers?.origin as string | undefined;
+  const debugEnabled = typeof req?.url === 'string' && req.url.includes('debug=1');
 
   if (!isAllowedOrigin(origin)) {
     setCors(res, origin);
@@ -216,7 +228,7 @@ export default async function handler(req: any, res: any) {
     const lookup = await lookupExpiry(email);
     if (!lookup.found || !lookup.expiresAt) {
       setCors(res, origin);
-      res.status(200).json({ ok: true, found: false });
+      res.status(200).json({ ok: true, found: false, ...(debugEnabled ? { debug: lookup } : {}) });
       return;
     }
 
@@ -228,6 +240,7 @@ export default async function handler(req: any, res: any) {
         found: true,
         coaching_expires_at: lookup.expiresAt,
         updated: false,
+        ...(debugEnabled ? { debug: lookup } : {}),
       });
       return;
     }
@@ -250,6 +263,7 @@ export default async function handler(req: any, res: any) {
       found: true,
       coaching_expires_at: lookup.expiresAt,
       updated: true,
+      ...(debugEnabled ? { debug: lookup } : {}),
     });
   } catch (error: any) {
     console.error('Membership expiry sync failed', error);
