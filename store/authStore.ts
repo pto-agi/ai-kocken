@@ -35,25 +35,30 @@ const maybeSyncMembershipExpiry = async (
     }
 
     const data = await response.json();
-    if (!data?.found || !data?.coaching_expires_at) return;
+    if (!data?.found) return;
 
     if (data.updated) {
       await refreshProfile();
       return;
     }
 
-    if (profile.coaching_expires_at === data.coaching_expires_at) return;
+    const nextExpiresAt = data.coaching_expires_at ?? null;
+    const nextStatus = data.subscription_status ?? null;
+    if (profile.coaching_expires_at === nextExpiresAt && profile.subscription_status === nextStatus) return;
 
     const { error } = await supabase
       .from('profiles')
-      .update({ coaching_expires_at: data.coaching_expires_at })
+      .update({
+        coaching_expires_at: nextExpiresAt,
+        subscription_status: nextStatus,
+      })
       .eq('id', profile.id);
     if (error) {
       console.warn('Membership expiry update failed', error);
       return;
     }
 
-    set({ profile: { ...profile, coaching_expires_at: data.coaching_expires_at } });
+    set({ profile: { ...profile, coaching_expires_at: nextExpiresAt, subscription_status: nextStatus } });
   } catch (error) {
     console.warn('Membership expiry sync error', error);
   }

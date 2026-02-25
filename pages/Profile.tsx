@@ -3,7 +3,8 @@ import { useNavigate, Link, useLocation, NavLink } from 'react-router-dom';
 import { 
   User, LogOut, Mail, Settings, Trash2, Loader2,
   FileText, FileDown, Plus, Clock, RefreshCw,
-  ArrowRight, LayoutDashboard, ClipboardList, CreditCard, Sparkles
+  ArrowRight, LayoutDashboard, ClipboardList, CreditCard, Sparkles,
+  AlertTriangle, PauseCircle, Ban
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { databaseService } from '../services/databaseService';
@@ -422,7 +423,35 @@ export const Profile: React.FC = () => {
     );
   }
 
-  const isPremium = user.membership_level === 'premium';
+  const coachingStatus =
+    (typeof user.subscription_status === 'string' && user.subscription_status) ||
+    (user.coaching_expires_at ? 'active' : 'inactive');
+  const coachingActive = coachingStatus === 'active';
+  const coachingStatusMeta = {
+    active: {
+      label: 'Aktiv',
+      style: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30',
+    },
+    paused: {
+      label: 'Pausad',
+      style: 'bg-sky-500/15 text-sky-700 border-sky-500/30',
+    },
+    expired: {
+      label: 'Avslutas',
+      style: 'bg-amber-500/15 text-amber-700 border-amber-500/30',
+    },
+    deactivated: {
+      label: 'Deaktiverad',
+      style: 'bg-rose-500/15 text-rose-700 border-rose-500/30',
+    },
+    inactive: {
+      label: 'Inte aktiv',
+      style: 'bg-white/80 text-[#6B6158] border-[#E6E1D8]',
+    },
+  } as const;
+  const coachingMeta =
+    coachingStatusMeta[(coachingStatus as keyof typeof coachingStatusMeta) || 'inactive'] ||
+    coachingStatusMeta.inactive;
   const canDeactivateMembership = false; // TODO: enable when webhook for deactivation is live
   const canReactivateMembership = false; // TODO: enable when webhook for reactivation is live
   const sectionTitle = activeTabMeta?.label || 'Översikt';
@@ -474,17 +503,24 @@ export const Profile: React.FC = () => {
             <div className="bg-[#F6F1E7]/80 border border-[#E6E1D8] rounded-[2rem] p-4 shadow-lg">
               <div className="flex items-center justify-between">
                 <p className={ui.label}>Snabbåtgärder</p>
-                <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                  isPremium
-                    ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                    : 'bg-white/80 text-[#6B6158] border-[#E6E1D8]'
-                }`}>
-                  {isPremium ? 'Aktiv' : 'Inaktiv'}
+                <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${coachingMeta.style}`}>
+                  {coachingMeta.label}
                 </span>
               </div>
               <div className="mt-3 text-xs text-[#6B6158] space-y-1">
-                <div>Medlemskap: {isPremium ? 'Premium' : 'Gratis'}</div>
-                <div>Utgångsdatum: {user.coaching_expires_at ? formatDate(user.coaching_expires_at) : 'Ej angivet'}</div>
+                <div>Medlemskap: PTO Coaching</div>
+                <div>
+                  Utgångsdatum:{' '}
+                  {coachingStatus === 'paused'
+                    ? 'Pausat'
+                    : coachingStatus === 'deactivated'
+                      ? 'Deaktiverad'
+                      : coachingStatus === 'expired'
+                        ? 'På väg att avslutas'
+                        : user.coaching_expires_at
+                          ? formatDate(user.coaching_expires_at)
+                          : 'Ej angivet'}
+                </div>
               </div>
               <div className="mt-4 flex flex-col gap-2">
                 <button
@@ -945,90 +981,114 @@ export const Profile: React.FC = () => {
                   <div className="relative z-10 space-y-8">
                     <div>
                       <p className={ui.labelTight}>Medlemskap</p>
-                      <h2 className={ui.titleLg}>Hantera din prenumeration</h2>
+                      <h2 className={ui.titleLg}>Hantera din PTO‑tjänst</h2>
                       <p className={`${ui.body} mt-2 max-w-2xl`}>
-                        Här kan du se status på ditt medlemskap och göra ändringar som paus, deaktivering eller återaktivering.
+                        Här ser du din coachingstatus, kommande händelser och tilläggstjänster.
                       </p>
                     </div>
 
-                    <div className={`${ui.card} flex flex-col gap-4`}>
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div>
-                          <p className={ui.label}>Aktiv prenumeration</p>
-                          <h4 className="text-lg md:text-xl font-black text-[#3D3D3D]">My PTO Premium</h4>
-                          <p className={`${ui.body} mt-2 max-w-xl`}>
-                            Full tillgång till kost, recept, veckomenyer och uppföljning.
-                          </p>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className={`${ui.card} flex flex-col gap-4`}>
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                          <div>
+                            <p className={ui.label}>PTO Coaching</p>
+                            <h4 className="text-lg md:text-xl font-black text-[#3D3D3D]">Kundmedlemskap</h4>
+                            <p className={`${ui.body} mt-2 max-w-xl`}>
+                              Din personliga coachingperiod, uppföljningar och klientstatus.
+                            </p>
+                          </div>
+                          <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${coachingMeta.style}`}>
+                            {coachingMeta.label}
+                          </div>
                         </div>
-                        <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                          user.membership_level === 'premium'
-                            ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                            : 'bg-white/80 text-[#6B6158] border-[#E6E1D8]'
-                        }`}>
-                          {user.membership_level === 'premium' ? 'Aktiv' : 'Inte aktiv'}
-                        </div>
-                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-[#6B6158]">
-                        <div className="flex items-start gap-3">
-                          <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
-                          <span>Utgångsdatum: {user.coaching_expires_at ? formatDate(user.coaching_expires_at) : 'Ej angivet'}</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-[#6B6158]">
+                          <div className="flex items-start gap-3">
+                            <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
+                            <span>
+                              Utgångsdatum:{' '}
+                              {coachingStatus === 'paused'
+                                ? 'Pausat'
+                                : coachingStatus === 'deactivated'
+                                  ? 'Deaktiverad'
+                                  : coachingStatus === 'expired'
+                                    ? 'På väg att avslutas'
+                                    : user.coaching_expires_at
+                                      ? formatDate(user.coaching_expires_at)
+                                      : 'Ej angivet'}
+                            </span>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
+                            <span>Status: {coachingMeta.label}</span>
+                          </div>
                         </div>
-                        <div className="flex items-start gap-3">
-                          <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
-                          <span>Premiumstatus: {user.membership_level === 'premium' ? 'Aktiv' : 'Inaktiv'}</span>
-                        </div>
-                      </div>
 
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                          Vill du pausa? Då fryser vi din period och aktiverar när du vill igen.
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {pauseStatus === 'success' && (
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-                              Pausbegäran skickad
-                            </span>
-                          )}
-                          {pauseStatus === 'error' && (
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
-                              Kunde inte skicka
-                            </span>
-                          )}
-                          {user.membership_level === 'premium' ? (
-                            <button
-                              onClick={handlePauseMembership}
-                              disabled={isPausing}
-                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
-                            >
-                              {isPausing ? 'Skickar...' : 'Pausa medlemskap'}
-                            </button>
-                          ) : (
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                              Ingen aktiv prenumeration att pausa
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                        {coachingStatus === 'paused' && (
+                          <div className="flex items-start gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-700">
+                            <PauseCircle className="w-4 h-4 mt-0.5" />
+                            <span>Ditt medlemskap är pausat. Utgångsdatumet är fryst tills återaktivering.</span>
+                          </div>
+                        )}
+                        {coachingStatus === 'expired' && (
+                          <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-700">
+                            <AlertTriangle className="w-4 h-4 mt-0.5" />
+                            <span>Din period är på väg att avslutas. Kontakta oss om du vill fortsätta.</span>
+                          </div>
+                        )}
+                        {coachingStatus === 'deactivated' && (
+                          <div className="flex items-start gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-700">
+                            <Ban className="w-4 h-4 mt-0.5" />
+                            <span>Medlemskapet är deaktiverat och tillgången till träningsappen är borttagen.</span>
+                          </div>
+                        )}
 
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                          {isPremium
-                            ? 'Vill du deaktivera? Du kan alltid återaktivera senare.'
-                            : 'Vill du återaktivera? Funktionen lanseras snart.'}
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                            Vill du pausa? Då fryser vi din period och aktiverar när du vill igen.
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {pauseStatus === 'success' && (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                                Pausbegäran skickad
+                              </span>
+                            )}
+                            {pauseStatus === 'error' && (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
+                                Kunde inte skicka
+                              </span>
+                            )}
+                            {coachingActive ? (
+                              <button
+                                onClick={handlePauseMembership}
+                                disabled={isPausing}
+                                className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
+                              >
+                                {isPausing ? 'Skickar...' : 'Pausa medlemskap'}
+                              </button>
+                            ) : (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                                Ingen aktiv period att pausa
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3 flex-wrap">
-                          {cancelStatus === 'success' && (
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-                              Begäran skickad
-                            </span>
-                          )}
-                          {cancelStatus === 'error' && (
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
-                              {cancelMessage || 'Kunde inte skicka'}
-                            </span>
-                          )}
-                          {isPremium ? (
+
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                            Vill du deaktivera? Du kan alltid återaktivera senare.
+                          </div>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            {cancelStatus === 'success' && (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                                Begäran skickad
+                              </span>
+                            )}
+                            {cancelStatus === 'error' && (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
+                                {cancelMessage || 'Kunde inte skicka'}
+                              </span>
+                            )}
                             <button
                               onClick={handleCancelSubscription}
                               disabled={isCancelling || !canDeactivateMembership}
@@ -1040,24 +1100,39 @@ export const Profile: React.FC = () => {
                                   ? 'Deaktivera medlemskap'
                                   : 'Deaktivera (kommer snart)'}
                             </button>
-                          ) : (
-                            <>
-                              <button
-                                disabled={!canReactivateMembership}
-                                className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                              >
-                                Återaktivera (kommer snart)
-                              </button>
-                              <a
-                                href="https://betalning.privatetrainingonline.se/b/cNi00i4bN9lBaqO4sDcfK0v?locale=sv"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all"
-                              >
-                                Aktivera Premium
-                              </a>
-                            </>
-                          )}
+                            <Link
+                              to="/support"
+                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all"
+                            >
+                              Kontakta support
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className={`${ui.card} flex flex-col gap-4`}>
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                          <div>
+                            <p className={ui.label}>PTO AI</p>
+                            <h4 className="text-lg md:text-xl font-black text-[#3D3D3D]">Tilläggstjänst</h4>
+                            <p className={`${ui.body} mt-2 max-w-xl`}>
+                              AI‑coachning, smarta rapporter och snabbare support. Läggs till när du vill.
+                            </p>
+                          </div>
+                          <div className="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border bg-white/80 text-[#6B6158] border-[#E6E1D8]">
+                            Ej aktiverad
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-4 text-xs text-[#6B6158]">
+                          Vi lanserar fler PTO‑AI funktioner löpande. Kontakta oss om du vill bli testkund.
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <Link to="/support" className={ui.primaryBtnSm}>
+                            Intresseanmälan
+                          </Link>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                            Tilläggstjänst
+                          </span>
                         </div>
                       </div>
                     </div>

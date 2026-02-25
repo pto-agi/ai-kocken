@@ -6,6 +6,8 @@ type SheetLookupResult = {
   expiresAt?: string;
   rawRow?: Record<string, unknown> | null;
   debug?: Record<string, unknown>;
+  status?: 'active' | 'paused' | 'expired' | 'deactivated';
+  sheetName?: string;
 };
 
 const SHEET_ID_DEFAULT = '1DHKLVUhJmaTBFooHnn_OAAlPe_kR0Fs84FibCr9zoAM';
@@ -74,47 +76,62 @@ async function lookupExpiry(email: string): Promise<SheetLookupResult> {
     throw new Error('Failed to obtain Google access token');
   }
 
-  const range = encodeURIComponent(worksheetName);
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?majorDimension=ROWS`;
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!response.ok) {
-    throw new Error('Google Sheets API request failed');
-  }
+  const sheetsToCheck = [
+    { name: worksheetName, status: 'active' as const },
+    { name: 'Paus', status: 'paused' as const },
+    { name: 'Expired', status: 'expired' as const },
+    { name: 'Deaktiverade', status: 'deactivated' as const },
+  ];
 
-  const data = await response.json();
-  const values: string[][] = Array.isArray(data?.values) ? data.values : [];
-  debugMeta.rowsCount = values.length;
-  if (values.length === 0) return { found: false, debug: debugMeta };
-
-  const [headerRow, ...rows] = values;
-  debugMeta.headerRow = headerRow;
-  if (!headerRow) return { found: false, debug: debugMeta };
-
-  const headerMap = headerRow.reduce<Record<string, number>>((acc, value, index) => {
-    if (typeof value === 'string') {
-      acc[normalizeKey(value)] = index;
+  for (const sheet of sheetsToCheck) {
+    const range = encodeURIComponent(sheet.name);
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?majorDimension=ROWS`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      throw new Error('Google Sheets API request failed');
     }
-    return acc;
-  }, {});
 
-  const emailIndex = headerMap[normalizeKey(emailColumn)];
-  const expiryIndex = headerMap[normalizeKey(expiryColumn)];
-  debugMeta.emailIndex = emailIndex;
-  debugMeta.expiryIndex = expiryIndex;
-  if (emailIndex === undefined || expiryIndex === undefined) {
-    return { found: false, debug: debugMeta };
-  }
+    const data = await response.json();
+    const values: string[][] = Array.isArray(data?.values) ? data.values : [];
+    debugMeta.rowsCount = values.length;
+    debugMeta.sheetName = sheet.name;
+    if (values.length === 0) continue;
 
-  const target = email.toLowerCase();
-  for (const row of rows) {
-    const rowEmail = (row[emailIndex] || '').toString().trim().toLowerCase();
-    if (!rowEmail || rowEmail !== target) continue;
-    const rawExpiry = row[expiryIndex] ? row[expiryIndex].toString() : '';
-    const normalized = normalizeExpiry(rawExpiry);
-    if (!normalized) return { found: false, debug: debugMeta };
-    return { found: true, expiresAt: normalized, debug: debugMeta };
+    const [headerRow, ...rows] = values;
+    debugMeta.headerRow = headerRow;
+    if (!headerRow) continue;
+
+    const headerMap = headerRow.reduce<Record<string, number>>((acc, value, index) => {
+      if (typeof value === 'string') {
+        acc[normalizeKey(value)] = index;
+      }
+      return acc;
+    }, {});
+
+    const emailIndex = headerMap[normalizeKey(emailColumn)];
+    const expiryIndex = headerMap[normalizeKey(expiryColumn)];
+    debugMeta.emailIndex = emailIndex;
+    debugMeta.expiryIndex = expiryIndex;
+    if (emailIndex === undefined) {
+      continue;
+    }
+
+    const target = email.toLowerCase();
+    for (const row of rows) {
+      const rowEmail = (row[emailIndex] || '').toString().trim().toLowerCase();
+      if (!rowEmail || rowEmail !== target) continue;
+      const rawExpiry = expiryIndex !== undefined && row[expiryIndex] ? row[expiryIndex].toString() : '';
+      const normalized = normalizeExpiry(rawExpiry);
+      return {
+        found: true,
+        expiresAt: normalized || undefined,
+        status: sheet.status,
+        sheetName: sheet.name,
+        debug: debugMeta,
+      };
+    }
   }
 
   return { found: false, debug: debugMeta };
@@ -226,7 +243,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     const lookup = await lookupExpiry(email);
-    if (!lookup.found || !lookup.expiresAt) {
+    if (!lookup.found) {
       setCors(res, origin);
       res.status(200).json({ ok: true, found: false, ...(debugEnabled ? { debug: lookup } : {}) });
       return;
@@ -238,7 +255,8 @@ export default async function handler(req: any, res: any) {
       res.status(200).json({
         ok: true,
         found: true,
-        coaching_expires_at: lookup.expiresAt,
+        coaching_expires_at: lookup.expiresAt || null,
+        subscription_status: lookup.status || null,
         updated: false,
         ...(debugEnabled ? { debug: lookup } : {}),
       });
@@ -246,9 +264,17 @@ export default async function handler(req: any, res: any) {
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+    const updatePayload: Record<string, unknown> = {
+      subscription_status: lookup.status || null,
+    };
+    if (lookup.status === 'active' && lookup.expiresAt) {
+      updatePayload.coaching_expires_at = lookup.expiresAt;
+    } else if (lookup.status && lookup.status !== 'active') {
+      updatePayload.coaching_expires_at = null;
+    }
     const { error: updateError } = await admin
       .from('profiles')
-      .update({ coaching_expires_at: lookup.expiresAt })
+      .update(updatePayload)
       .eq('id', authData.user.id);
 
     if (updateError) {
@@ -261,7 +287,8 @@ export default async function handler(req: any, res: any) {
     res.status(200).json({
       ok: true,
       found: true,
-      coaching_expires_at: lookup.expiresAt,
+      coaching_expires_at: lookup.expiresAt || null,
+      subscription_status: lookup.status || null,
       updated: true,
       ...(debugEnabled ? { debug: lookup } : {}),
     });
