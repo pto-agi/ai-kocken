@@ -84,8 +84,11 @@ async function lookupExpiry(email: string): Promise<SheetLookupResult> {
       CallToolResultSchema,
     );
 
-    const textItem = result?.content?.find((item: any) => item?.type === 'text');
-    const text = typeof textItem?.text === 'string' ? textItem.text : null;
+    const textItem = result?.content?.find(
+      (item: any): item is { type: 'text'; text: string } =>
+        item?.type === 'text' && typeof item?.text === 'string',
+    );
+    const text = textItem?.text ?? null;
     if (!text) {
       return { found: false };
     }
