@@ -1,6 +1,32 @@
 {
-  "last_commit": "4011f5e4c611ecd2181404f5afa48ba4ad5fb942",
+  "last_commit": "f29f8871ace41171d1103609b995f873a9c55c7c",
   "entries": [
+    {
+      "id": "2026-02-25T12:30:14.458Z-f29f887",
+      "date": "2026-02-25T12:30:14.458Z",
+      "range": "4011f5e4c611ecd2181404f5afa48ba4ad5fb942..f29f8871ace41171d1103609b995f873a9c55c7c",
+      "head": "f29f8871ace41171d1103609b995f873a9c55c7c",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "f29f887",
+          "subject": "Remove unused report fields from intranet"
+        },
+        {
+          "hash": "e982ca0",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "pages/Intranet.tsx"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 258,
+        "deletions": 83
+      }
+    },
     {
       "id": "2026-02-25T12:09:54.641Z-4011f5e",
       "date": "2026-02-25T12:09:54.641Z",
