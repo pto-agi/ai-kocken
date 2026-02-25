@@ -108,6 +108,12 @@ const formatList = (items?: string[] | null) => {
   return items.join(', ');
 };
 
+const formatReportList = (value?: string[] | string | null) => {
+  if (Array.isArray(value)) return formatList(value);
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  return '—';
+};
+
 const formatBoolean = (value?: boolean | null) => {
   if (value === true) return 'Ja';
   if (value === false) return 'Nej';
@@ -201,16 +207,10 @@ const Intranet: React.FC = () => {
     endTime: '',
     did: '',
     handover: '',
-    messagesCount: '',
-    startsCount: '',
-    followupsCount: '',
     overtime: false
   });
   const [reportStatus, setReportStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [reportError, setReportError] = useState<string | null>(null);
-  const [planningStartedAt, setPlanningStartedAt] = useState<string | null>(null);
-  const [planningEndedAt, setPlanningEndedAt] = useState<string | null>(null);
-  const [shiftStartedAt, setShiftStartedAt] = useState<string | null>(null);
   const [showWeek, setShowWeek] = useState(false);
   const [weeklyReports, setWeeklyReports] = useState<Record<string, any>>({});
   const isConfigured = isSupabaseConfigured();
@@ -232,7 +232,12 @@ const Intranet: React.FC = () => {
     handoverCount: 0
   });
   const [dataStatsError, setDataStatsError] = useState<string | null>(null);
-  const [expandedHandovers, setExpandedHandovers] = useState<Record<string, boolean>>({});
+  const [reportHistory, setReportHistory] = useState<any[]>([]);
+  const [reportHistoryError, setReportHistoryError] = useState<string | null>(null);
+  const [activeDetail, setActiveDetail] = useState<{
+    type: 'report' | 'handover';
+    data: any;
+  } | null>(null);
 
   const refreshDataOverview = useCallback(async () => {
     if (!session?.user?.id || !isStaff || !isConfigured) return;
@@ -334,6 +339,33 @@ const Intranet: React.FC = () => {
   useEffect(() => {
     if (!session?.user?.id || !isStaff || !isConfigured) return;
     let active = true;
+    const loadReportHistory = async () => {
+      setReportHistoryError(null);
+      try {
+        const { data, error } = await supabase
+          .from('staff_reports')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('report_date', { ascending: false });
+        if (error) throw error;
+        if (!active) return;
+        setReportHistory(data || []);
+      } catch (err) {
+        console.warn('Failed to load report history', err);
+        if (!active) return;
+        setReportHistory([]);
+        setReportHistoryError('Kunde inte hämta rapporthistorik.');
+      }
+    };
+    loadReportHistory();
+    return () => {
+      active = false;
+    };
+  }, [isConfigured, isStaff, session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id || !isStaff || !isConfigured) return;
+    let active = true;
     const loadTemplates = async () => {
       setAgendaStatus('loading');
       setAgendaError(null);
@@ -397,27 +429,7 @@ const Intranet: React.FC = () => {
     };
   }, [selectedDate, session?.user?.id, isStaff, isConfigured]);
 
-  const resolveTaskCount = useCallback((
-    title: string,
-    report: any,
-    useFormFallback: boolean
-  ) => {
-    const normalize = (value: any) => {
-      if (value === null || value === undefined) return null;
-      if (typeof value === 'string' && value.trim() === '') return null;
-      return value;
-    };
-    if (title === 'Meddelanden') {
-      return normalize(report?.messages_count ?? (useFormFallback ? reportForm.messagesCount : null));
-    }
-    if (title === 'Startupplägg') {
-      return normalize(report?.starts_count ?? (useFormFallback ? reportForm.startsCount : null));
-    }
-    if (title === 'Uppföljningsupplägg') {
-      return normalize(report?.followups_count ?? (useFormFallback ? reportForm.followupsCount : null));
-    }
-    return null;
-  }, [reportForm.followupsCount, reportForm.messagesCount, reportForm.startsCount]);
+  const resolveTaskCount = useCallback(() => null, []);
 
   const getTasksForDate = useCallback((date: Date): AgendaItem[] => {
     if (!agendaTemplates.length) return [];
@@ -448,6 +460,25 @@ const Intranet: React.FC = () => {
     const key = formatDateInput(selectedDate);
     return new Set(agendaCompletionByDate[key] || []);
   }, [agendaCompletionByDate, selectedDate]);
+  const reportHistoryMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    reportHistory.forEach((report) => {
+      if (report?.report_date) {
+        map[report.report_date] = report;
+      }
+    });
+    return map;
+  }, [reportHistory]);
+  const localReportSnapshot = useMemo(() => {
+    if (!reportForm.date) return null;
+    try {
+      return JSON.parse(localStorage.getItem(`staff-report-${reportForm.date}`) || 'null');
+    } catch {
+      return null;
+    }
+  }, [reportForm.date]);
+  const existingReport = reportHistoryMap[reportForm.date] || weeklyReports[reportForm.date] || localReportSnapshot;
+  const isReportLocked = !!existingReport;
   const completedTasks = useMemo(() => (
     todayTasks.filter((task) => completedTaskIdsForDay.has(task.id))
   ), [completedTaskIdsForDay, todayTasks]);
@@ -668,6 +699,11 @@ const Intranet: React.FC = () => {
     event.preventDefault();
     setReportError(null);
     setReportStatus('idle');
+    if (isReportLocked) {
+      setReportError('Rapporten för valt datum är redan inskickad och kan inte redigeras.');
+      setReportStatus('error');
+      return;
+    }
 
     if (!reportForm.startTime || !reportForm.endTime) {
       setReportError('Ange start- och sluttid.');
@@ -708,12 +744,6 @@ const Intranet: React.FC = () => {
       incomplete_tasks: incompleteTitles.join(', '),
       completed_task_ids: JSON.stringify(completedIds),
       incomplete_task_ids: JSON.stringify(incompleteIds),
-      messages_count: reportForm.messagesCount,
-      starts_count: reportForm.startsCount,
-      followups_count: reportForm.followupsCount,
-      planning_started_at: planningStartedAt,
-      planning_ended_at: planningEndedAt,
-      shift_started_at: shiftStartedAt,
       overtime: reportForm.overtime,
       source: 'staff_report',
       submitted_at: new Date().toISOString()
@@ -769,13 +799,7 @@ const Intranet: React.FC = () => {
           incomplete_tasks: incompleteTitles,
           completed_task_ids: completedIds,
           incomplete_task_ids: incompleteIds,
-          messages_count: reportForm.messagesCount,
-          starts_count: reportForm.startsCount,
-          followups_count: reportForm.followupsCount,
           overtime: reportForm.overtime,
-          planning_started_at: planningStartedAt,
-          planning_ended_at: planningEndedAt,
-          shift_started_at: shiftStartedAt
         };
         localStorage.setItem(reportKey, JSON.stringify(snapshot));
         setWeeklyReports((prev) => ({ ...prev, [reportForm.date]: snapshot }));
@@ -795,12 +819,6 @@ const Intranet: React.FC = () => {
           incomplete_tasks: incompleteTitles,
           completed_task_ids: completedIds,
           incomplete_task_ids: incompleteIds,
-          messages_count: reportForm.messagesCount ? Number(reportForm.messagesCount) : null,
-          starts_count: reportForm.startsCount ? Number(reportForm.startsCount) : null,
-          followups_count: reportForm.followupsCount ? Number(reportForm.followupsCount) : null,
-          planning_started_at: planningStartedAt,
-          planning_ended_at: planningEndedAt,
-          shift_started_at: shiftStartedAt,
           overtime: reportForm.overtime
         };
         const { error } = await supabase.from('staff_reports').insert([reportPayload]);
@@ -836,14 +854,8 @@ const Intranet: React.FC = () => {
         endTime: '',
         did: '',
         handover: '',
-        messagesCount: '',
-        startsCount: '',
-        followupsCount: '',
         overtime: false
       }));
-      setPlanningStartedAt(null);
-      setPlanningEndedAt(null);
-      setShiftStartedAt(null);
     } catch (err) {
       console.error('Report webhook error:', err);
       setReportStatus('error');
@@ -1303,11 +1315,6 @@ const Intranet: React.FC = () => {
                             <div className="text-sm font-black text-[#3D3D3D] mt-1">
                               {report ? 'Rapporterad' : 'Ej rapporterad'}
                             </div>
-                            <div className="mt-2 text-[11px] text-[#6B6158] space-y-1">
-                              <div>Meddelanden: {report?.messages_count || '—'}</div>
-                              <div>Startupplägg: {report?.starts_count || '—'}</div>
-                              <div>Uppföljningar: {report?.followups_count || '—'}</div>
-                            </div>
                             <div className="mt-3 text-[11px] text-[#6B6158]">
                               {tasks.length === 0
                                 ? 'Ingen agenda.'
@@ -1358,15 +1365,30 @@ const Intranet: React.FC = () => {
                         </h2>
                       </div>
                     </div>
-                    <p className="text-sm text-[#6B6158] max-w-2xl">
-                      Kort och rakt på sak. Fyll i tider, uppdatering och överlämning.
-                    </p>
-                  </div>
+                  <p className="text-sm text-[#6B6158] max-w-2xl">
+                    Kort och rakt på sak. Fyll i tider, uppdatering och överlämning.
+                  </p>
+                </div>
 
-                  <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4 space-y-3">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                      {completedTasks.length} klara · {incompleteTasks.length} kvar
+                {isReportLocked && (
+                  <div className="rounded-2xl border border-amber-400/40 bg-amber-100/70 p-4 text-amber-900 text-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                      Rapporten för <span className="font-bold">{reportForm.date}</span> är redan inskickad och kan inte redigeras.
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveDetail({ type: 'report', data: existingReport })}
+                      className="px-4 py-2 rounded-xl border border-amber-300/60 bg-white text-[10px] font-black uppercase tracking-widest text-amber-900 hover:border-amber-400 transition"
+                    >
+                      Öppna rapport
+                    </button>
+                  </div>
+                )}
+
+                <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4 space-y-3">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                    {completedTasks.length} klara · {incompleteTasks.length} kvar
+                  </div>
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Uppgifter markerade som slutförda</p>
                       {completedTasks.length === 0 ? (
@@ -1418,7 +1440,7 @@ const Intranet: React.FC = () => {
                         onChange={(event) => setReportForm((prev) => ({ ...prev, startTime: event.target.value }))}
                         className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
                         required
-                        disabled={!!shiftStartedAt}
+                        disabled={isReportLocked}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1429,6 +1451,7 @@ const Intranet: React.FC = () => {
                         onChange={(event) => setReportForm((prev) => ({ ...prev, endTime: event.target.value }))}
                         className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
                         required
+                        disabled={isReportLocked}
                       />
                     </div>
                   </div>
@@ -1439,6 +1462,7 @@ const Intranet: React.FC = () => {
                       checked={reportForm.overtime}
                       onChange={(event) => setReportForm((prev) => ({ ...prev, overtime: event.target.checked }))}
                       className="accent-[#a0c81d]"
+                      disabled={isReportLocked}
                     />
                     Utanför ordinarie arbetstid
                   </label>
@@ -1454,6 +1478,7 @@ const Intranet: React.FC = () => {
                       className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
                       placeholder="Jag gjorde..."
                       required
+                      disabled={isReportLocked}
                     />
                   </div>
 
@@ -1466,6 +1491,7 @@ const Intranet: React.FC = () => {
                       className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
                       placeholder="Om något behöver prioriteras imorgon..."
                       required={incompleteTasks.length > 0}
+                      disabled={isReportLocked}
                     />
                   </div>
 
@@ -1478,7 +1504,7 @@ const Intranet: React.FC = () => {
                   <div className="flex items-center gap-4">
                     <button
                       type="submit"
-                      disabled={reportStatus === 'sending'}
+                      disabled={reportStatus === 'sending' || isReportLocked}
                       className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition-all disabled:opacity-60"
                     >
                       {reportStatus === 'sending' ? 'Skickar...' : 'Skicka rapport'}
@@ -1537,6 +1563,47 @@ const Intranet: React.FC = () => {
                 )}
 
                 <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h2 className="text-xl font-black text-[#3D3D3D]">Dina rapporter</h2>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8A8177]">Senaste först</span>
+                  </div>
+                  {reportHistoryError && (
+                    <div className="rounded-2xl border border-amber-400/40 bg-amber-100/70 p-4 text-amber-900 text-sm mb-4">
+                      {reportHistoryError}
+                    </div>
+                  )}
+                  {reportHistory.length === 0 ? (
+                    <div className="text-sm text-[#8A8177]">Inga rapporter sparade ännu.</div>
+                  ) : (
+                    <div className="space-y-3 text-sm text-[#6B6158]">
+                      {reportHistory.map((report) => {
+                        const key = `${report.report_date || report.created_at || Math.random()}`;
+                        const preview = report.did
+                          ? (report.did.length > 120 ? `${report.did.slice(0, 120).trim()}…` : report.did)
+                          : 'Ingen sammanfattning.';
+                        return (
+                          <div key={key} className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                              <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                                {report.report_date ? formatDateOnly(`${report.report_date}T00:00:00`) : formatTimestamp(report.created_at)}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setActiveDetail({ type: 'report', data: report })}
+                                className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] hover:text-[#3D3D3D] transition"
+                              >
+                                Öppna rapport
+                              </button>
+                            </div>
+                            <div className="text-sm text-[#6B6158]">{preview}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
                   <h2 className="text-xl font-black text-[#3D3D3D] mb-3">Dina överlämningar</h2>
                   {handoverHistory.length === 0 ? (
                     <div className="text-sm text-[#8A8177]">Inga överlämningar sparade ännu.</div>
@@ -1544,28 +1611,22 @@ const Intranet: React.FC = () => {
                     <div className="space-y-3 text-sm text-[#6B6158]">
                       {handoverHistory.map((item, index) => {
                         const key = `${item.created_at}-${index}`;
-                        const isExpanded = !!expandedHandovers[key];
                         const preview = item.text.length > 140 ? `${item.text.slice(0, 140).trim()}…` : item.text;
                         return (
-                          <div key={key} className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-3">
-                            <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177] mb-2">
-                              {formatTimestamp(item.created_at)}
-                            </div>
-                            <div className="text-sm text-[#6B6158]">
-                              {isExpanded ? item.text : preview}
-                            </div>
-                            {item.text.length > 140 && (
+                          <div key={key} className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                              <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                                {formatTimestamp(item.created_at)}
+                              </div>
                               <button
                                 type="button"
-                                onClick={() => setExpandedHandovers((prev) => ({
-                                  ...prev,
-                                  [key]: !prev[key]
-                                }))}
-                                className="mt-2 text-[10px] font-black uppercase tracking-widest text-[#8A8177] hover:text-[#3D3D3D] transition"
+                                onClick={() => setActiveDetail({ type: 'handover', data: item })}
+                                className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] hover:text-[#3D3D3D] transition"
                               >
-                                {isExpanded ? 'Visa mindre' : 'Visa mer'}
+                                Öppna överlämning
                               </button>
-                            )}
+                            </div>
+                            <div className="text-sm text-[#6B6158]">{preview}</div>
                           </div>
                         );
                       })}
@@ -1577,6 +1638,90 @@ const Intranet: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {activeDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+          <div
+            className="absolute inset-0 bg-[#3D3D3D]/60 backdrop-blur-sm"
+            onClick={() => setActiveDetail(null)}
+          />
+          <div className="relative w-full max-w-3xl rounded-[2rem] border border-[#DAD1C5] bg-white p-6 md:p-8 shadow-[0_30px_80px_rgba(61,61,61,0.35)] ring-1 ring-black/5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8A8177]">
+                  {activeDetail.type === 'report' ? 'Rapport' : 'Överlämning'}
+                </p>
+                <h3 className="mt-2 text-2xl md:text-3xl font-black text-[#3D3D3D] tracking-tight">
+                  {activeDetail.type === 'report'
+                    ? (() => {
+                        const reportDate = activeDetail.data?.report_date || activeDetail.data?.date;
+                        return reportDate ? formatDateOnly(`${reportDate}T00:00:00`) : 'Rapportdetaljer';
+                      })()
+                    : formatTimestamp(activeDetail.data?.created_at)}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveDetail(null)}
+                className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition"
+              >
+                Stäng
+              </button>
+            </div>
+
+            {activeDetail.type === 'report' ? (
+              <div className="mt-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <InfoRow
+                    label="Datum"
+                    value={activeDetail.data?.report_date || activeDetail.data?.date || '—'}
+                  />
+                  <InfoRow
+                    label="Starttid"
+                    value={activeDetail.data?.start_time || activeDetail.data?.startTime || '—'}
+                  />
+                  <InfoRow
+                    label="Sluttid"
+                    value={activeDetail.data?.end_time || activeDetail.data?.endTime || '—'}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InfoRow
+                    label="Klart"
+                    value={formatReportList(activeDetail.data?.completed_tasks)}
+                  />
+                  <InfoRow
+                    label="Kvar"
+                    value={formatReportList(activeDetail.data?.incomplete_tasks)}
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Jag gjorde</div>
+                  <div className="text-sm text-[#6B6158] whitespace-pre-line">
+                    {activeDetail.data?.did || '—'}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Att prioritera</div>
+                  <div className="text-sm text-[#6B6158] whitespace-pre-line">
+                    {activeDetail.data?.handover || '—'}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
+                <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Överlämning</div>
+                <div className="text-sm text-[#6B6158] whitespace-pre-line">
+                  {activeDetail.data?.text || '—'}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
