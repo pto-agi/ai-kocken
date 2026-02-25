@@ -42,7 +42,7 @@ function normalizeExpiry(value: string | null): string | null {
   if (match) {
     return `${match[3]}-${match[2]}-${match[1]}`;
   }
-  return trimmed;
+  return null;
 }
 
 async function lookupExpiry(email: string): Promise<SheetLookupResult> {
@@ -270,12 +270,8 @@ export default async function handler(req: any, res: any) {
     const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
     const updatePayload: Record<string, unknown> = {
       subscription_status: lookup.status || null,
+      coaching_expires_at: lookup.expiresAt || null,
     };
-    if (lookup.status === 'active' && lookup.expiresAt) {
-      updatePayload.coaching_expires_at = lookup.expiresAt;
-    } else if (lookup.status && lookup.status !== 'active') {
-      updatePayload.coaching_expires_at = null;
-    }
     const { error: updateError } = await admin
       .from('profiles')
       .update(updatePayload)
