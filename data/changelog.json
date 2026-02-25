@@ -1,6 +1,32 @@
 {
-  "last_commit": "f3527b978f29560bca79c4295fc09bc521bf386b",
+  "last_commit": "09c3aeaaf190dddc9f9c2709b68ccfd807336cb0",
   "entries": [
+    {
+      "id": "2026-02-25T17:43:55.878Z-09c3aea",
+      "date": "2026-02-25T17:43:55.878Z",
+      "range": "f3527b978f29560bca79c4295fc09bc521bf386b..09c3aeaaf190dddc9f9c2709b68ccfd807336cb0",
+      "head": "09c3aeaaf190dddc9f9c2709b68ccfd807336cb0",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "09c3aea",
+          "subject": "Always persist parsed coaching expiry"
+        },
+        {
+          "hash": "47fd8ef",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/membership-expiry.ts",
+        "data/changelog.json"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 29,
+        "deletions": 7
+      }
+    },
     {
       "id": "2026-02-25T17:39:45.465Z-f3527b9",
       "date": "2026-02-25T17:39:45.465Z",
