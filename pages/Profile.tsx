@@ -49,6 +49,8 @@ export const Profile: React.FC = () => {
   const [isPausing, setIsPausing] = useState(false);
   const [pauseStatus, setPauseStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [pauseCooldownUntil, setPauseCooldownUntil] = useState<number | null>(null);
+  const [isSyncingMembership, setIsSyncingMembership] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const queryClient = useQueryClient();
   const [expandedSubmissions, setExpandedSubmissions] = useState<Record<string, boolean>>({});
 
@@ -183,6 +185,45 @@ export const Profile: React.FC = () => {
       setPauseStatus('error');
     } finally {
       setIsPausing(false);
+    }
+  };
+
+  const handleManualSyncMembership = async () => {
+    if (!session?.access_token || !user?.id) return;
+    if (isSyncingMembership) return;
+    setSyncStatus('idle');
+    setIsSyncingMembership(true);
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(`pto_membership_expiry_sync:${user.id}`);
+      }
+
+      const response = await fetch('/api/membership-expiry', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ user_id: user.id }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'Kunde inte uppdatera status.');
+      }
+
+      if (data?.updated) {
+        await refreshProfile();
+      } else {
+        await refreshProfile();
+      }
+
+      setSyncStatus('success');
+    } catch (err) {
+      console.error('Manual membership sync error:', err);
+      setSyncStatus('error');
+    } finally {
+      setIsSyncingMembership(false);
     }
   };
 
@@ -1003,8 +1044,17 @@ export const Profile: React.FC = () => {
                               Din personliga coachingperiod, uppföljningar och klientstatus.
                             </p>
                           </div>
-                          <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${coachingMeta.style}`}>
-                            {coachingMeta.label}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${coachingMeta.style}`}>
+                              {coachingMeta.label}
+                            </div>
+                            <button
+                              onClick={handleManualSyncMembership}
+                              disabled={isSyncingMembership}
+                              className="px-3 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
+                            >
+                              {isSyncingMembership ? 'Uppdaterar…' : 'Uppdatera status'}
+                            </button>
                           </div>
                         </div>
 
@@ -1029,6 +1079,16 @@ export const Profile: React.FC = () => {
                             <span>Status: {coachingMeta.label}</span>
                           </div>
                         </div>
+                        {syncStatus === 'success' && (
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                            Status uppdaterad.
+                          </div>
+                        )}
+                        {syncStatus === 'error' && (
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-rose-700">
+                            Kunde inte uppdatera status.
+                          </div>
+                        )}
 
                         {coachingStatus === 'paused' && (
                           <div className="flex items-start gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-700">
