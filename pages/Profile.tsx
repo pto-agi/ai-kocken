@@ -1168,36 +1168,38 @@ export const Profile: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                            Vill du återaktivera? Paus avslutas och vi startar din period igen.
+                        {(coachingStatus === 'paused' || coachingStatus === 'deactivated') && (
+                          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                              Vill du återaktivera? Paus avslutas och vi startar din period igen.
+                            </div>
+                            <div className="flex items-center gap-3 flex-wrap">
+                              {reactivateStatus === 'success' && (
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                                  Begäran skickad
+                                </span>
+                              )}
+                              {reactivateStatus === 'error' && (
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
+                                  Kunde inte skicka
+                                </span>
+                              )}
+                              <button
+                                onClick={handleReactivateMembership}
+                                disabled={isReactivating || !canReactivateMembership}
+                                className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                              >
+                                {isReactivating ? 'Skickar...' : 'Återaktivera medlemskap'}
+                              </button>
+                              <Link
+                                to="/support"
+                                className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all"
+                              >
+                                Kontakta support
+                              </Link>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3 flex-wrap">
-                            {reactivateStatus === 'success' && (
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-                                Begäran skickad
-                              </span>
-                            )}
-                            {reactivateStatus === 'error' && (
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
-                                Kunde inte skicka
-                              </span>
-                            )}
-                            <button
-                              onClick={handleReactivateMembership}
-                              disabled={isReactivating || !canReactivateMembership || coachingStatus === 'active'}
-                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                            >
-                              {isReactivating ? 'Skickar...' : 'Återaktivera medlemskap'}
-                            </button>
-                            <Link
-                              to="/support"
-                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all"
-                            >
-                              Kontakta support
-                            </Link>
-                          </div>
-                        </div>
+                        )}
 
                         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
                           <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
