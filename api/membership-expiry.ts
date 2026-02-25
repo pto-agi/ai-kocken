@@ -1,7 +1,5 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createClient } from '@supabase/supabase-js';
+import { JWT } from 'google-auth-library';
 
 type SheetLookupResult = {
   found: boolean;
@@ -45,86 +43,70 @@ function normalizeExpiry(value: string | null): string | null {
 }
 
 async function lookupExpiry(email: string): Promise<SheetLookupResult> {
-  const serverUrl = getEnv('ZAPIER_MCP_URL', 'https://mcp.zapier.com/api/mcp/mcp');
-  const authorization = getEnv('ZAPIER_MCP_AUTH') || getEnv('ZAPIER_MCP_AUTHORIZATION') || '';
-  if (!authorization) {
-    throw new Error('Missing ZAPIER_MCP_AUTH');
-  }
-
-  const sheetId = getEnv('CLIENT_SHEET_ID', SHEET_ID_DEFAULT);
+  const sheetId = getEnv('GOOGLE_SHEET_ID') || getEnv('CLIENT_SHEET_ID', SHEET_ID_DEFAULT);
   const worksheetName = getEnv('CLIENT_SHEET_WORKSHEET', 'Aktiva');
   const emailColumn = getEnv('CLIENT_SHEET_EMAIL_COLUMN', 'Epost');
   const expiryColumn = getEnv('CLIENT_SHEET_EXPIRY_COLUMN', 'Utgångsdatum');
 
-  const transport = new StreamableHTTPClientTransport(new URL(serverUrl), {
-    requestInit: {
-      headers: {
-        Authorization: authorization.startsWith('Bearer ') ? authorization : `Bearer ${authorization}`,
-      },
-    },
+  const serviceEmail = getEnv('GOOGLE_SERVICE_ACCOUNT_EMAIL');
+  const privateKeyRaw = getEnv('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY');
+  if (!serviceEmail || !privateKeyRaw) {
+    throw new Error('Missing Google service account credentials');
+  }
+
+  const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
+  const auth = new JWT({
+    email: serviceEmail,
+    key: privateKey,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
   });
 
-  const client = new Client({ name: 'ptoai-membership-sync', version: '1.0.0' });
-
-  try {
-    await client.connect(transport);
-    const result = await client.request(
-      {
-        method: 'tools/call',
-        params: {
-          name: 'google_sheets_lookup_spreadsheet_row',
-          arguments: {
-            spreadsheet_id: sheetId,
-            worksheet_name: worksheetName,
-            lookup_column: emailColumn,
-            lookup_value: email,
-          },
-        },
-      },
-      CallToolResultSchema,
-    );
-
-    const textItem = result?.content?.find(
-      (item: any): item is { type: 'text'; text: string } =>
-        item?.type === 'text' && typeof item?.text === 'string',
-    );
-    const text = textItem?.text ?? null;
-    if (!text) {
-      return { found: false };
-    }
-
-    let parsed: any = null;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = null;
-    }
-
-    const rowCandidate =
-      (parsed && typeof parsed === 'object' && (parsed.row || parsed.data || parsed.result)) ||
-      (Array.isArray(parsed) ? parsed[0] : null) ||
-      parsed;
-
-    const row = rowCandidate && typeof rowCandidate === 'object' ? rowCandidate : null;
-    if (!row) {
-      return { found: false };
-    }
-
-    const rowEmail = pickField(row, emailColumn);
-    if (rowEmail && rowEmail.toLowerCase() !== email.toLowerCase()) {
-      return { found: false };
-    }
-
-    const rawExpiry = pickField(row, expiryColumn);
-    const normalized = normalizeExpiry(rawExpiry);
-    if (!normalized) {
-      return { found: false, rawRow: row };
-    }
-
-    return { found: true, expiresAt: normalized, rawRow: row };
-  } finally {
-    await transport.close().catch(() => undefined);
+  const tokenResponse = await auth.getAccessToken();
+  const token = typeof tokenResponse === 'string' ? tokenResponse : tokenResponse?.token;
+  if (!token) {
+    throw new Error('Failed to obtain Google access token');
   }
+
+  const range = encodeURIComponent(worksheetName);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?majorDimension=ROWS`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error('Google Sheets API request failed');
+  }
+
+  const data = await response.json();
+  const values: string[][] = Array.isArray(data?.values) ? data.values : [];
+  if (values.length === 0) return { found: false };
+
+  const [headerRow, ...rows] = values;
+  if (!headerRow) return { found: false };
+
+  const headerMap = headerRow.reduce<Record<string, number>>((acc, value, index) => {
+    if (typeof value === 'string') {
+      acc[normalizeKey(value)] = index;
+    }
+    return acc;
+  }, {});
+
+  const emailIndex = headerMap[normalizeKey(emailColumn)];
+  const expiryIndex = headerMap[normalizeKey(expiryColumn)];
+  if (emailIndex === undefined || expiryIndex === undefined) {
+    return { found: false };
+  }
+
+  const target = email.toLowerCase();
+  for (const row of rows) {
+    const rowEmail = (row[emailIndex] || '').toString().trim().toLowerCase();
+    if (!rowEmail || rowEmail !== target) continue;
+    const rawExpiry = row[expiryIndex] ? row[expiryIndex].toString() : '';
+    const normalized = normalizeExpiry(rawExpiry);
+    if (!normalized) return { found: false };
+    return { found: true, expiresAt: normalized };
+  }
+
+  return { found: false };
 }
 
 function getBearerToken(header: string | undefined): string | undefined {
