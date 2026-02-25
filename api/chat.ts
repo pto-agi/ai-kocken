@@ -49,6 +49,19 @@ function setCors(res: any, origin: string | undefined) {
   res.setHeader('Vary', 'Origin');
 }
 
+function createRequestId(): string {
+  const cryptoObj = (globalThis as any)?.crypto;
+  if (cryptoObj && typeof cryptoObj.randomUUID === 'function') {
+    return cryptoObj.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function setStandardHeaders(res: any, origin: string | undefined, requestId: string) {
+  setCors(res, origin);
+  res.setHeader('X-Request-Id', requestId);
+}
+
 function extractTextParts(message: UIMessage): string[] {
   if (Array.isArray(message.parts) && message.parts.length > 0) {
     return message.parts
@@ -76,15 +89,16 @@ function getLatestUserText(messages: UIMessage[]): string | null {
 
 export default async function handler(req: any, res: any) {
   const origin = req.headers?.origin as string | undefined;
+  const requestId = createRequestId();
 
   if (!isAllowedOrigin(origin)) {
-    setCors(res, origin);
+    setStandardHeaders(res, origin, requestId);
     res.status(403).json({ error: 'Forbidden origin' });
     return;
   }
 
   if (req.method === 'OPTIONS') {
-    setCors(res, origin);
+    setStandardHeaders(res, origin, requestId);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.status(204).end();
@@ -92,14 +106,14 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method !== 'POST') {
-    setCors(res, origin);
+    setStandardHeaders(res, origin, requestId);
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    setCors(res, origin);
+    setStandardHeaders(res, origin, requestId);
     res.status(500).json({ error: 'Missing OPENAI_API_KEY' });
     return;
   }
@@ -111,6 +125,7 @@ export default async function handler(req: any, res: any) {
     (typeof body?.access_token === 'string' ? body.access_token : undefined);
 
   const requestMeta = {
+    request_id: requestId,
     origin,
     message_count: messages.length,
     hasAccessToken: Boolean(accessToken),
@@ -118,14 +133,14 @@ export default async function handler(req: any, res: any) {
 
   if (!accessToken) {
     console.warn('Chat stream: missing access token', requestMeta);
-    setCors(res, origin);
+    setStandardHeaders(res, origin, requestId);
     res.status(401).json({ error: 'Missing access token' });
     return;
   }
 
   const inputText = getLatestUserText(messages);
   if (!inputText) {
-    setCors(res, origin);
+    setStandardHeaders(res, origin, requestId);
     res.status(400).json({ error: 'No valid messages to send' });
     return;
   }
@@ -143,7 +158,7 @@ export default async function handler(req: any, res: any) {
         ? result.output_text
         : JSON.stringify(result ?? {});
 
-    setCors(res, origin);
+    setStandardHeaders(res, origin, requestId);
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.status(200).send(outputText);
     console.info('Chat stream: completed', {
@@ -157,7 +172,7 @@ export default async function handler(req: any, res: any) {
       duration_ms: Date.now() - startedAt,
       ...requestMeta,
     });
-    setCors(res, origin);
+    setStandardHeaders(res, origin, requestId);
     if (process.env.CHAT_DEBUG === 'true') {
       res.status(502).json({
         error: 'Workflow run failed',

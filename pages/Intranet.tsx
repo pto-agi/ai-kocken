@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ChevronDown, ClipboardList, FileText, LayoutDashboard, Loader2, RefreshCcw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Copy, FileText, LayoutDashboard, Loader2, Package, RefreshCcw, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
@@ -79,10 +79,82 @@ type AgendaItem = {
 };
 
 type FilterValue = 'uppfoljning' | 'start' | 'done';
-type StaffTab = 'OVERVIEW' | 'BASE' | 'REPORT' | 'AGENDA';
+type StaffTab = 'OVERVIEW' | 'BASE' | 'REPORT' | 'SHIP' | 'AGENDA';
 
 const REPORT_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/ucizdpt/';
 const REPORT_OVERTIME_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/ucicwgs/';
+const SHIPMENTS_STORAGE_KEY = 'staff-shipments';
+const AHEAD_ELIGIBLE_TASKS = ['E-Handel/Lager', 'Förbered etiketter', 'Follow-Ups', 'Sociala medier'];
+
+type OrderImportItem = {
+  product_id: string | null;
+  name: string | null;
+  sku: string | null;
+  quantity: number | null;
+  unit_price: number | null;
+  total_price: number | null;
+  currency: string | null;
+};
+
+type OrderImportResult = {
+  customer: {
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+  };
+  shipping: {
+    name: string | null;
+    line1: string | null;
+    line2: string | null;
+    postal_code: string | null;
+    city: string | null;
+    country: string | null;
+    phone: string | null;
+  };
+  items: OrderImportItem[];
+  totals: {
+    subtotal: number | null;
+    shipping: number | null;
+    discount: number | null;
+    total: number | null;
+    currency: string | null;
+  };
+  order_reference: string | null;
+  notes: string[];
+  shipping_requirements: {
+    required_fields: string[];
+    missing_fields: string[];
+    can_ship: boolean;
+  };
+  customer_requirements: {
+    required_fields: string[];
+    missing_fields: string[];
+    has_minimum: boolean;
+  };
+};
+
+type ShipmentStatus = {
+  labelPrinted: boolean;
+  handledAt?: string | null;
+};
+
+type ShipmentEntry = {
+  id: string;
+  createdAt: string;
+  updatedAt?: string | null;
+  data: OrderImportResult;
+  status: ShipmentStatus;
+  createdBy?: string | null;
+};
+
+const ORDER_IMPORT_PRODUCTS = [
+  { id: 'klientpaket', title: 'Klientpaket', aliases: ['KLIENTPAKET'], sku: '25261' },
+  { id: 'hydro-pulse', title: 'Hydro Pulse', aliases: ['HYDRO PULSE', 'HYDROPULSE'] },
+  { id: 'bcaa', title: 'BCAA', aliases: ['BCAA'] },
+  { id: 'omega-3', title: 'Omega 3', aliases: ['OMEGA 3', 'OMEGA-3'] },
+  { id: 'magnesium', title: 'Magnesium', aliases: ['MAGNESIUM'] },
+  { id: 'multivitamin', title: 'Multivitamin', aliases: ['MULTIVITAMIN'] }
+];
 
 type InfoRowProps = {
   label: string;
@@ -125,6 +197,12 @@ const formatNumber = (value?: number | null, suffix = '') => {
   return `${value}${suffix}`;
 };
 
+const formatMoney = (value?: number | null, currency: string | null = 'SEK') => {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—';
+  const formatted = value.toLocaleString('sv-SE', { maximumFractionDigits: 2 });
+  return `${formatted} ${currency || 'SEK'}`;
+};
+
 const truncate = (value?: string | null, maxLength = 160) => {
   if (!value) return '—';
   if (value.length <= maxLength) return value;
@@ -140,6 +218,68 @@ const getNextWorkday = (date: Date) => {
 };
 
 const formatDateInput = (date: Date) => date.toISOString().slice(0, 10);
+
+const createLocalId = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const normalizeShipmentRow = (row: any): ShipmentEntry | null => {
+  if (!row || typeof row !== 'object') return null;
+  const data = row.data as OrderImportResult | undefined;
+  if (!data || typeof data !== 'object') return null;
+  const status = row.status as ShipmentStatus | undefined;
+  const createdAt = typeof row.created_at === 'string' ? row.created_at : new Date().toISOString();
+  const updatedAt = typeof row.updated_at === 'string' ? row.updated_at : null;
+  const safeStatus: ShipmentStatus = {
+    labelPrinted: Boolean(status?.labelPrinted),
+    handledAt: status?.handledAt || (status?.labelPrinted ? (updatedAt || createdAt) : null)
+  };
+  return {
+    id: String(row.id || createLocalId()),
+    createdAt,
+    updatedAt,
+    createdBy: row.created_by ?? null,
+    data,
+    status: safeStatus
+  };
+};
+
+const buildAddressLines = (shipping: OrderImportResult['shipping']) => {
+  const lines = [
+    shipping.name,
+    shipping.line1,
+    shipping.line2,
+    [shipping.postal_code, shipping.city].filter(Boolean).join(' '),
+    shipping.country,
+    shipping.phone ? `Tel: ${shipping.phone}` : null
+  ].filter(Boolean) as string[];
+  return lines.length ? lines : ['—'];
+};
+
+const buildItemLines = (items: OrderImportItem[]) => {
+  if (!items.length) return ['—'];
+  return items.map((item) => {
+    const qtyPart = item.quantity !== null && item.quantity !== undefined ? `${item.quantity} × ` : '';
+    const name = item.name ?? 'Okänd produkt';
+    const sku = item.sku ? ` (${item.sku})` : '';
+    return `${qtyPart}${name}${sku}`.trim();
+  });
+};
+
+const purgeOldHandledLocal = (entries: ShipmentEntry[]) => {
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  return entries.filter((entry) => {
+    if (!entry.status.labelPrinted) return true;
+    const handledAt = entry.status.handledAt || entry.updatedAt || entry.createdAt;
+    if (!handledAt) return true;
+    const timestamp = new Date(handledAt).getTime();
+    if (Number.isNaN(timestamp)) return true;
+    return timestamp >= cutoff;
+  });
+};
 
 const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const;
 
@@ -211,7 +351,7 @@ const Intranet: React.FC = () => {
   });
   const [reportStatus, setReportStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [reportError, setReportError] = useState<string | null>(null);
-  const [showWeek, setShowWeek] = useState(false);
+  const [showAhead, setShowAhead] = useState(false);
   const [weeklyReports, setWeeklyReports] = useState<Record<string, any>>({});
   const isConfigured = isSupabaseConfigured();
   const [expandedWeekDays, setExpandedWeekDays] = useState<Record<string, boolean>>({});
@@ -238,6 +378,15 @@ const Intranet: React.FC = () => {
     type: 'report' | 'handover';
     data: any;
   } | null>(null);
+  const [orderText, setOrderText] = useState('');
+  const [orderParseStatus, setOrderParseStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [orderParseError, setOrderParseError] = useState<string | null>(null);
+  const [orderDraft, setOrderDraft] = useState<OrderImportResult | null>(null);
+  const [shipments, setShipments] = useState<ShipmentEntry[]>([]);
+  const [shipmentsStatus, setShipmentsStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [shipmentsError, setShipmentsError] = useState<string | null>(null);
+  const [copiedShipmentId, setCopiedShipmentId] = useState<string | null>(null);
+  const [showHandledShipments, setShowHandledShipments] = useState(false);
 
   const refreshDataOverview = useCallback(async () => {
     if (!session?.user?.id || !isStaff || !isConfigured) return;
@@ -486,8 +635,27 @@ const Intranet: React.FC = () => {
     todayTasks.filter((task) => !completedTaskIdsForDay.has(task.id))
   ), [completedTaskIdsForDay, todayTasks]);
 
-  const toggleAgendaTask = useCallback(async (taskId: string) => {
-    const dateKey = formatDateInput(selectedDate);
+  const aheadTasks = useMemo(() => {
+    if (!showAhead) return [];
+    const days = getWorkweekDates(selectedDate);
+    const baseTime = new Date(`${formatDateInput(selectedDate)}T00:00:00`).getTime();
+    return days
+      .filter((day) => day.getTime() > baseTime)
+      .map((day) => {
+        const key = formatDateInput(day);
+        const tasks = getTasksForDate(day).filter((task) => (
+          AHEAD_ELIGIBLE_TASKS.includes(task.title)
+        ));
+        return {
+          date: day,
+          dateKey: key,
+          tasks
+        };
+      })
+      .filter((entry) => entry.tasks.length > 0);
+  }, [getTasksForDate, selectedDate, showAhead]);
+
+  const toggleAgendaTaskForDate = useCallback(async (dateKey: string, taskId: string) => {
     const current = new Set(agendaCompletionByDate[dateKey] || []);
     const wasChecked = current.has(taskId);
     if (current.has(taskId)) current.delete(taskId);
@@ -518,7 +686,12 @@ const Intranet: React.FC = () => {
     } catch (err) {
       console.warn('Failed to persist agenda completion', err);
     }
-  }, [agendaCompletionByDate, isConfigured, refreshDataOverview, selectedDate, session?.user?.id]);
+  }, [agendaCompletionByDate, isConfigured, refreshDataOverview, session?.user?.id]);
+
+  const toggleAgendaTask = useCallback(async (taskId: string) => {
+    const dateKey = formatDateInput(selectedDate);
+    await toggleAgendaTaskForDate(dateKey, taskId);
+  }, [selectedDate, toggleAgendaTaskForDate]);
 
   const loadSubmissions = useCallback(async () => {
     if (!isConfigured) return;
@@ -617,6 +790,34 @@ const Intranet: React.FC = () => {
     loadSubmissions();
   }, [session?.user?.id, isStaff, loadSubmissions]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || isConfigured) return;
+    try {
+      const stored = localStorage.getItem(SHIPMENTS_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setShipments(parsed);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load stored shipments', err);
+    }
+  }, [isConfigured]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || isConfigured) return;
+    try {
+      const cleaned = purgeOldHandledLocal(shipments);
+      if (cleaned.length !== shipments.length) {
+        setShipments(cleaned);
+      }
+      localStorage.setItem(SHIPMENTS_STORAGE_KEY, JSON.stringify(cleaned));
+    } catch (err) {
+      console.warn('Failed to persist shipments', err);
+    }
+  }, [shipments, isConfigured]);
+
   const combined = useMemo<CombinedSubmission[]>(() => {
     const startItems: CombinedSubmission[] = startEntries.map((entry) => ({
       kind: 'start',
@@ -641,6 +842,15 @@ const Intranet: React.FC = () => {
     const done = combined.filter((item) => item.data.is_done).length;
     return { startOpen, uppOpen, done };
   }, [startEntries, uppfoljningar, combined]);
+
+  const unreadShipments = useMemo(
+    () => shipments.filter((entry) => !entry.status.labelPrinted),
+    [shipments]
+  );
+  const handledShipments = useMemo(
+    () => shipments.filter((entry) => entry.status.labelPrinted),
+    [shipments]
+  );
 
   const filtered = useMemo(() => {
     if (filter === 'done') {
@@ -693,6 +903,224 @@ const Intranet: React.FC = () => {
     }
 
     setUpdatingId(null);
+  };
+
+  const purgeOldHandledShipments = useCallback(async (entries: ShipmentEntry[]) => {
+    if (!isConfigured || !entries.length) return 0;
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const toDelete = entries.filter((entry) => {
+      if (!entry.status.labelPrinted) return false;
+      const handledAt = entry.status.handledAt || entry.updatedAt || entry.createdAt;
+      if (!handledAt) return false;
+      const timestamp = new Date(handledAt).getTime();
+      if (Number.isNaN(timestamp)) return false;
+      return timestamp < cutoff;
+    });
+    if (toDelete.length === 0) return 0;
+    try {
+      const { error } = await supabase
+        .from('staff_shipments')
+        .delete()
+        .in('id', toDelete.map((entry) => entry.id));
+      if (error) throw error;
+      return toDelete.length;
+    } catch (err) {
+      console.warn('Failed to purge old handled shipments', err);
+      return 0;
+    }
+  }, [isConfigured]);
+
+  const loadShipments = useCallback(async () => {
+    if (!isConfigured || !isStaff) return;
+    setShipmentsStatus('loading');
+    setShipmentsError(null);
+    try {
+      const { data, error } = await supabase
+        .from('staff_shipments')
+        .select('id, created_at, updated_at, created_by, data, status')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const mapped = (data || [])
+        .map(normalizeShipmentRow)
+        .filter(Boolean) as ShipmentEntry[];
+      setShipments(mapped);
+      const purged = await purgeOldHandledShipments(mapped);
+      if (purged > 0) {
+        setShipments((prev) => prev.filter((entry) => {
+          if (!entry.status.labelPrinted) return true;
+          const handledAt = entry.status.handledAt || entry.updatedAt || entry.createdAt;
+          if (!handledAt) return true;
+          const ageMs = Date.now() - new Date(handledAt).getTime();
+          return ageMs < 30 * 24 * 60 * 60 * 1000;
+        }));
+      }
+      setShipmentsStatus('idle');
+    } catch (err) {
+      console.warn('Failed to load shipments', err);
+      setShipmentsStatus('error');
+      setShipmentsError('Kunde inte hämta fraktlistan. Försök igen.');
+    }
+  }, [isConfigured, isStaff]);
+
+  useEffect(() => {
+    if (!session?.user?.id || !isStaff || !isConfigured) return;
+    loadShipments();
+  }, [isConfigured, isStaff, loadShipments, session?.user?.id]);
+
+  const handleAnalyzeOrder = async () => {
+    if (!orderText.trim()) return;
+    setOrderParseStatus('loading');
+    setOrderParseError(null);
+    setOrderDraft(null);
+    try {
+      const response = await fetch('/api/order-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: orderText,
+          products: ORDER_IMPORT_PRODUCTS,
+          defaultCountry: 'Sverige'
+        })
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err?.error || `Order-import failed (${response.status})`);
+      }
+      const data = await response.json();
+      setOrderDraft(data);
+      setOrderParseStatus('success');
+    } catch (err: any) {
+      console.error('Order import failed', err);
+      setOrderParseStatus('error');
+      setOrderParseError('Kunde inte analysera ordern. Kontrollera att texten är komplett och försök igen.');
+    }
+  };
+
+  const handleAddShipment = () => {
+    if (!orderDraft) return;
+    setShipmentsError(null);
+    const entry: ShipmentEntry = {
+      id: createLocalId(),
+      createdAt: new Date().toISOString(),
+      data: orderDraft,
+      status: { labelPrinted: false, handledAt: null },
+      createdBy: session?.user?.id || null
+    };
+    const applyLocal = () => {
+      setShipments((prev) => [entry, ...prev]);
+      setOrderDraft(null);
+      setOrderText('');
+      setOrderParseStatus('idle');
+    };
+
+    if (!isConfigured) {
+      applyLocal();
+      return;
+    }
+
+    setShipmentsStatus('loading');
+    supabase
+      .from('staff_shipments')
+      .insert([{
+        id: entry.id,
+        created_at: entry.createdAt,
+        created_by: entry.createdBy,
+        data: entry.data,
+        status: entry.status
+      }])
+      .then(({ error }) => {
+        if (error) {
+          console.warn('Failed to save shipment', error);
+          setShipmentsError('Kunde inte spara paketet. Försök igen.');
+          setShipmentsStatus('error');
+          return;
+        }
+        applyLocal();
+        setShipmentsStatus('idle');
+      })
+      .catch((err) => {
+        console.warn('Failed to save shipment', err);
+        setShipmentsError('Kunde inte spara paketet. Försök igen.');
+        setShipmentsStatus('error');
+      });
+  };
+
+  const toggleShipmentStatus = (id: string, key: keyof ShipmentStatus) => {
+    setShipmentsError(null);
+    const entry = shipments.find((item) => item.id === id);
+    if (!entry) return;
+    const toggled = !entry.status[key];
+    const nextStatus: ShipmentStatus = {
+      ...entry.status,
+      [key]: toggled,
+      handledAt: key === 'labelPrinted' ? (toggled ? new Date().toISOString() : null) : entry.status.handledAt
+    };
+    setShipments((prev) => prev.map((current) => (
+      current.id === id ? { ...current, status: nextStatus, updatedAt: new Date().toISOString() } : current
+    )));
+    if (!isConfigured) return;
+    supabase
+      .from('staff_shipments')
+      .update({ status: nextStatus, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .then(({ error }) => {
+        if (error) {
+          console.warn('Failed to update shipment status', error);
+          setShipmentsError('Kunde inte uppdatera paketet. Försök igen.');
+          setShipmentsStatus('error');
+          loadShipments();
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to update shipment status', err);
+        setShipmentsError('Kunde inte uppdatera paketet. Försök igen.');
+        setShipmentsStatus('error');
+        loadShipments();
+      });
+  };
+
+  const removeShipment = (id: string) => {
+    const prev = shipments;
+    setShipments((current) => current.filter((entry) => entry.id !== id));
+    if (!isConfigured) return;
+    supabase
+      .from('staff_shipments')
+      .delete()
+      .eq('id', id)
+      .then(({ error }) => {
+        if (error) {
+          console.warn('Failed to delete shipment', error);
+          setShipments(prev);
+          setShipmentsError('Kunde inte ta bort paketet. Försök igen.');
+          setShipmentsStatus('error');
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to delete shipment', err);
+        setShipments(prev);
+        setShipmentsError('Kunde inte ta bort paketet. Försök igen.');
+        setShipmentsStatus('error');
+      });
+  };
+
+  const copyShipmentAddress = async (entry: ShipmentEntry) => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+    const filteredLines = buildAddressLines(entry.data.shipping).filter((line) => line !== '—');
+    if (filteredLines.length === 0) return;
+    const lines = filteredLines.join('\n');
+    try {
+      await navigator.clipboard.writeText(lines);
+      setCopiedShipmentId(entry.id);
+      setTimeout(() => setCopiedShipmentId((current) => (current === entry.id ? null : current)), 1600);
+    } catch (err) {
+      console.warn('Failed to copy address', err);
+    }
+  };
+
+  const clearOrderDraft = () => {
+    setOrderDraft(null);
+    setOrderParseError(null);
+    setOrderParseStatus('idle');
   };
 
   const handleReportSubmit = async (event: React.FormEvent) => {
@@ -1103,6 +1531,27 @@ const Intranet: React.FC = () => {
               </button>
               <button
                 type="button"
+                onClick={() => { setActiveTab('SHIP'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
+                  activeTab === 'SHIP'
+                    ? 'bg-[#E8F1D5] text-[#3D3D3D] border border-[#a0c81d]/40 shadow-[0_0_20px_rgba(160,200,29,0.12)]'
+                    : 'text-[#6B6158] hover:bg-[#E8F1D5]/50 border border-transparent'
+                }`}
+              >
+                <span className={`p-2 rounded-xl ${activeTab === 'SHIP' ? 'bg-[#a0c81d] text-[#F6F1E7]' : 'bg-[#F6F1E7] text-[#8A8177]'}`}>
+                  <Package className="w-4 h-4" />
+                </span>
+                <span className="flex items-center gap-2">
+                  Frakt
+                  {unreadShipments.length > 0 && (
+                    <span className="inline-flex items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-black px-2 py-0.5">
+                      {unreadShipments.length} oläst
+                    </span>
+                  )}
+                </span>
+              </button>
+              <button
+                type="button"
                 onClick={() => { setActiveTab('AGENDA'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
                   activeTab === 'AGENDA'
@@ -1242,10 +1691,10 @@ const Intranet: React.FC = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setShowWeek((prev) => !prev)}
+                      onClick={() => setShowAhead((prev) => !prev)}
                       className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
                     >
-                      {showWeek ? 'Dölj veckan' : 'Se hela veckan'}
+                      {showAhead ? 'Dölj hamna före' : 'Hamna före'}
                     </button>
                   </div>
                   {todayTasks.length === 0 ? (
@@ -1286,10 +1735,56 @@ const Intranet: React.FC = () => {
                       })}
                     </ul>
                   )}
+
+                  {showAhead && (
+                    <div className="mt-6 rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kommande uppgifter</div>
+                      {aheadTasks.length === 0 ? (
+                        <div className="text-sm text-[#8A8177]">Inga uppgifter att göra i förväg denna vecka.</div>
+                      ) : (
+                        <div className="space-y-3">
+                          {aheadTasks.map((entry) => {
+                            const completedIds = new Set(agendaCompletionByDate[entry.dateKey] || []);
+                            return (
+                              <div key={entry.dateKey} className="rounded-xl border border-[#E6E1D8] bg-white/70 p-3">
+                                <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">
+                                  {entry.date.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                </div>
+                                <ul className="space-y-2 text-sm text-[#6B6158]">
+                                  {entry.tasks.map((task) => {
+                                    const isChecked = completedIds.has(task.id);
+                                    return (
+                                      <li key={`${entry.dateKey}-${task.id}`}>
+                                        <label className="flex items-start gap-3 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => toggleAgendaTaskForDate(entry.dateKey, task.id)}
+                                            className="mt-1 accent-[#a0c81d]"
+                                          />
+                                          <span className="flex items-baseline gap-2">
+                                            <span className={isChecked ? 'line-through text-[#8A8177]' : undefined}>
+                                              {task.title}
+                                            </span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                                              {entry.date.toLocaleDateString('sv-SE', { weekday: 'short' })}
+                                            </span>
+                                          </span>
+                                        </label>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {showWeek && (
-                  <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
+                <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
                     <div className="flex items-center justify-between gap-4 mb-4">
                       <div>
                         <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Veckovy</p>
@@ -1306,23 +1801,59 @@ const Intranet: React.FC = () => {
                         const isExpanded = !!expandedWeekDays[key];
                         const visibleTasks = isExpanded ? tasks : tasks.slice(0, 4);
                         const remainingCount = tasks.length - visibleTasks.length;
-                        const report = weeklyReports[key];
+                        const completedIds = new Set(agendaCompletionByDate[key] || []);
+                        const allDone = tasks.length > 0 && tasks.every((task) => completedIds.has(task.id));
+                        const hasIncomplete = tasks.length > 0 && !allDone;
+                        const statusTone = allDone
+                          ? 'border-emerald-400/50 bg-emerald-500/10'
+                          : hasIncomplete
+                            ? 'border-rose-400/50 bg-rose-500/10'
+                            : 'border-[#E6E1D8] bg-[#F6F1E7]/70';
                         return (
-                          <div key={key} className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-4">
+                          <div key={key} className={`rounded-2xl border p-4 ${statusTone}`}>
                             <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
                               {day.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' })}
                             </div>
-                            <div className="text-sm font-black text-[#3D3D3D] mt-1">
-                              {report ? 'Rapporterad' : 'Ej rapporterad'}
+                            <div className="mt-2 flex items-center gap-2 text-sm font-black text-[#3D3D3D]">
+                              {allDone ? (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Klar för dagen
+                                </>
+                              ) : hasIncomplete ? (
+                                <>
+                                  <AlertTriangle className="w-4 h-4 text-rose-600" /> Ej klar
+                                </>
+                              ) : (
+                                'Ingen agenda'
+                              )}
                             </div>
-                            <div className="mt-3 text-[11px] text-[#6B6158]">
-                              {tasks.length === 0
-                                ? 'Ingen agenda.'
-                                : visibleTasks.map((task) => {
-                                    const showCount = task.count !== null && task.count !== undefined && `${task.count}` !== '';
-                                    return showCount ? `${task.title} ${task.count}` : task.title;
-                                  }).join(' · ')}
-                            </div>
+                            {tasks.length === 0 ? (
+                              <div className="mt-3 text-[11px] text-[#6B6158]">Ingen agenda.</div>
+                            ) : (
+                              <ul className="mt-3 space-y-2 text-[11px] text-[#6B6158]">
+                                {visibleTasks.map((task) => {
+                                  const isDone = completedIds.has(task.id);
+                                  const showCount = task.count !== null && task.count !== undefined && `${task.count}` !== '';
+                                  return (
+                                    <li key={`${key}-${task.id}`} className="flex items-start gap-2">
+                                      {isDone ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5" />
+                                      ) : (
+                                        <span className="w-3.5 h-3.5 rounded-full border border-[#DAD1C5] mt-0.5" />
+                                      )}
+                                      <span className={isDone ? 'line-through text-[#8A8177]' : 'text-[#3D3D3D]'}>
+                                        {task.title}
+                                        {showCount && (
+                                          <span className="ml-1 text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                                            {task.count}
+                                          </span>
+                                        )}
+                                      </span>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
                             {tasks.length > 4 && (
                               <button
                                 type="button"
@@ -1342,7 +1873,6 @@ const Intranet: React.FC = () => {
                       })}
                     </div>
                   </div>
-                )}
 
               </div>
             )}
@@ -1516,6 +2046,371 @@ const Intranet: React.FC = () => {
                     )}
                   </div>
                 </form>
+              </div>
+            )}
+
+            {activeTab === 'SHIP' && (
+              <div className="space-y-8 animate-fade-in">
+                <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_20px_60px_rgba(61,61,61,0.18)] ring-1 ring-black/5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-11 h-11 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
+                      <Package className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Frakt</p>
+                      <h2 className="text-2xl md:text-3xl font-black text-[#3D3D3D] tracking-tight">
+                        Paket & etiketter
+                      </h2>
+                    </div>
+                  </div>
+                  <p className="text-[#6B6158] text-sm max-w-2xl">
+                    Klistra in en order från beställningssidan så får du en ren struktur med kund, adress och artiklar.
+                    Lägg sedan till i paketlistan och klarmarkera när etikett är utskriven.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Snabb import</p>
+                      <h3 className="text-xl font-black text-[#3D3D3D]">Kopiera från ordersidan</h3>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 space-y-4">
+                    <textarea
+                      value={orderText}
+                      onChange={(event) => setOrderText(event.target.value)}
+                      placeholder="Klistra in hela ordertexten här..."
+                      className="w-full h-48 p-4 bg-[#F6F1E7] border border-[#E6E1D8] rounded-2xl text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none resize-none font-mono"
+                    />
+
+                    {orderParseError && (
+                      <div className="rounded-2xl border border-rose-400/40 bg-rose-100/70 p-4 text-rose-800 text-sm">
+                        {orderParseError}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleAnalyzeOrder}
+                        disabled={orderParseStatus === 'loading' || orderText.trim().length === 0}
+                        className="px-5 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition disabled:opacity-60 flex items-center gap-2"
+                      >
+                        {orderParseStatus === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
+                        Analysera
+                      </button>
+                      {orderDraft && (
+                        <button
+                          type="button"
+                          onClick={clearOrderDraft}
+                          className="px-4 py-3 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition"
+                        >
+                          Rensa resultat
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {orderDraft && (
+                    <div className="mt-6 space-y-5">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <section className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-4">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kund</h4>
+                          <div className="space-y-2 text-sm text-[#3D3D3D]">
+                            <div className="font-bold">{orderDraft.customer.name || '—'}</div>
+                            <div>{orderDraft.customer.email || '—'}</div>
+                            <div>{orderDraft.customer.phone || '—'}</div>
+                          </div>
+                          <div className="mt-3 text-xs text-[#8A8177]">
+                            Order: {orderDraft.order_reference ? `#${orderDraft.order_reference}` : '—'}
+                          </div>
+                        </section>
+
+                        <section className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-4">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Fraktadress</h4>
+                          <div className="space-y-1 text-sm text-[#3D3D3D]">
+                            {buildAddressLines(orderDraft.shipping).map((line) => (
+                              <div key={line}>{line}</div>
+                            ))}
+                          </div>
+                        </section>
+
+                        <section className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-4">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Artiklar & summa</h4>
+                          <div className="space-y-1 text-sm text-[#3D3D3D]">
+                            {buildItemLines(orderDraft.items).map((line) => (
+                              <div key={line}>{line}</div>
+                            ))}
+                          </div>
+                          <div className="mt-3 text-xs text-[#8A8177] space-y-1">
+                            <div>Delsumma: {formatMoney(orderDraft.totals.subtotal, orderDraft.totals.currency)}</div>
+                            <div>Frakt: {formatMoney(orderDraft.totals.shipping, orderDraft.totals.currency)}</div>
+                            <div className="font-bold text-[#3D3D3D]">
+                              Totalt: {formatMoney(orderDraft.totals.total, orderDraft.totals.currency)}
+                            </div>
+                          </div>
+                        </section>
+                      </div>
+
+                      {(orderDraft.notes?.length || 0) > 0 && (
+                        <section className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-4">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Noteringar</h4>
+                          <ul className="space-y-2 text-sm text-[#6B6158]">
+                            {orderDraft.notes.map((note) => (
+                              <li key={note} className="flex items-start gap-2">
+                                <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]" />
+                                <span>{note}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      )}
+
+                      {orderDraft.shipping_requirements.missing_fields.length > 0 && (
+                        <div className="rounded-2xl border border-rose-400/40 bg-rose-100/70 p-4 text-rose-800 text-sm">
+                          Saknar fraktuppgifter: {orderDraft.shipping_requirements.missing_fields.join(', ')}
+                        </div>
+                      )}
+
+                      {orderDraft.customer_requirements.missing_fields.length > 0 && (
+                        <div className="rounded-2xl border border-rose-400/40 bg-rose-100/70 p-4 text-rose-800 text-sm">
+                          Saknar kunduppgifter: {orderDraft.customer_requirements.missing_fields.join(', ')}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleAddShipment}
+                          className="px-5 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition"
+                        >
+                          Lägg till i paketlistan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={clearOrderDraft}
+                          className="px-4 py-3 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition"
+                        >
+                          Ny analys
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Paketlista</p>
+                      <h3 className="text-xl font-black text-[#3D3D3D]">Pågående utskick</h3>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-xs text-[#8A8177]">
+                        {isConfigured ? `${shipments.length} paket i Supabase` : `${shipments.length} paket sparade lokalt`}
+                      </div>
+                      {isConfigured && (
+                        <button
+                          type="button"
+                          onClick={loadShipments}
+                          className="px-3 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition flex items-center gap-2"
+                          disabled={shipmentsStatus === 'loading'}
+                        >
+                          {shipmentsStatus === 'loading' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcw className="w-3.5 h-3.5" />}
+                          Uppdatera
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {!isConfigured && (
+                    <div className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-100/70 p-4 text-amber-800 text-sm">
+                      Supabase är inte konfigurerat. Paketlistan sparas bara lokalt i den här webbläsaren.
+                    </div>
+                  )}
+
+                  {shipmentsError && (
+                    <div className="mb-4 rounded-2xl border border-rose-400/40 bg-rose-100/70 p-4 text-rose-800 text-sm">
+                      {shipmentsError}
+                    </div>
+                  )}
+
+                  {shipments.length === 0 ? (
+                    <div className="text-sm text-[#8A8177]">Inga paket ännu. Lägg till en order ovan.</div>
+                  ) : (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-[#6B6158] font-semibold">
+                          Ohanterade: {unreadShipments.length}
+                        </div>
+                        {handledShipments.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowHandledShipments((prev) => !prev)}
+                            className="px-3 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition"
+                          >
+                            {showHandledShipments ? 'Dölj hanterade' : `Visa hanterade (${handledShipments.length})`}
+                          </button>
+                        )}
+                      </div>
+
+                      {unreadShipments.length === 0 ? (
+                        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-100/70 p-4 text-emerald-800 text-sm">
+                          Inga ohanterade paket just nu.
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {unreadShipments.map((entry) => {
+                            const missingShipping = entry.data.shipping_requirements?.missing_fields || [];
+                            const missingCustomer = entry.data.customer_requirements?.missing_fields || [];
+                            return (
+                              <div key={entry.id} className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4 space-y-4">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                              <div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Order</div>
+                                <div className="text-lg font-black text-[#3D3D3D]">
+                                  {entry.data.order_reference ? `#${entry.data.order_reference}` : 'Order utan ID'}
+                                </div>
+                                <div className="text-xs text-[#8A8177]">Skapad {formatTimestamp(entry.createdAt)}</div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => copyShipmentAddress(entry)}
+                                  className="px-3 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition flex items-center gap-2"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                  {copiedShipmentId === entry.id ? 'Kopierat' : 'Kopiera adress'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeShipment(entry.id)}
+                                  className="px-3 py-2 rounded-xl border border-rose-200 text-[10px] font-black uppercase tracking-widest text-rose-700 hover:border-rose-300 transition flex items-center gap-2"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Ta bort
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-[#3D3D3D]">
+                              <div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Kund</div>
+                                <div className="font-bold">{entry.data.customer.name || '—'}</div>
+                                <div>{entry.data.customer.email || '—'}</div>
+                                <div>{entry.data.customer.phone || '—'}</div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Fraktadress</div>
+                                {buildAddressLines(entry.data.shipping).map((line) => (
+                                  <div key={line}>{line}</div>
+                                ))}
+                              </div>
+                              <div>
+                                <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Artiklar</div>
+                                {buildItemLines(entry.data.items).map((line) => (
+                                  <div key={line}>{line}</div>
+                                ))}
+                                <div className="mt-2 text-xs text-[#8A8177]">
+                                  Total: {formatMoney(entry.data.totals.total, entry.data.totals.currency)}
+                                </div>
+                              </div>
+                            </div>
+
+                            {(missingShipping.length > 0 || missingCustomer.length > 0) && (
+                              <div className="rounded-2xl border border-rose-400/40 bg-rose-100/70 p-3 text-rose-800 text-sm">
+                                {missingShipping.length > 0 && (
+                                  <div>Saknar fraktuppgifter: {missingShipping.join(', ')}</div>
+                                )}
+                                {missingCustomer.length > 0 && (
+                                  <div>Saknar kunduppgifter: {missingCustomer.join(', ')}</div>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap items-center gap-4 text-sm text-[#3D3D3D]">
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={entry.status.labelPrinted}
+                                  onChange={() => toggleShipmentStatus(entry.id, 'labelPrinted')}
+                                  className="accent-[#a0c81d]"
+                                />
+                                Etikett utskriven
+                              </label>
+                            </div>
+                          </div>
+                        );
+                          })}
+                        </div>
+                      )}
+
+                      {showHandledShipments && handledShipments.length > 0 && (
+                        <div className="space-y-4">
+                          <div className="text-sm text-[#6B6158] font-semibold">Hanterade</div>
+                          {handledShipments.map((entry) => (
+                            <div key={entry.id} className="rounded-2xl border border-[#E6E1D8] bg-white/70 p-4 space-y-3">
+                              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                <div>
+                                  <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Order</div>
+                                  <div className="text-lg font-black text-[#3D3D3D]">
+                                    {entry.data.order_reference ? `#${entry.data.order_reference}` : 'Order utan ID'}
+                                  </div>
+                                  <div className="text-xs text-[#8A8177]">Skapad {formatTimestamp(entry.createdAt)}</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => copyShipmentAddress(entry)}
+                                    className="px-3 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition flex items-center gap-2"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                    {copiedShipmentId === entry.id ? 'Kopierat' : 'Kopiera adress'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeShipment(entry.id)}
+                                    className="px-3 py-2 rounded-xl border border-rose-200 text-[10px] font-black uppercase tracking-widest text-rose-700 hover:border-rose-300 transition flex items-center gap-2"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Ta bort
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-[#3D3D3D]">
+                                <div>
+                                  <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Kund</div>
+                                  <div className="font-bold">{entry.data.customer.name || '—'}</div>
+                                  <div>{entry.data.customer.email || '—'}</div>
+                                  <div>{entry.data.customer.phone || '—'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Fraktadress</div>
+                                  {buildAddressLines(entry.data.shipping).map((line) => (
+                                    <div key={line}>{line}</div>
+                                  ))}
+                                </div>
+                                <div>
+                                  <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Artiklar</div>
+                                  {buildItemLines(entry.data.items).map((line) => (
+                                    <div key={line}>{line}</div>
+                                  ))}
+                                  <div className="mt-2 text-xs text-[#8A8177]">
+                                    Total: {formatMoney(entry.data.totals.total, entry.data.totals.currency)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-xs text-emerald-700 font-semibold uppercase tracking-widest">
+                                Etikett utskriven
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
