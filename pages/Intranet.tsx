@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Copy, FileText, LayoutDashboard, Loader2, Package, RefreshCcw, Trash2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Copy, FileText, LayoutDashboard, Loader2, Package, RefreshCcw, Trash2, X, Circle, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
@@ -87,6 +87,109 @@ const REPORT_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/ucizdpt
 const REPORT_OVERTIME_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/ucicwgs/';
 const SHIPMENTS_STORAGE_KEY = 'staff-shipments';
 const AHEAD_ELIGIBLE_TASKS = ['E-Handel/Lager', 'Förbered etiketter', 'Follow-Ups', 'Sociala medier'];
+
+const normalizeAgendaTitle = (value: string) => value.toLowerCase().replace(/\s+/g, ' ').trim();
+
+const AGENDA_CHECKLISTS: Record<
+  string,
+  {
+    headline: string;
+    items: Array<{
+      title: string;
+      tooltip: string;
+      example?: {
+        intro: string;
+        segments: Array<{ label: string; text: string }>;
+      };
+    }>;
+  }
+> = {
+  [normalizeAgendaTitle('Startupplägg')]: {
+    headline: 'Checklistor för kvalitetssäkring baserat på uppgiften',
+    items: [
+      {
+        title: 'Mål, skador och erfarenhet är inlagda',
+        tooltip: 'Tydligt strukturerat i klientprofilen utifrån startformuläret.'
+      },
+      {
+        title: 'Upplägget ger en bra beskrivning och seriöst namn',
+        tooltip: 'Standard: [Uppläggets namn] - [Klientens namn]. Rensa siffror/format och välj professionella övnings-/videoval.'
+      },
+      {
+        title: 'Övningar matchar klientens nivå',
+        tooltip: 'Anpassa efter ålder, erfarenhet och mål. Ex: mer maskiner för äldre/ovana.'
+      },
+      {
+        title: 'Kalendern är rimligt upplagd',
+        tooltip: 'Fördelning mellan dagar tar hänsyn till återhämtning och önskemål.'
+      }
+    ]
+  },
+  [normalizeAgendaTitle('Uppföljningsupplägg')]: {
+    headline: 'Kvalitetssäkra uppföljningen i 3 steg',
+    items: [
+      {
+        title: 'Historiken är genomläst',
+        tooltip: 'Nya uppföljningen + app-anteckningar. Ta bort övningar kunden ogillat.'
+      },
+      {
+        title: 'Beskrivningen är unik',
+        tooltip: 'Rensa standardtexter och spegla månadens syfte.'
+      },
+      {
+        title: 'Valen är kommunicerade',
+        tooltip: 'Passen ligger logiskt och klienten har fått en kort förklaring.'
+      }
+    ]
+  },
+  [normalizeAgendaTitle('Ärenden')]: {
+    headline: 'Kvalitetssäkra ärenden innan klarmarkering',
+    items: [
+      {
+        title: 'Planeringsändringar är dokumenterade',
+        tooltip: 'Allt som påverkar planeringen är inlagt i profilen.'
+      },
+      {
+        title: 'Klienten är informerad',
+        tooltip: 'Meddelande skickat till berörda klienter.'
+      }
+    ]
+  },
+  [normalizeAgendaTitle('App')]: {
+    headline: 'Svarsstandard i appen (kvalitetssäkring)',
+    items: [
+      {
+        title: 'Tydlig struktur och bekräftelse',
+        tooltip: 'Svara i segment med dubbelradbrytning och bekräfta kundens fråga i texten.',
+        example: {
+          intro: 'Exempelsvar med segment och bekräftelse:',
+          segments: [
+            {
+              label: 'Hälsning',
+              text: 'Hej Lisa!'
+            },
+            {
+              label: 'Bekräftelse',
+              text: 'Kul att övningen kändes bra! Angående ditt vätskeintag:'
+            },
+            {
+              label: 'Svar',
+              text: 'Sikta på 2–2,5 liter per dag och lägg till ett extra glas på träningsdagar. Om du känner dig trött kan du även öka saltintaget lite under varma dagar.'
+            },
+            {
+              label: 'Avslut',
+              text: 'Säg till om jag kan hjälpa till med något annat!\n// Simon'
+            }
+          ]
+        }
+      },
+      {
+        title: 'Alltid sista ordet',
+        tooltip: 'Avsluta med en tydlig uppmaning, t.ex. “Säg till om jag kan hjälpa till med något annat” eller “Vill du att jag lägger in det?”'
+      }
+    ]
+  }
+};
 
 type OrderImportItem = {
   product_id: string | null;
@@ -361,7 +464,35 @@ const Intranet: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [historyExpandedId, setHistoryExpandedId] = useState<string | null>(null);
+  const [checklistModal, setChecklistModal] = useState<{
+    dateKey: string;
+    taskId: string;
+    title: string;
+    headline: string;
+    items: Array<{
+      title: string;
+      tooltip: string;
+      example?: {
+        intro: string;
+        segments: Array<{ label: string; text: string }>;
+      };
+    }>;
+  } | null>(null);
+  const [checklistChecks, setChecklistChecks] = useState<boolean[]>([]);
+  const [checklistError, setChecklistError] = useState<string | null>(null);
+  const [checklistExample, setChecklistExample] = useState<{
+    title: string;
+    intro: string;
+    segments: Array<{ label: string; text: string }>;
+  } | null>(null);
+  const [isReportExpanded, setIsReportExpanded] = useState(false);
+  const [profilePanel, setProfilePanel] = useState<{
+    userKey: string;
+    fullName: string;
+    email: string | null;
+    submissions: CombinedSubmission[];
+  } | null>(null);
+  const [profilePanelSelectedId, setProfilePanelSelectedId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [reportForm, setReportForm] = useState({
@@ -375,6 +506,28 @@ const Intranet: React.FC = () => {
   const [reportStatus, setReportStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [reportError, setReportError] = useState<string | null>(null);
   const [showAhead, setShowAhead] = useState(false);
+  const focusTasksFallback = useMemo(() => ([
+    {
+      id: 'focus-1',
+      title: 'Uppföljningsmallar – gör dem vassare',
+      description: 'Förtydliga mål, ta bort brus och lägg till 2 konkreta förbättringar som sparar tid.',
+      done: false
+    },
+    {
+      id: 'focus-2',
+      title: 'Kvalitetssäkra 3 profiler',
+      description: 'Läs mål + historik och uppdatera måltexten så den blir tydlig och mätbar.',
+      done: false
+    },
+    {
+      id: 'focus-3',
+      title: 'Mikrochecklista för nya klienter',
+      description: 'Skapa en 6–8 punkters check som minskar missar i första leveransen.',
+      done: true
+    }
+  ]), []);
+  const [focusTasks, setFocusTasks] = useState<Array<{ id: string; title: string; description: string; done: boolean }>>(focusTasksFallback);
+  const [focusPage, setFocusPage] = useState(0);
   const [weeklyReports, setWeeklyReports] = useState<Record<string, any>>({});
   const isConfigured = isSupabaseConfigured();
   const [expandedWeekDays, setExpandedWeekDays] = useState<Record<string, boolean>>({});
@@ -388,7 +541,7 @@ const Intranet: React.FC = () => {
   const [agendaStatus, setAgendaStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [agendaError, setAgendaError] = useState<string | null>(null);
 
-  const [handoverHistory, setHandoverHistory] = useState<Array<{ text: string; created_at: string }>>([]);
+  const [handoverHistory, setHandoverHistory] = useState<Array<{ text: string; created_at: string; report_date?: string | null }>>([]);
   const [dataStats, setDataStats] = useState<{ completedTasks: number; reportCount: number; handoverCount: number }>({
     completedTasks: 0,
     reportCount: 0,
@@ -411,20 +564,58 @@ const Intranet: React.FC = () => {
   const [copiedShipmentId, setCopiedShipmentId] = useState<string | null>(null);
   const [showHandledShipments, setShowHandledShipments] = useState(false);
 
+  const toggleFocusTask = useCallback((taskId: string) => {
+    setFocusTasks((prev) =>
+      prev.map((task) => (task.id === taskId ? { ...task, done: !task.done } : task))
+    );
+    if (!isConfigured) return;
+    const next = focusTasks.find((task) => task.id === taskId);
+    const nextDone = next ? !next.done : null;
+    if (nextDone === null) return;
+    supabase
+      .from('agenda_projects')
+      .update({ is_done: nextDone })
+      .eq('id', taskId)
+      .then(({ error }) => {
+        if (error) {
+          console.warn('Failed to update focus task', error);
+        }
+      });
+  }, [focusTasks, isConfigured]);
+
+  const focusTasksOrdered = useMemo(() => {
+    const open = focusTasks.filter((task) => !task.done);
+    const done = focusTasks.filter((task) => task.done);
+    return [...open, ...done];
+  }, [focusTasks]);
+
+  const focusPageCount = useMemo(() => Math.max(1, Math.ceil(focusTasksOrdered.length / 3)), [focusTasksOrdered]);
+  const safeFocusPage = Math.min(focusPage, focusPageCount - 1);
+  const focusSliceStart = safeFocusPage * 3;
+  const focusSlice = focusTasksOrdered.slice(focusSliceStart, focusSliceStart + 3);
+
+  useEffect(() => {
+    if (focusPage > focusPageCount - 1) {
+      setFocusPage(Math.max(0, focusPageCount - 1));
+    }
+  }, [focusPage, focusPageCount]);
+
   const refreshDataOverview = useCallback(async () => {
     if (!session?.user?.id || !isStaff || !isConfigured) return;
     try {
       setDataStatsError(null);
       const [{ count: reportCount, error: reportError }, handoversRes, completionsRes] = await Promise.all([
         supabase
-          .from('staff_reports')
+          .from('agenda_reports')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', session.user.id),
         supabase
-          .from('staff_handovers')
-          .select('handover, created_at')
-          .eq('created_by', session.user.id)
-          .order('created_at', { ascending: false }),
+          .from('agenda_reports')
+          .select('handover, created_at, report_date')
+          .eq('user_id', session.user.id)
+          .not('handover', 'is', null)
+          .neq('handover', '')
+          .order('report_date', { ascending: false }),
         supabase
           .from('agenda_completions')
           .select('completed_task_ids')
@@ -437,7 +628,8 @@ const Intranet: React.FC = () => {
 
       const handovers = (handoversRes.data || []).map((item: any) => ({
         text: item.handover,
-        created_at: item.created_at
+        created_at: item.created_at,
+        report_date: item.report_date
       }));
       const completedTasks = (completionsRes.data || []).reduce((sum: number, row: any) => (
         sum + (row.completed_task_ids?.length || 0)
@@ -484,7 +676,7 @@ const Intranet: React.FC = () => {
         const startKey = formatDateInput(days[0]);
         const endKey = formatDateInput(days[4]);
         const { data, error } = await supabase
-          .from('staff_reports')
+          .from('agenda_reports')
           .select('*')
           .gte('report_date', startKey)
           .lte('report_date', endKey)
@@ -515,7 +707,7 @@ const Intranet: React.FC = () => {
       setReportHistoryError(null);
       try {
         const { data, error } = await supabase
-          .from('staff_reports')
+          .from('agenda_reports')
           .select('*')
           .eq('user_id', session.user.id)
           .order('report_date', { ascending: false });
@@ -562,6 +754,42 @@ const Intranet: React.FC = () => {
       active = false;
     };
   }, [session?.user?.id, isStaff, isConfigured]);
+
+  useEffect(() => {
+    if (!isStaff) return;
+    let active = true;
+    const loadFocusTasks = async () => {
+      if (!isConfigured) {
+        setFocusTasks(focusTasksFallback);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('agenda_projects')
+          .select('id,title,description,is_done,sort_order,is_active')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        if (!active) return;
+        const mapped = (data || []).map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          description: item.description || '',
+          done: !!item.is_done
+        }));
+        setFocusTasks(mapped.length > 0 ? mapped : focusTasksFallback);
+      } catch (err) {
+        console.warn('Failed to load focus tasks', err);
+        if (!active) return;
+        setFocusTasks(focusTasksFallback);
+      }
+    };
+    loadFocusTasks();
+    return () => {
+      active = false;
+    };
+  }, [focusTasksFallback, isConfigured, isStaff]);
 
   useEffect(() => {
     if (!session?.user?.id || !isStaff) return;
@@ -686,7 +914,7 @@ const Intranet: React.FC = () => {
       .filter((entry) => entry.tasks.length > 0);
   }, [getTasksForDate, selectedDate, showAhead]);
 
-  const toggleAgendaTaskForDate = useCallback(async (dateKey: string, taskId: string) => {
+  const performToggleAgendaTaskForDate = useCallback(async (dateKey: string, taskId: string) => {
     const current = new Set(agendaCompletionByDate[dateKey] || []);
     const wasChecked = current.has(taskId);
     if (current.has(taskId)) current.delete(taskId);
@@ -719,9 +947,30 @@ const Intranet: React.FC = () => {
     }
   }, [agendaCompletionByDate, isConfigured, refreshDataOverview, session?.user?.id]);
 
-  const toggleAgendaTask = useCallback(async (taskId: string) => {
+  const toggleAgendaTaskForDate = useCallback(async (dateKey: string, task: AgendaItem) => {
+    const current = new Set(agendaCompletionByDate[dateKey] || []);
+    const shouldCheck = !current.has(task.id);
+    if (shouldCheck) {
+      const checklist = AGENDA_CHECKLISTS[normalizeAgendaTitle(task.title)];
+      if (checklist) {
+        setChecklistChecks(Array(checklist.items.length).fill(false));
+        setChecklistError(null);
+        setChecklistModal({
+          dateKey,
+          taskId: task.id,
+          title: task.title,
+          headline: checklist.headline,
+          items: checklist.items
+        });
+        return;
+      }
+    }
+    await performToggleAgendaTaskForDate(dateKey, task.id);
+  }, [agendaCompletionByDate, performToggleAgendaTaskForDate]);
+
+  const toggleAgendaTask = useCallback(async (task: AgendaItem) => {
     const dateKey = formatDateInput(selectedDate);
-    await toggleAgendaTaskForDate(dateKey, taskId);
+    await toggleAgendaTaskForDate(dateKey, task);
   }, [selectedDate, toggleAgendaTaskForDate]);
 
   const loadSubmissions = useCallback(async () => {
@@ -1306,32 +1555,17 @@ const Intranet: React.FC = () => {
           incomplete_task_ids: incompleteIds,
           overtime: reportForm.overtime
         };
-        const { error } = await supabase.from('staff_reports').insert([reportPayload]);
+        const { error } = await supabase.from('agenda_reports').insert([reportPayload]);
         if (error) throw error;
-      } catch (err) {
-        console.warn('Failed to write staff report', err);
-      }
-      try {
-        const baseDate = reportForm.date ? new Date(`${reportForm.date}T00:00:00`) : new Date();
-        const nextDate = getNextWorkday(baseDate);
-        const handoverPayload = {
-          report_date: formatDateInput(nextDate),
-          created_by: session?.user?.id,
-          handover: handoverText
-        };
-        const { error } = await supabase.from('staff_handovers').insert([handoverPayload]);
-        if (error) throw error;
-        setHandoverHistory((prev) => ([
-          { text: handoverText, created_at: new Date().toISOString() },
-          ...prev
-        ]));
-        setDataStats((prev) => ({
-          ...prev,
-          handoverCount: prev.handoverCount + 1
-        }));
+        if (handoverText) {
+          setHandoverHistory((prev) => ([
+            { text: handoverText, created_at: new Date().toISOString(), report_date: reportForm.date },
+            ...prev
+          ]));
+        }
         await refreshDataOverview();
       } catch (err) {
-        console.warn('Failed to write staff handover', err);
+        console.warn('Failed to write agenda report', err);
       }
       setReportForm((prev) => ({
         ...prev,
@@ -1443,7 +1677,7 @@ const Intranet: React.FC = () => {
     );
   };
 
-  const renderReportForm = (options?: { compact?: boolean }) => {
+  const renderReportForm = (options?: { compact?: boolean; onCollapse?: () => void }) => {
     const compact = options?.compact ?? false;
     const containerClass = compact
       ? 'bg-white rounded-2xl p-5 md:p-6 border border-[#DAD1C5] shadow-[0_16px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5'
@@ -1471,6 +1705,15 @@ const Intranet: React.FC = () => {
               </h2>
             </div>
           </div>
+          {options?.onCollapse && (
+            <button
+              type="button"
+              onClick={options.onCollapse}
+              className="mt-3 inline-flex items-center justify-center rounded-xl border border-[#DAD1C5] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition"
+            >
+              Fäll in
+            </button>
+          )}
           <p className="text-sm text-[#6B6158] max-w-2xl">
             {compact
               ? 'Summera dagen kort och tydligt samt vad som är prio för nästa arbetsdag.'
@@ -1627,6 +1870,43 @@ const Intranet: React.FC = () => {
     );
   };
 
+  const handleChecklistToggle = (index: number) => {
+    setChecklistChecks((prev) => prev.map((value, i) => (i === index ? !value : value)));
+    setChecklistError(null);
+  };
+
+  const handleChecklistClose = () => {
+    setChecklistModal(null);
+    setChecklistChecks([]);
+    setChecklistError(null);
+    setChecklistExample(null);
+  };
+
+  const handleChecklistConfirm = async () => {
+    if (!checklistModal) return;
+    if (checklistChecks.some((value) => !value)) {
+      setChecklistError('Du behöver kryssa i alla punkter innan du kan klarmarkera.');
+      return;
+    }
+    const payload = checklistModal;
+    handleChecklistClose();
+    await performToggleAgendaTaskForDate(payload.dateKey, payload.taskId);
+  };
+
+  const handleOpenProfilePanel = (entry: BaseSubmission, currentKey?: string) => {
+    const userKey = getSubmissionUserKey(entry);
+    const submissions = submissionsByUser[userKey] || [];
+    const fullName = `${entry.first_name} ${entry.last_name}`.trim() || 'Okänt namn';
+    setProfilePanel({ userKey, fullName, email: entry.email || null, submissions });
+    const initial = submissions.find((item) => `${item.kind}-${item.data.id}` !== currentKey) || submissions[0];
+    setProfilePanelSelectedId(initial ? `${initial.kind}-${initial.data.id}` : null);
+  };
+
+  const handleCloseProfilePanel = () => {
+    setProfilePanel(null);
+    setProfilePanelSelectedId(null);
+  };
+
   const renderSubmissionCards = (items: CombinedSubmission[], emptyText: string) => {
     if (isLoading && items.length === 0) {
       return (
@@ -1651,12 +1931,6 @@ const Intranet: React.FC = () => {
           const fullName = `${data.first_name} ${data.last_name}`.trim();
           const key = `${submission.kind}-${data.id}`;
           const isExpanded = expandedId === key;
-          const userKey = getSubmissionUserKey(data);
-          const relatedSubmissions = (submissionsByUser[userKey] || [])
-            .filter((item) => !(item.kind === submission.kind && item.data.id === data.id));
-          const selectedHistory = relatedSubmissions.find(
-            (item) => `${item.kind}-${item.data.id}` === historyExpandedId
-          );
           const badgeStyle = submission.kind === 'start'
             ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30'
             : 'bg-cyan-500/10 text-cyan-700 border-cyan-500/30';
@@ -1687,7 +1961,20 @@ const Intranet: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-black text-[#3D3D3D]">{fullName || 'Okänt namn'}</h3>
-                    <p className="text-sm text-[#6B6158]">{data.email || 'Ingen e-post'}</p>
+                    {data.email ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleOpenProfilePanel(data, key);
+                        }}
+                        className="text-sm text-[#6B6158] underline-offset-2 hover:underline hover:text-[#3D3D3D] transition"
+                      >
+                        {data.email}
+                      </button>
+                    ) : (
+                      <p className="text-sm text-[#6B6158]">Ingen e-post</p>
+                    )}
                   </div>
                   <p className="text-sm text-[#6B6158]">
                     {submission.kind === 'start'
@@ -1724,62 +2011,6 @@ const Intranet: React.FC = () => {
                       {updatingId === key ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                       {data.is_done ? 'Återställ' : 'Klarmarkera'}
                     </button>
-                  </div>
-
-                  <div className="mt-5 rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Inlämningshistorik</div>
-                    {relatedSubmissions.length === 0 ? (
-                      <div className="mt-2 text-xs text-[#6B6158]">Inga tidigare inlämningar hittades.</div>
-                    ) : (
-                      <ul className="mt-3 space-y-2 max-h-52 overflow-auto pr-1">
-                        {relatedSubmissions.map((item) => {
-                          const itemKey = `${item.kind}-${item.data.id}`;
-                          const label = item.kind === 'start' ? 'Startformulär' : 'Uppföljning';
-                          const isDone = item.data.is_done;
-                          return (
-                            <li key={`rel-${itemKey}`}>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setHistoryExpandedId((current) => (current === itemKey ? null : itemKey));
-                                }}
-                                className="w-full text-left rounded-xl border border-[#DAD1C5] bg-white/80 px-3 py-2 text-xs text-[#3D3D3D] hover:border-[#a0c81d]/40 hover:bg-white transition"
-                              >
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">{label}</span>
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">•</span>
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                                    {formatDateOnly(item.data.created_at)}
-                                  </span>
-                                  <span className={`text-[9px] font-black uppercase tracking-widest border rounded-full px-2 py-0.5 ${
-                                    isDone
-                                      ? 'border-emerald-400/60 text-emerald-700 bg-emerald-500/10'
-                                      : 'border-amber-400/60 text-amber-700 bg-amber-500/10'
-                                  }`}
-                                  >
-                                    {isDone ? 'Genomförd' : 'Pågående'}
-                                  </span>
-                                </div>
-                                <div className="mt-1 text-[11px] text-[#6B6158]">
-                                  {item.kind === 'start'
-                                    ? `Fokus: ${truncate(formatList(item.data.focus_areas), 90)}`
-                                    : truncate(item.data.summary_feedback, 90)}
-                                </div>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                    {selectedHistory && (
-                      <div className="mt-4 rounded-2xl border border-[#DAD1C5] bg-white/80 p-4">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                          Fullständig inlämning
-                        </div>
-                        {renderSubmissionDetails(selectedHistory, { compact: true })}
-                      </div>
-                    )}
                   </div>
 
                   {renderSubmissionDetails(submission)}
@@ -1963,64 +2194,60 @@ const Intranet: React.FC = () => {
 
             {activeTab === 'BASE' && (
               <div className="space-y-8 animate-fade-in">
-                <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_20px_60px_rgba(61,61,61,0.18)] ring-1 ring-black/5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-11 h-11 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
-                      <FileText className="w-6 h-6" />
-                    </div>
+                <section className="space-y-6 bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Dagsagenda</p>
-                      <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D] tracking-tight">
-                        {selectedDate.toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                      </h1>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-11 h-11 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
+                          <FileText className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Dagsagenda</p>
+                          <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D] tracking-tight">
+                            {selectedDate.toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                          </h1>
+                        </div>
+                      </div>
+                      <p className="text-[#6B6158] text-sm max-w-2xl">
+                        Här finns dagens basuppgifter som måste göras. Utöver detta kan du lägga tid på förbättringar och utveckling när volymen tillåter.
+                      </p>
                     </div>
                   </div>
-                  <p className="text-[#6B6158] text-sm max-w-2xl">
-                    Här finns dagens basuppgifter som måste göras. Utöver detta kan du lägga tid på förbättringar och utveckling när volymen tillåter.
-                  </p>
-                </div>
 
-                <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                  <div className="pt-6 border-t border-[#E6E1D8] flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
                         <ClipboardList className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Dagens uppgifter</p>
-                        <h2 className="text-xl font-black text-[#3D3D3D]">Återkommande punkter</h2>
+                        <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Återkommande punkter</p>
+                        <h2 className="text-xl font-black text-[#3D3D3D]">Dagens operativa uppgifter</h2>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowAhead((prev) => !prev)}
-                      className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
-                    >
-                      {showAhead ? 'Dölj hamna före' : 'Hamna före'}
-                    </button>
                   </div>
-                  {todayTasks.length === 0 ? (
-                    <div className="text-sm text-[#8A8177]">
-                      {agendaStatus === 'loading'
-                        ? 'Hämtar basuppgifter...'
-                        : agendaStatus === 'error'
-                          ? agendaError
-                          : 'Ingen agenda definierad för idag.'}
-                    </div>
-                  ) : (
-                    <ul className="space-y-2 text-sm text-[#6B6158]">
-                      {todayTasks.map((task) => {
-                        const showCount = task.count !== null && task.count !== undefined && `${task.count}` !== '';
-                        const isChecked = completedTaskIdsForDay.has(task.id);
-                        return (
-                          <li key={task.id}>
-                            <label className="flex items-start gap-3 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => toggleAgendaTask(task.id)}
-                                className="mt-1 accent-[#a0c81d]"
-                              />
+                  <div className="space-y-4">
+                    {todayTasks.length === 0 ? (
+                      <div className="text-sm text-[#8A8177]">
+                        {agendaStatus === 'loading'
+                          ? 'Hämtar basuppgifter...'
+                          : agendaStatus === 'error'
+                            ? agendaError
+                            : 'Ingen agenda definierad för idag.'}
+                      </div>
+                    ) : (
+                      <ul className="space-y-2 text-sm text-[#6B6158]">
+                        {todayTasks.map((task) => {
+                          const showCount = task.count !== null && task.count !== undefined && `${task.count}` !== '';
+                          const isChecked = completedTaskIdsForDay.has(task.id);
+                          return (
+                            <li key={task.id}>
+                              <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => toggleAgendaTask(task)}
+                                  className="mt-1 accent-[#a0c81d]"
+                                />
                                 <span className="flex flex-wrap items-baseline gap-2">
                                   <span className={isChecked ? 'line-through text-[#8A8177]' : undefined}>
                                     {task.title}
@@ -2039,71 +2266,180 @@ const Intranet: React.FC = () => {
                               </label>
                             </li>
                           );
-                      })}
-                    </ul>
-                  )}
+                        })}
+                      </ul>
+                    )}
 
-                  {todayTasks.length > 0 && (
-                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-4 py-3">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Estimerad tid totalt</span>
-                      <span className="text-sm font-black text-[#3D3D3D]">{formatMinutesTotal(estimatedMinutesTotal)}</span>
-                    </div>
-                  )}
+                    {todayTasks.length > 0 && (
+                      <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                        Est {formatMinutesTotal(estimatedMinutesTotal)}
+                      </div>
+                    )}
 
-                  {showAhead && (
-                    <div className="mt-6 rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kommande uppgifter</div>
-                      {aheadTasks.length === 0 ? (
-                        <div className="text-sm text-[#8A8177]">Inga uppgifter att göra i förväg denna vecka.</div>
-                      ) : (
-                        <div className="space-y-3">
-                          {aheadTasks.map((entry) => {
-                            const completedIds = new Set(agendaCompletionByDate[entry.dateKey] || []);
-                            return (
-                              <div key={entry.dateKey} className="rounded-xl border border-[#E6E1D8] bg-white/70 p-3">
-                                <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">
-                                  {entry.date.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' })}
-                                </div>
-                                <ul className="space-y-2 text-sm text-[#6B6158]">
-                                  {entry.tasks.map((task) => {
-                                    const isChecked = completedIds.has(task.id);
-                                    return (
-                                      <li key={`${entry.dateKey}-${task.id}`}>
-                                        <label className="flex items-start gap-3 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={() => toggleAgendaTaskForDate(entry.dateKey, task.id)}
-                                            className="mt-1 accent-[#a0c81d]"
-                                          />
-                                          <span className="flex items-baseline gap-2">
-                                          <span className={isChecked ? 'line-through text-[#8A8177]' : undefined}>
-                                              {task.title}
-                                            </span>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                                              {entry.date.toLocaleDateString('sv-SE', { weekday: 'short' })}
-                                            </span>
-                                            {task.estimatedMinutes && (
-                                              <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] border border-[#E6E1D8] rounded-full px-2 py-0.5 bg-white/80">
-                                                {task.estimatedMinutes}
+                    {showAhead && (
+                      <div className="mt-4 rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kommande uppgifter</div>
+                        {aheadTasks.length === 0 ? (
+                          <div className="text-sm text-[#8A8177]">Inga uppgifter att göra i förväg denna vecka.</div>
+                        ) : (
+                          <div className="space-y-3">
+                            {aheadTasks.map((entry) => {
+                              const completedIds = new Set(agendaCompletionByDate[entry.dateKey] || []);
+                              return (
+                                <div key={entry.dateKey} className="rounded-xl border border-[#E6E1D8] bg-white/70 p-3">
+                                  <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">
+                                    {entry.date.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                  </div>
+                                  <ul className="space-y-2 text-sm text-[#6B6158]">
+                                    {entry.tasks.map((task) => {
+                                      const isChecked = completedIds.has(task.id);
+                                      return (
+                                        <li key={`${entry.dateKey}-${task.id}`}>
+                                          <label className="flex items-start gap-3 cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              checked={isChecked}
+                                              onChange={() => toggleAgendaTaskForDate(entry.dateKey, task)}
+                                              className="mt-1 accent-[#a0c81d]"
+                                            />
+                                            <span className="flex items-baseline gap-2">
+                                              <span className={isChecked ? 'line-through text-[#8A8177]' : undefined}>
+                                                {task.title}
                                               </span>
-                                            )}
-                                          </span>
-                                        </label>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
+                                              <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                                                {entry.date.toLocaleDateString('sv-SE', { weekday: 'short' })}
+                                              </span>
+                                              {task.estimatedMinutes && (
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] border border-[#E6E1D8] rounded-full px-2 py-0.5 bg-white/80">
+                                                  {task.estimatedMinutes}
+                                                </span>
+                                              )}
+                                            </span>
+                                          </label>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="pt-6 border-t border-[#E6E1D8]">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
+                          <TrendingUp className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Sidoprojekt</p>
+                          <h2 className="text-xl font-black text-[#3D3D3D]">Utveckling & Förbättring</h2>
+                        </div>
+                        <div className="ml-auto flex items-center gap-2">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-[#8A8177]">
+                            {focusTasks.filter((task) => !task.done).length} kvar
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setFocusPage((prev) => Math.max(0, prev - 1))}
+                              className="w-8 h-8 rounded-full border border-[#E6E1D8] text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition disabled:opacity-40"
+                              disabled={safeFocusPage === 0}
+                              aria-label="Föregående"
+                            >
+                              <ChevronLeft className="w-4 h-4 mx-auto" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFocusPage((prev) => Math.min(focusPageCount - 1, prev + 1))}
+                              className="w-8 h-8 rounded-full border border-[#E6E1D8] text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition disabled:opacity-40"
+                              disabled={safeFocusPage >= focusPageCount - 1}
+                              aria-label="Nästa"
+                            >
+                              <ChevronRight className="w-4 h-4 mx-auto" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <ul className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {focusSlice.map((task) => (
+                          <li key={task.id} className="rounded-2xl border border-[#E6E1D8] bg-white/80 p-4 shadow-[0_8px_18px_rgba(61,61,61,0.06)]">
+                            <div className="flex items-start gap-3">
+                              {task.done ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5" />
+                              ) : (
+                                <Circle className="w-4 h-4 text-orange-500 mt-0.5" />
+                              )}
+                              <div className="flex-1">
+                                <div className={`text-sm font-semibold ${task.done ? 'line-through text-[#8A8177]' : 'text-[#3D3D3D]'}`}>
+                                  {task.title}
+                                </div>
+                                <p className="text-[11px] text-[#6B6158] mt-1">
+                                  {task.description}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleFocusTask(task.id)}
+                                  className="mt-3 text-[10px] font-black uppercase tracking-widest text-[#8A8177] hover:text-[#3D3D3D] transition"
+                                >
+                                  {task.done ? 'Ångra' : 'Markera som klar'}
+                                </button>
                               </div>
-                            );
-                          })}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                      {focusTasksOrdered.length > 3 && (
+                        <div className="mt-3 text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                          Visar {focusSliceStart + 1}–{Math.min(focusSliceStart + 3, focusTasksOrdered.length)} av {focusTasksOrdered.length}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                </section>
 
-                {renderReportForm({ compact: true })}
+                {isReportExpanded ? (
+                  <div id="staff-reporting">
+                    {renderReportForm({ compact: true, onCollapse: () => setIsReportExpanded(false) })}
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl p-5 md:p-6 border border-[#DAD1C5] shadow-[0_16px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Rapportering</p>
+                        <h3 className="text-lg md:text-xl font-black text-[#3D3D3D] mt-2">Avsluta dagen</h3>
+                        <p className="text-sm text-[#6B6158] mt-2 max-w-2xl">
+                          När du är klar för dagen, öppna rapporten och fyll i sammanfattning + prio för imorgon.
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-start gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsReportExpanded(true);
+                            requestAnimationFrame(() => {
+                              document.getElementById('staff-reporting')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            });
+                          }}
+                          className="px-5 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition"
+                        >
+                          Avsluta dagen
+                        </button>
+                        {isReportLocked && (
+                          <button
+                            type="button"
+                            onClick={() => setActiveDetail({ type: 'report', data: existingReport })}
+                            className="px-4 py-2 rounded-xl border border-[#DAD1C5] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition"
+                          >
+                            Öppna inskickad rapport
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
                     <div className="flex items-center justify-between gap-4 mb-4">
@@ -2168,8 +2504,8 @@ const Intranet: React.FC = () => {
                                       ) : (
                                         <span className="w-3.5 h-3.5 rounded-full border border-[#DAD1C5] mt-0.5" />
                                       )}
-                                      <span className={isDone ? 'line-through text-[#8A8177]' : 'text-[#3D3D3D]'}>
-                                        {task.title}
+                                        <span className={isDone ? 'line-through text-[#8A8177]' : 'text-[#3D3D3D]'}>
+                                          {task.title}
                                         {showCount && (
                                           <span className="ml-1 text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
                                             {task.count}
@@ -2778,6 +3114,199 @@ const Intranet: React.FC = () => {
                 <div className="text-sm text-[#6B6158] whitespace-pre-line">
                   {activeDetail.data?.text || '—'}
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {checklistModal && (
+        <>
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+            <div className="absolute inset-0 bg-black/40" onClick={handleChecklistClose} />
+            <div className="relative w-full max-w-2xl bg-white rounded-2xl border border-[#DAD1C5] shadow-[0_22px_60px_rgba(61,61,61,0.2)] p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8A8177]">Checklista krävs</p>
+                  <h3 className="text-xl md:text-2xl font-black text-[#3D3D3D] mt-2">{checklistModal.title}</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleChecklistClose}
+                  className="p-2 rounded-full border border-[#E6E1D8] text-[#8A8177] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="mt-3 text-sm text-[#6B6158]">
+                För att klarmarkera behöver du bekräfta att följande är gjort.
+              </p>
+
+              <div className="mt-4 rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                  {checklistModal.headline}
+                </span>
+                <ul className="mt-4 space-y-3">
+                  {checklistModal.items.map((item, index) => (
+                    <li key={`${checklistModal.title}-${index}`} className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={checklistChecks[index] || false}
+                        onChange={() => handleChecklistToggle(index)}
+                        className="mt-1 accent-[#a0c81d]"
+                      />
+                      <div>
+                        <div className="text-sm font-semibold text-[#3D3D3D]">{item.title}</div>
+                        {item.tooltip && (
+                          <div className="text-xs text-[#6B6158] mt-1">{item.tooltip}</div>
+                        )}
+                        {item.example && (
+                          <button
+                            type="button"
+                            onClick={() => setChecklistExample({
+                              title: item.title,
+                              intro: item.example?.intro || '',
+                              segments: item.example?.segments || []
+                            })}
+                            className="mt-2 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition"
+                          >
+                            Se exempel
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {checklistError && (
+                <div className="mt-4 rounded-2xl border border-rose-400/40 bg-rose-100/70 p-3 text-rose-800 text-sm">
+                  {checklistError}
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={handleChecklistClose}
+                  className="px-4 py-2 rounded-xl border border-[#DAD1C5] text-xs font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition"
+                >
+                  Avbryt
+                </button>
+                <button
+                  type="button"
+                  onClick={handleChecklistConfirm}
+                  className="px-5 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition"
+                >
+                  Bekräfta & klarmarkera
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {checklistExample && (
+            <div className="fixed inset-0 z-[55] flex items-center justify-center px-4 py-8">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setChecklistExample(null)} />
+              <div className="relative w-full max-w-xl rounded-2xl border border-[#DAD1C5] bg-white p-6 shadow-[0_22px_60px_rgba(61,61,61,0.25)]">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8A8177]">Se exempel</p>
+                    <h4 className="text-lg font-black text-[#3D3D3D] mt-2">{checklistExample.title}</h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setChecklistExample(null)}
+                    className="p-2 rounded-full border border-[#E6E1D8] text-[#8A8177] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="mt-3 text-sm text-[#6B6158]">{checklistExample.intro}</p>
+                <div className="mt-5 space-y-3">
+                  {checklistExample.segments.map((segment) => (
+                    <div key={segment.label} className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-3">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">{segment.label}</div>
+                      <div className="mt-2 text-sm text-[#3D3D3D] whitespace-pre-line">{segment.text}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+        </>
+      )}
+
+      {profilePanel && (
+        <div className="fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/40" onClick={handleCloseProfilePanel} />
+          <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white border-l border-[#DAD1C5] shadow-[0_20px_50px_rgba(61,61,61,0.2)] p-6 overflow-y-auto">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8A8177]">Profilvy</p>
+                <h4 className="text-lg font-black text-[#3D3D3D] mt-2">{profilePanel.fullName}</h4>
+                {profilePanel.email && (
+                  <div className="text-xs text-[#6B6158] mt-1">{profilePanel.email}</div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseProfilePanel}
+                className="p-2 rounded-full border border-[#E6E1D8] text-[#8A8177] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-6">
+              <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Tidigare inlämningar</div>
+              {profilePanel.submissions.length === 0 ? (
+                <div className="text-sm text-[#8A8177]">Inga inlämningar hittades.</div>
+              ) : (
+                <div className="space-y-2">
+                  {profilePanel.submissions.map((item) => {
+                    const itemKey = `${item.kind}-${item.data.id}`;
+                    const isSelected = itemKey === profilePanelSelectedId;
+                    const label = item.kind === 'start' ? 'Startformulär' : 'Uppföljning';
+                    return (
+                      <button
+                        key={`profile-${itemKey}`}
+                        type="button"
+                        onClick={() => setProfilePanelSelectedId(itemKey)}
+                        className={`w-full text-left rounded-xl border px-3 py-2 text-xs transition ${
+                          isSelected
+                            ? 'border-[#a0c81d]/60 bg-[#E8F1D5]'
+                            : 'border-[#DAD1C5] bg-white hover:border-[#a0c81d]/40'
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">{label}</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">•</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                            {formatDateOnly(item.data.created_at)}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-[#6B6158]">
+                          {item.kind === 'start'
+                            ? `Fokus: ${truncate(formatList(item.data.focus_areas), 90)}`
+                            : truncate(item.data.summary_feedback, 90)}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {profilePanelSelectedId && (
+              <div className="mt-6">
+                <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Inlämning</div>
+                {(() => {
+                  const selected = profilePanel.submissions.find(
+                    (item) => `${item.kind}-${item.data.id}` === profilePanelSelectedId
+                  );
+                  return selected ? renderSubmissionDetails(selected, { compact: true }) : null;
+                })()}
               </div>
             )}
           </div>
