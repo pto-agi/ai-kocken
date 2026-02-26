@@ -1,6 +1,34 @@
 {
-  "last_commit": "4add985358d9e3ae5fee3629a60cf210fb463f77",
+  "last_commit": "ddd60edfd79a34c68167d78b44c1bf333178378a",
   "entries": [
+    {
+      "id": "2026-02-26T22:45:18.039Z-ddd60ed",
+      "date": "2026-02-26T22:45:18.039Z",
+      "range": "4add985358d9e3ae5fee3629a60cf210fb463f77..ddd60edfd79a34c68167d78b44c1bf333178378a",
+      "head": "ddd60edfd79a34c68167d78b44c1bf333178378a",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "ddd60ed",
+          "subject": "Add agenda reports and projects tables"
+        },
+        {
+          "hash": "a8d3c96",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "pages/Intranet.tsx",
+        "supabase/agenda_projects.sql",
+        "supabase/agenda_reports.sql"
+      ],
+      "stats": {
+        "files": 4,
+        "insertions": 947,
+        "deletions": 207
+      }
+    },
     {
       "id": "2026-02-26T12:43:19.864Z-4add985",
       "date": "2026-02-26T12:43:19.864Z",
