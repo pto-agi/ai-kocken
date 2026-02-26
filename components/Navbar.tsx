@@ -13,7 +13,8 @@ import {
   Settings,
   ShieldCheck,
   ClipboardCheck,
-  ShoppingBasket
+  ShoppingBasket,
+  TrendingUp
 } from 'lucide-react';
 
 const Navbar: React.FC = () => {
@@ -45,7 +46,10 @@ const Navbar: React.FC = () => {
   };
 
   const navLinks = isStaff
-    ? [{ path: '/intranet', label: 'INTRANÄT', icon: ShieldCheck }]
+    ? [
+        { path: '/intranet', label: 'INTRANÄT', icon: ShieldCheck },
+        { path: '/sales-capital', label: 'SÄLJ & KAPITAL', icon: TrendingUp }
+      ]
     : [
         { path: '/', label: 'HEM', icon: Home },
         { path: '/recept', label: 'RECEPT', icon: ChefHat },

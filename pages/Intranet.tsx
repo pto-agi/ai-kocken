@@ -199,6 +199,26 @@ const formatNumber = (value?: number | null, suffix = '') => {
   return `${value}${suffix}`;
 };
 
+const parseEstimatedMinutes = (value?: number | string | null) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const normalized = value.replace(',', '.');
+    const numeric = Number(normalized.replace(/[^0-9.]/g, ''));
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  return null;
+};
+
+const formatMinutesTotal = (value: number) => {
+  if (!Number.isFinite(value)) return '—';
+  const rounded = Math.round(value);
+  if (rounded < 60) return `${rounded} min`;
+  const hours = Math.floor(rounded / 60);
+  const minutes = rounded % 60;
+  return minutes ? `${hours} h ${minutes} min` : `${hours} h`;
+};
+
 const formatMoney = (value?: number | null, currency: string | null = 'SEK') => {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
   const formatted = value.toLocaleString('sv-SE', { maximumFractionDigits: 2 });
@@ -335,12 +355,13 @@ const Intranet: React.FC = () => {
   const { session, profile } = useAuthStore();
   const isStaff = profile?.is_staff === true;
   const [filter, setFilter] = useState<FilterValue>('uppfoljning');
-  const [activeTab, setActiveTab] = useState<StaffTab>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<StaffTab>('BASE');
   const [startEntries, setStartEntries] = useState<StartFormEntry[]>([]);
   const [uppfoljningar, setUppfoljningar] = useState<UppfoljningEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [historyExpandedId, setHistoryExpandedId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [reportForm, setReportForm] = useState({
@@ -637,6 +658,13 @@ const Intranet: React.FC = () => {
   const incompleteTasks = useMemo(() => (
     todayTasks.filter((task) => !completedTaskIdsForDay.has(task.id))
   ), [completedTaskIdsForDay, todayTasks]);
+  const estimatedMinutesTotal = useMemo(() => (
+    todayTasks.reduce((sum, task) => {
+      const minutes = parseEstimatedMinutes(task.estimatedMinutes);
+      if (minutes === null) return sum;
+      return sum + minutes;
+    }, 0)
+  ), [todayTasks]);
 
   const aheadTasks = useMemo(() => {
     if (!showAhead) return [];
@@ -839,6 +867,31 @@ const Intranet: React.FC = () => {
     });
   }, [startEntries, uppfoljningar]);
 
+  const getSubmissionUserKey = useCallback((entry: BaseSubmission) => {
+    const emailKey = entry.email?.trim().toLowerCase();
+    if (emailKey) return emailKey;
+    const nameKey = `${entry.first_name || ''} ${entry.last_name || ''}`.trim().toLowerCase();
+    if (nameKey) return nameKey;
+    return entry.id;
+  }, []);
+
+  const submissionsByUser = useMemo(() => {
+    const map: Record<string, CombinedSubmission[]> = {};
+    combined.forEach((item) => {
+      const key = getSubmissionUserKey(item.data);
+      if (!map[key]) map[key] = [];
+      map[key].push(item);
+    });
+    Object.values(map).forEach((list) => {
+      list.sort((a, b) => {
+        const aTime = new Date(a.data.created_at).getTime();
+        const bTime = new Date(b.data.created_at).getTime();
+        return bTime - aTime;
+      });
+    });
+    return map;
+  }, [combined, getSubmissionUserKey]);
+
   const counts = useMemo(() => {
     const startOpen = startEntries.filter((item) => !item.is_done).length;
     const uppOpen = uppfoljningar.filter((item) => !item.is_done).length;
@@ -871,6 +924,7 @@ const Intranet: React.FC = () => {
 
   const toggleExpanded = (key: string) => {
     setExpandedId((current) => (current === key ? null : key));
+    setHistoryExpandedId(null);
   };
 
   const updateCompletion = async (submission: CombinedSubmission, nextDone: boolean) => {
@@ -1294,6 +1348,285 @@ const Intranet: React.FC = () => {
     }
   };
 
+  const renderSubmissionDetails = (submission: CombinedSubmission, options?: { compact?: boolean }) => {
+    const wrapperClass = options?.compact ? 'mt-4 space-y-6' : 'mt-6 space-y-6';
+    if (submission.kind === 'start') {
+      return (
+        <div className={wrapperClass}>
+          <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Nyckelinfo</h4>
+            <div className="space-y-3">
+              <InfoRow label="Önskat startdatum" value={formatDateOnly(submission.data.desired_start_date)} />
+              <InfoRow label="Pass per vecka" value={submission.data.sessions_per_week || '—'} />
+              <InfoRow label="Fokusområden" value={formatList(submission.data.focus_areas)} />
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Grunddata</h4>
+            <div className="space-y-3">
+              <InfoRow label="Vikt" value={formatNumber(submission.data.weight_kg, ' kg')} />
+              <InfoRow label="Längd" value={formatNumber(submission.data.height_cm, ' cm')} />
+              <InfoRow label="Ålder" value={formatNumber(submission.data.age)} />
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Mål & bakgrund</h4>
+            <div className="space-y-3">
+              <InfoRow label="Målbeskrivning" value={submission.data.goal_description || '—'} />
+              <InfoRow label="Skador" value={submission.data.injuries || '—'} />
+              <InfoRow label="Träningserfarenhet" value={submission.data.training_experience || '—'} />
+              <InfoRow label="Aktivitet 6 månader" value={submission.data.activity_last_6_months || '—'} />
+              <InfoRow label="Kosthållning 6 månader" value={submission.data.diet_last_6_months || '—'} />
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träningsupplägg</h4>
+            <div className="space-y-3">
+              <InfoRow label="Träningsformer" value={formatList(submission.data.training_forms)} />
+              <InfoRow label="Träningsformer annat" value={submission.data.training_forms_other || '—'} />
+              <InfoRow label="Träningsplatser" value={formatList(submission.data.training_places)} />
+              <InfoRow label="Träningsplatser annat" value={submission.data.training_places_other || '—'} />
+              <InfoRow label="Pass/vecka (detalj)" value={submission.data.sessions_per_week_other || '—'} />
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kroppsmått</h4>
+            <div className="space-y-3">
+              <InfoRow label="Mått (cm)" value={buildMeasurements(submission.data)} />
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    return (
+      <div className={wrapperClass}>
+        <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
+          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Översikt</h4>
+          <div className="space-y-3">
+            <InfoRow label="Mål" value={submission.data.goal || '—'} />
+            <InfoRow label="Pass per vecka" value={formatNumber(submission.data.sessions_per_week)} />
+            <InfoRow label="Behåll upplägg" value={formatBoolean(submission.data.quick_keep_plan)} />
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
+          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Summering & feedback</h4>
+          <div className="space-y-3">
+            <InfoRow label="Sammanfattning" value={submission.data.summary_feedback || '—'} />
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
+          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träning</h4>
+          <div className="space-y-3">
+            <InfoRow label="Övrig aktivitet" value={formatList(submission.data.other_activity)} />
+            <InfoRow label="Träningsplatser" value={formatList(submission.data.training_places)} />
+            <InfoRow label="Träningsplatser annat" value={submission.data.training_places_other || '—'} />
+            <InfoRow label="Utrustning hemma" value={formatList(submission.data.home_equipment)} />
+            <InfoRow label="Utrustning annat" value={submission.data.home_equipment_other || '—'} />
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
+          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Produkter & fortsättning</h4>
+          <div className="space-y-3">
+            <InfoRow label="Påfyllnad" value={formatList(submission.data.refill_products)} />
+            <InfoRow label="Auto fortsätt" value={submission.data.auto_continue || '—'} />
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  const renderReportForm = (options?: { compact?: boolean }) => {
+    const compact = options?.compact ?? false;
+    const containerClass = compact
+      ? 'bg-white rounded-2xl p-5 md:p-6 border border-[#DAD1C5] shadow-[0_16px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5'
+      : 'bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_20px_60px_rgba(61,61,61,0.18)] ring-1 ring-black/5';
+    const spacingClass = compact ? 'space-y-4' : 'space-y-6';
+    const headingClass = compact
+      ? 'text-xl md:text-2xl font-black text-[#3D3D3D] tracking-tight'
+      : 'text-2xl md:text-3xl font-black text-[#3D3D3D] tracking-tight';
+    const textRows = compact ? 2 : 3;
+
+    return (
+      <form
+        onSubmit={handleReportSubmit}
+        className={`${containerClass} ${spacingClass}`}
+      >
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <div className={`${compact ? 'w-9 h-9' : 'w-11 h-11'} rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]`}>
+              <ClipboardList className={`${compact ? 'w-5 h-5' : 'w-6 h-6'}`} />
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Rapportering</p>
+              <h2 className={headingClass}>
+                {compact ? 'Dagens summering & prio imorgon' : 'Uppdatering innan stängning för dagen'}
+              </h2>
+            </div>
+          </div>
+          <p className="text-sm text-[#6B6158] max-w-2xl">
+            {compact
+              ? 'Summera dagen kort och tydligt samt vad som är prio för nästa arbetsdag.'
+              : 'Kort och rakt på sak. Fyll i tider, uppdatering och överlämning.'}
+          </p>
+        </div>
+
+        {isReportLocked && (
+          <div className="rounded-2xl border border-amber-400/40 bg-amber-100/70 p-4 text-amber-900 text-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              Rapporten för <span className="font-bold">{reportForm.date}</span> är redan inskickad och kan inte redigeras.
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveDetail({ type: 'report', data: existingReport })}
+              className="px-4 py-2 rounded-xl border border-amber-300/60 bg-white text-[10px] font-black uppercase tracking-widest text-amber-900 hover:border-amber-400 transition"
+            >
+              Öppna rapport
+            </button>
+          </div>
+        )}
+
+        <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4 space-y-3">
+          <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+            {completedTasks.length} klara · {incompleteTasks.length} kvar
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Uppgifter markerade som slutförda</p>
+            {completedTasks.length === 0 ? (
+              <div className="text-sm text-[#8A8177] mt-1">Inga markerade ännu.</div>
+            ) : (
+              <ul className="mt-2 space-y-1 text-sm text-[#6B6158]">
+                {completedTasks.map((task) => (
+                  <li key={`done-${task.id}`} className="flex items-start gap-2">
+                    <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]" />
+                    <span>{task.title}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Uppgifter som inte slutförts</p>
+            {incompleteTasks.length === 0 ? (
+              <div className="text-sm text-[#8A8177] mt-1">Inga öppna uppgifter.</div>
+            ) : (
+              <ul className="mt-2 space-y-1 text-sm text-[#6B6158]">
+                {incompleteTasks.map((task) => (
+                  <li key={`todo-${task.id}`} className="flex items-start gap-2">
+                    <span className="mt-1 w-2 h-2 rounded-full bg-[#E6E1D8]" />
+                    <span>{task.title}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Datum</label>
+            <input
+              type="date"
+              value={reportForm.date}
+              onChange={(event) => setReportForm((prev) => ({ ...prev, date: event.target.value }))}
+              className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Starttid</label>
+            <input
+              type="time"
+              value={reportForm.startTime}
+              onChange={(event) => setReportForm((prev) => ({ ...prev, startTime: event.target.value }))}
+              className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
+              required
+              disabled={isReportLocked}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Sluttid</label>
+            <input
+              type="time"
+              value={reportForm.endTime}
+              onChange={(event) => setReportForm((prev) => ({ ...prev, endTime: event.target.value }))}
+              className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
+              required
+              disabled={isReportLocked}
+            />
+          </div>
+        </div>
+
+        <label className="flex items-center gap-3 text-sm text-[#3D3D3D]">
+          <input
+            type="checkbox"
+            checked={reportForm.overtime}
+            onChange={(event) => setReportForm((prev) => ({ ...prev, overtime: event.target.checked }))}
+            className="accent-[#a0c81d]"
+            disabled={isReportLocked}
+          />
+          Utanför ordinarie arbetstid
+        </label>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+            Jag gjorde (en summering av dagens arbete)
+          </label>
+          <textarea
+            value={reportForm.did}
+            onChange={(event) => setReportForm((prev) => ({ ...prev, did: event.target.value }))}
+            rows={textRows}
+            className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
+            placeholder="Jag gjorde..."
+            required
+            disabled={isReportLocked}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Att prioritera imorgon</label>
+          <textarea
+            value={reportForm.handover}
+            onChange={(event) => setReportForm((prev) => ({ ...prev, handover: event.target.value }))}
+            rows={textRows}
+            className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
+            placeholder="Om något behöver prioriteras imorgon..."
+            required={incompleteTasks.length > 0}
+            disabled={isReportLocked}
+          />
+        </div>
+
+        {reportError && (
+          <div className="rounded-2xl border border-rose-400/40 bg-rose-100/70 p-4 text-rose-800 text-sm">
+            {reportError}
+          </div>
+        )}
+
+        <div className="flex items-center gap-4">
+          <button
+            type="submit"
+            disabled={reportStatus === 'sending' || isReportLocked}
+            className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition-all disabled:opacity-60"
+          >
+            {reportStatus === 'sending' ? 'Skickar...' : 'Skicka rapport'}
+          </button>
+          {reportStatus === 'success' && (
+            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+              Rapport skickad
+            </span>
+          )}
+        </div>
+      </form>
+    );
+  };
+
   const renderSubmissionCards = (items: CombinedSubmission[], emptyText: string) => {
     if (isLoading && items.length === 0) {
       return (
@@ -1318,6 +1651,12 @@ const Intranet: React.FC = () => {
           const fullName = `${data.first_name} ${data.last_name}`.trim();
           const key = `${submission.kind}-${data.id}`;
           const isExpanded = expandedId === key;
+          const userKey = getSubmissionUserKey(data);
+          const relatedSubmissions = (submissionsByUser[userKey] || [])
+            .filter((item) => !(item.kind === submission.kind && item.data.id === data.id));
+          const selectedHistory = relatedSubmissions.find(
+            (item) => `${item.kind}-${item.data.id}` === historyExpandedId
+          );
           const badgeStyle = submission.kind === 'start'
             ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30'
             : 'bg-cyan-500/10 text-cyan-700 border-cyan-500/30';
@@ -1326,7 +1665,11 @@ const Intranet: React.FC = () => {
             : 'bg-amber-500/10 text-amber-700 border-amber-500/30';
 
           return (
-            <div key={key} className="bg-white rounded-2xl border border-[#DAD1C5] shadow-[0_16px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
+            <div
+              key={key}
+              id={`submission-${key}`}
+              className="bg-white rounded-2xl border border-[#DAD1C5] shadow-[0_16px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5"
+            >
               <button
                 type="button"
                 onClick={() => toggleExpanded(key)}
@@ -1383,93 +1726,63 @@ const Intranet: React.FC = () => {
                     </button>
                   </div>
 
-                  {submission.kind === 'start' ? (
-                    <div className="mt-6 space-y-6">
-                      <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Nyckelinfo</h4>
-                        <div className="space-y-3">
-                          <InfoRow label="Önskat startdatum" value={formatDateOnly(submission.data.desired_start_date)} />
-                          <InfoRow label="Pass per vecka" value={submission.data.sessions_per_week || '—'} />
-                          <InfoRow label="Fokusområden" value={formatList(submission.data.focus_areas)} />
+                  <div className="mt-5 rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Inlämningshistorik</div>
+                    {relatedSubmissions.length === 0 ? (
+                      <div className="mt-2 text-xs text-[#6B6158]">Inga tidigare inlämningar hittades.</div>
+                    ) : (
+                      <ul className="mt-3 space-y-2 max-h-52 overflow-auto pr-1">
+                        {relatedSubmissions.map((item) => {
+                          const itemKey = `${item.kind}-${item.data.id}`;
+                          const label = item.kind === 'start' ? 'Startformulär' : 'Uppföljning';
+                          const isDone = item.data.is_done;
+                          return (
+                            <li key={`rel-${itemKey}`}>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setHistoryExpandedId((current) => (current === itemKey ? null : itemKey));
+                                }}
+                                className="w-full text-left rounded-xl border border-[#DAD1C5] bg-white/80 px-3 py-2 text-xs text-[#3D3D3D] hover:border-[#a0c81d]/40 hover:bg-white transition"
+                              >
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">{label}</span>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">•</span>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                                    {formatDateOnly(item.data.created_at)}
+                                  </span>
+                                  <span className={`text-[9px] font-black uppercase tracking-widest border rounded-full px-2 py-0.5 ${
+                                    isDone
+                                      ? 'border-emerald-400/60 text-emerald-700 bg-emerald-500/10'
+                                      : 'border-amber-400/60 text-amber-700 bg-amber-500/10'
+                                  }`}
+                                  >
+                                    {isDone ? 'Genomförd' : 'Pågående'}
+                                  </span>
+                                </div>
+                                <div className="mt-1 text-[11px] text-[#6B6158]">
+                                  {item.kind === 'start'
+                                    ? `Fokus: ${truncate(formatList(item.data.focus_areas), 90)}`
+                                    : truncate(item.data.summary_feedback, 90)}
+                                </div>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                    {selectedHistory && (
+                      <div className="mt-4 rounded-2xl border border-[#DAD1C5] bg-white/80 p-4">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                          Fullständig inlämning
                         </div>
-                      </section>
+                        {renderSubmissionDetails(selectedHistory, { compact: true })}
+                      </div>
+                    )}
+                  </div>
 
-                      <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Grunddata</h4>
-                        <div className="space-y-3">
-                          <InfoRow label="Vikt" value={formatNumber(submission.data.weight_kg, ' kg')} />
-                          <InfoRow label="Längd" value={formatNumber(submission.data.height_cm, ' cm')} />
-                          <InfoRow label="Ålder" value={formatNumber(submission.data.age)} />
-                        </div>
-                      </section>
-
-                      <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Mål & bakgrund</h4>
-                        <div className="space-y-3">
-                          <InfoRow label="Målbeskrivning" value={submission.data.goal_description || '—'} />
-                          <InfoRow label="Skador" value={submission.data.injuries || '—'} />
-                          <InfoRow label="Träningserfarenhet" value={submission.data.training_experience || '—'} />
-                          <InfoRow label="Aktivitet 6 månader" value={submission.data.activity_last_6_months || '—'} />
-                          <InfoRow label="Kosthållning 6 månader" value={submission.data.diet_last_6_months || '—'} />
-                        </div>
-                      </section>
-
-                      <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träningsupplägg</h4>
-                        <div className="space-y-3">
-                          <InfoRow label="Träningsformer" value={formatList(submission.data.training_forms)} />
-                          <InfoRow label="Träningsformer annat" value={submission.data.training_forms_other || '—'} />
-                          <InfoRow label="Träningsplatser" value={formatList(submission.data.training_places)} />
-                          <InfoRow label="Träningsplatser annat" value={submission.data.training_places_other || '—'} />
-                          <InfoRow label="Pass/vecka (detalj)" value={submission.data.sessions_per_week_other || '—'} />
-                        </div>
-                      </section>
-
-                      <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kroppsmått</h4>
-                        <div className="space-y-3">
-                          <InfoRow label="Mått (cm)" value={buildMeasurements(submission.data)} />
-                        </div>
-                      </section>
-                    </div>
-                  ) : (
-                    <div className="mt-6 space-y-6">
-                      <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Översikt</h4>
-                        <div className="space-y-3">
-                          <InfoRow label="Mål" value={submission.data.goal || '—'} />
-                          <InfoRow label="Pass per vecka" value={formatNumber(submission.data.sessions_per_week)} />
-                          <InfoRow label="Behåll upplägg" value={formatBoolean(submission.data.quick_keep_plan)} />
-                        </div>
-                      </section>
-
-                      <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Summering & feedback</h4>
-                        <div className="space-y-3">
-                          <InfoRow label="Sammanfattning" value={submission.data.summary_feedback || '—'} />
-                        </div>
-                      </section>
-
-                      <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träning</h4>
-                        <div className="space-y-3">
-                          <InfoRow label="Övrig aktivitet" value={formatList(submission.data.other_activity)} />
-                          <InfoRow label="Träningsplatser" value={formatList(submission.data.training_places)} />
-                          <InfoRow label="Träningsplatser annat" value={submission.data.training_places_other || '—'} />
-                          <InfoRow label="Utrustning hemma" value={formatList(submission.data.home_equipment)} />
-                          <InfoRow label="Utrustning annat" value={submission.data.home_equipment_other || '—'} />
-                        </div>
-                      </section>
-
-                      <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Produkter & fortsättning</h4>
-                        <div className="space-y-3">
-                          <InfoRow label="Påfyllnad" value={formatList(submission.data.refill_products)} />
-                          <InfoRow label="Auto fortsätt" value={submission.data.auto_continue || '—'} />
-                        </div>
-                      </section>
-                    </div>
-                  )}
+                  {renderSubmissionDetails(submission)}
                 </div>
               )}
             </div>
@@ -1492,20 +1805,6 @@ const Intranet: React.FC = () => {
             <div className="bg-white/80 backdrop-blur-md rounded-[2rem] p-4 border border-[#DAD1C5] shadow-[0_16px_45px_rgba(61,61,61,0.12)] sticky top-28 space-y-2">
               <button
                 type="button"
-                onClick={() => { setActiveTab('OVERVIEW'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                  activeTab === 'OVERVIEW'
-                    ? 'bg-[#E8F1D5] text-[#3D3D3D] border border-[#a0c81d]/40 shadow-[0_0_20px_rgba(160,200,29,0.12)]'
-                    : 'text-[#6B6158] hover:bg-[#E8F1D5]/50 border border-transparent'
-                }`}
-              >
-                <span className={`p-2 rounded-xl ${activeTab === 'OVERVIEW' ? 'bg-[#a0c81d] text-[#F6F1E7]' : 'bg-[#F6F1E7] text-[#8A8177]'}`}>
-                  <LayoutDashboard className="w-4 h-4" />
-                </span>
-                Översikt
-              </button>
-              <button
-                type="button"
                 onClick={() => { setActiveTab('BASE'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
                   activeTab === 'BASE'
@@ -1517,6 +1816,20 @@ const Intranet: React.FC = () => {
                   <FileText className="w-4 h-4" />
                 </span>
                 Dagsagenda
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveTab('OVERVIEW'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
+                  activeTab === 'OVERVIEW'
+                    ? 'bg-[#E8F1D5] text-[#3D3D3D] border border-[#a0c81d]/40 shadow-[0_0_20px_rgba(160,200,29,0.12)]'
+                    : 'text-[#6B6158] hover:bg-[#E8F1D5]/50 border border-transparent'
+                }`}
+              >
+                <span className={`p-2 rounded-xl ${activeTab === 'OVERVIEW' ? 'bg-[#a0c81d] text-[#F6F1E7]' : 'bg-[#F6F1E7] text-[#8A8177]'}`}>
+                  <LayoutDashboard className="w-4 h-4" />
+                </span>
+                Inlämningar
               </button>
               <button
                 type="button"
@@ -1552,20 +1865,6 @@ const Intranet: React.FC = () => {
                     </span>
                   )}
                 </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setActiveTab('AGENDA'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                  activeTab === 'AGENDA'
-                    ? 'bg-[#E8F1D5] text-[#3D3D3D] border border-[#a0c81d]/40 shadow-[0_0_20px_rgba(160,200,29,0.12)]'
-                    : 'text-[#6B6158] hover:bg-[#E8F1D5]/50 border border-transparent'
-                }`}
-              >
-                <span className={`p-2 rounded-xl ${activeTab === 'AGENDA' ? 'bg-[#a0c81d] text-[#F6F1E7]' : 'bg-[#F6F1E7] text-[#8A8177]'}`}>
-                  <ClipboardList className="w-4 h-4" />
-                </span>
-                Data
               </button>
             </div>
           </div>
@@ -1744,6 +2043,13 @@ const Intranet: React.FC = () => {
                     </ul>
                   )}
 
+                  {todayTasks.length > 0 && (
+                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-4 py-3">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Estimerad tid totalt</span>
+                      <span className="text-sm font-black text-[#3D3D3D]">{formatMinutesTotal(estimatedMinutesTotal)}</span>
+                    </div>
+                  )}
+
                   {showAhead && (
                     <div className="mt-6 rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4">
                       <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kommande uppgifter</div>
@@ -1797,6 +2103,8 @@ const Intranet: React.FC = () => {
                   )}
                 </div>
 
+                {renderReportForm({ compact: true })}
+
                 <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
                     <div className="flex items-center justify-between gap-4 mb-4">
                       <div>
@@ -1817,9 +2125,11 @@ const Intranet: React.FC = () => {
                         const completedIds = new Set(agendaCompletionByDate[key] || []);
                         const allDone = tasks.length > 0 && tasks.every((task) => completedIds.has(task.id));
                         const hasIncomplete = tasks.length > 0 && !allDone;
+                        const isFutureDay = day.getTime() > selectedDate.getTime();
+                        const isPastDay = day.getTime() < selectedDate.getTime();
                         const statusTone = allDone
                           ? 'border-emerald-400/50 bg-emerald-500/10'
-                          : hasIncomplete
+                          : isPastDay && hasIncomplete
                             ? 'border-rose-400/50 bg-rose-500/10'
                             : 'border-[#E6E1D8] bg-[#F6F1E7]/70';
                         return (
@@ -1832,10 +2142,14 @@ const Intranet: React.FC = () => {
                                 <>
                                   <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Klar för dagen
                                 </>
-                              ) : hasIncomplete ? (
+                              ) : isPastDay && hasIncomplete ? (
                                 <>
                                   <AlertTriangle className="w-4 h-4 text-rose-600" /> Ej klar
                                 </>
+                              ) : isFutureDay ? (
+                                'Kommande'
+                              ) : hasIncomplete ? (
+                                'Pågående'
                               ) : (
                                 'Ingen agenda'
                               )}
@@ -1897,173 +2211,7 @@ const Intranet: React.FC = () => {
 
             {activeTab === 'REPORT' && (
               <div className="space-y-8 animate-fade-in">
-                <form
-                  onSubmit={handleReportSubmit}
-                  className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_20px_60px_rgba(61,61,61,0.18)] ring-1 ring-black/5 space-y-6"
-                >
-                  <div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-11 h-11 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
-                        <ClipboardList className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Rapportering</p>
-                        <h2 className="text-2xl md:text-3xl font-black text-[#3D3D3D] tracking-tight">
-                          Uppdatering innan stängning för dagen
-                        </h2>
-                      </div>
-                    </div>
-                  <p className="text-sm text-[#6B6158] max-w-2xl">
-                    Kort och rakt på sak. Fyll i tider, uppdatering och överlämning.
-                  </p>
-                </div>
-
-                {isReportLocked && (
-                  <div className="rounded-2xl border border-amber-400/40 bg-amber-100/70 p-4 text-amber-900 text-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                    <div>
-                      Rapporten för <span className="font-bold">{reportForm.date}</span> är redan inskickad och kan inte redigeras.
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveDetail({ type: 'report', data: existingReport })}
-                      className="px-4 py-2 rounded-xl border border-amber-300/60 bg-white text-[10px] font-black uppercase tracking-widest text-amber-900 hover:border-amber-400 transition"
-                    >
-                      Öppna rapport
-                    </button>
-                  </div>
-                )}
-
-                <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-4 space-y-3">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                    {completedTasks.length} klara · {incompleteTasks.length} kvar
-                  </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Uppgifter markerade som slutförda</p>
-                      {completedTasks.length === 0 ? (
-                        <div className="text-sm text-[#8A8177] mt-1">Inga markerade ännu.</div>
-                      ) : (
-                        <ul className="mt-2 space-y-1 text-sm text-[#6B6158]">
-                          {completedTasks.map((task) => (
-                            <li key={`done-${task.id}`} className="flex items-start gap-2">
-                              <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]" />
-                              <span>{task.title}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Uppgifter som inte slutförts</p>
-                      {incompleteTasks.length === 0 ? (
-                        <div className="text-sm text-[#8A8177] mt-1">Inga öppna uppgifter.</div>
-                      ) : (
-                        <ul className="mt-2 space-y-1 text-sm text-[#6B6158]">
-                          {incompleteTasks.map((task) => (
-                            <li key={`todo-${task.id}`} className="flex items-start gap-2">
-                              <span className="mt-1 w-2 h-2 rounded-full bg-[#E6E1D8]" />
-                              <span>{task.title}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Datum</label>
-                      <input
-                        type="date"
-                        value={reportForm.date}
-                        onChange={(event) => setReportForm((prev) => ({ ...prev, date: event.target.value }))}
-                        className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Starttid</label>
-                      <input
-                        type="time"
-                        value={reportForm.startTime}
-                        onChange={(event) => setReportForm((prev) => ({ ...prev, startTime: event.target.value }))}
-                        className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
-                        required
-                        disabled={isReportLocked}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Sluttid</label>
-                      <input
-                        type="time"
-                        value={reportForm.endTime}
-                        onChange={(event) => setReportForm((prev) => ({ ...prev, endTime: event.target.value }))}
-                        className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
-                        required
-                        disabled={isReportLocked}
-                      />
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-3 text-sm text-[#3D3D3D]">
-                    <input
-                      type="checkbox"
-                      checked={reportForm.overtime}
-                      onChange={(event) => setReportForm((prev) => ({ ...prev, overtime: event.target.checked }))}
-                      className="accent-[#a0c81d]"
-                      disabled={isReportLocked}
-                    />
-                    Utanför ordinarie arbetstid
-                  </label>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                      Jag gjorde (en summering av dagens arbete)
-                    </label>
-                    <textarea
-                      value={reportForm.did}
-                      onChange={(event) => setReportForm((prev) => ({ ...prev, did: event.target.value }))}
-                      rows={3}
-                      className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
-                      placeholder="Jag gjorde..."
-                      required
-                      disabled={isReportLocked}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Att prioritera imorgon</label>
-                    <textarea
-                      value={reportForm.handover}
-                      onChange={(event) => setReportForm((prev) => ({ ...prev, handover: event.target.value }))}
-                      rows={3}
-                      className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
-                      placeholder="Om något behöver prioriteras imorgon..."
-                      required={incompleteTasks.length > 0}
-                      disabled={isReportLocked}
-                    />
-                  </div>
-
-                  {reportError && (
-                    <div className="rounded-2xl border border-rose-400/40 bg-rose-100/70 p-4 text-rose-800 text-sm">
-                      {reportError}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-4">
-                    <button
-                      type="submit"
-                      disabled={reportStatus === 'sending' || isReportLocked}
-                      className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition-all disabled:opacity-60"
-                    >
-                      {reportStatus === 'sending' ? 'Skickar...' : 'Skicka rapport'}
-                    </button>
-                    {reportStatus === 'success' && (
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-                        Rapport skickad
-                      </span>
-                    )}
-                  </div>
-                </form>
+                {renderReportForm()}
               </div>
             )}
 

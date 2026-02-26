@@ -16,6 +16,7 @@ import { StartTack } from './pages/StartTack';
 import { Uppfoljning } from './pages/Uppfoljning';
 import { UppfoljningTack } from './pages/UppfoljningTack';
 import { Intranet } from './pages/Intranet';
+import { SalesCapital } from './pages/SalesCapital';
 import { Support } from './pages/Support';
 import { Forlangning } from './pages/Forlangning';
 import { ForlangningFriskvardTack } from './pages/ForlangningFriskvardTack';
@@ -112,6 +113,10 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
     title: 'Intranät',
     description: 'Personalens intranät för administration och uppföljning. Hantera ärenden, kundstatus och interna uppgifter i ett samlat gränssnitt för teamet.'
   },
+  '/sales-capital': {
+    title: 'Sälj & Kapital',
+    description: 'Power dashboard för försäljning, kapital och teamets momentum. Följ månadsmål, tillväxt och nyckeltal som driver fokus och avslut.'
+  },
   '/changelog': {
     title: 'Changelog',
     description: 'Samlad ändringslogg för appen, automatiskt uppdaterad vid push till GitHub.'
@@ -157,7 +162,7 @@ const StaffRedirect = () => {
     if (isLoading) return;
     if (!session) return;
     if (profile?.is_staff !== true) return;
-    if (location.pathname === '/intranet') return;
+    if (location.pathname === '/intranet' || location.pathname === '/sales-capital') return;
     navigate('/intranet', { replace: true });
   }, [isLoading, session, profile?.is_staff, location.pathname, navigate]);
 
@@ -313,6 +318,14 @@ function App() {
               element={
                 <AuthGuard requireStaff>
                   <Intranet />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/sales-capital"
+              element={
+                <AuthGuard requireStaff>
+                  <SalesCapital />
                 </AuthGuard>
               }
             />
