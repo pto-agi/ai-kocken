@@ -1,6 +1,35 @@
 {
-  "last_commit": "8bf26b52f75179a4900c60a64375f7f2050f8641",
+  "last_commit": "4add985358d9e3ae5fee3629a60cf210fb463f77",
   "entries": [
+    {
+      "id": "2026-02-26T12:43:19.864Z-4add985",
+      "date": "2026-02-26T12:43:19.864Z",
+      "range": "8bf26b52f75179a4900c60a64375f7f2050f8641..4add985358d9e3ae5fee3629a60cf210fb463f77",
+      "head": "4add985358d9e3ae5fee3629a60cf210fb463f77",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "4add985",
+          "subject": "Add sales & capital dashboard and enhance intranet"
+        },
+        {
+          "hash": "6c44c1d",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "App.tsx",
+        "components/Navbar.tsx",
+        "data/changelog.json",
+        "pages/Intranet.tsx",
+        "pages/SalesCapital.tsx"
+      ],
+      "stats": {
+        "files": 5,
+        "insertions": 859,
+        "deletions": 284
+      }
+    },
     {
       "id": "2026-02-25T22:20:52.388Z-8bf26b5",
       "date": "2026-02-25T22:20:52.388Z",
