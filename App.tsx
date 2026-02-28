@@ -16,6 +16,7 @@ import { StartTack } from './pages/StartTack';
 import { Uppfoljning } from './pages/Uppfoljning';
 import { UppfoljningTack } from './pages/UppfoljningTack';
 import { Intranet } from './pages/Intranet';
+import { IntranetManager } from './pages/IntranetManager';
 import { SalesCapital } from './pages/SalesCapital';
 import { Support } from './pages/Support';
 import { Forlangning } from './pages/Forlangning';
@@ -162,7 +163,7 @@ const StaffRedirect = () => {
     if (isLoading) return;
     if (!session) return;
     if (profile?.is_staff !== true) return;
-    if (location.pathname === '/intranet' || location.pathname === '/sales-capital') return;
+    if (location.pathname.startsWith('/intranet') || location.pathname === '/sales-capital') return;
     navigate('/intranet', { replace: true });
   }, [isLoading, session, profile?.is_staff, location.pathname, navigate]);
 
@@ -318,6 +319,14 @@ function App() {
               element={
                 <AuthGuard requireStaff>
                   <Intranet />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/intranet/manager"
+              element={
+                <AuthGuard requireStaff requireManager>
+                  <IntranetManager />
                 </AuthGuard>
               }
             />

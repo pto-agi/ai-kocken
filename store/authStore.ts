@@ -67,6 +67,7 @@ const maybeSyncMembershipExpiry = async (
 interface AuthState {
   session: any;
   profile: any;
+  profileError: string | null;
   isLoading: boolean;
   initialize: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -78,6 +79,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   profile: null,
+  profileError: null,
   isLoading: true, 
 
   initialize: async () => {
@@ -93,22 +95,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (session?.user) {
             // Vi hämtar bara profilen (Triggern i databasen har redan skapat den!)
             // Vi lägger in en liten fördröjning/retry om triggern är långsam
-            let { data: profile } = await supabase
+            let { data: profile, error: profileError } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', session.user.id)
                 .maybeSingle();
 
-            set({ session, profile });
+            if (profileError) {
+              console.error('Profile load error:', profileError);
+              set({ session, profile: null, profileError: profileError.message });
+            } else {
+              set({ session, profile, profileError: null });
+            }
             if (profile) {
               await maybeSyncMembershipExpiry(profile, session, get().refreshProfile, set);
             }
         } else {
-            set({ session: null, profile: null });
+            set({ session: null, profile: null, profileError: null });
         }
     } catch (error) {
         console.error("Auth Init Error:", error);
-        set({ session: null, profile: null });
+        set({
+          session: null,
+          profile: null,
+          profileError: error instanceof Error ? error.message : 'Okänt fel vid inloggning.'
+        });
     } finally {
         set({ isLoading: false });
     }
@@ -116,7 +127,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Lyssna på ändringar
     supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_OUT') {
-            set({ session: null, profile: null, isLoading: false });
+            set({ session: null, profile: null, profileError: null, isLoading: false });
         } else if (event === 'SIGNED_IN' && session) {
             const current = get().session;
             if (!current || current.user.id !== session.user.id) {
@@ -130,14 +141,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const session = get().session;
     if (!session?.user) return;
     try {
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
         .maybeSingle();
-      set({ profile });
+      if (error) {
+        console.error('Profile refresh error:', error);
+        set({ profileError: error.message });
+        return;
+      }
+      set({ profile, profileError: null });
     } catch (error) {
       console.error('Profile refresh error:', error);
+      set({ profileError: error instanceof Error ? error.message : 'Kunde inte uppdatera profilen.' });
     }
   },
 

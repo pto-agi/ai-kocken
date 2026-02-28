@@ -3,13 +3,15 @@
 Date: 2026-02-27
 
 ## Summary
-Add a manager-only intranet dashboard at `/intranet/manager` that provides operational oversight across staff: weekly pace, completion trends, report coverage, and individual drilldowns. Introduce a `profiles.is_manager` flag for access control. Keep staff UX intact. Add manager coaching notes and track task completion timestamps to flag deviations and slow flow.
+Add a manager-only intranet dashboard at `/intranet/manager` focused on the daily agenda view: per-person task completion (with timestamps), quality-check status, deviations vs `estimated_minutes`, and compact sections for daily reports plus start/uppfoljning submissions. Default view is "today" with all staff listed and optional filtering. A per-person history view can be opened on demand. Introduce a `profiles.is_manager` flag for access control. Keep staff UX intact. Add manager coaching notes and track task completion timestamps to flag deviations and slow flow.
 
 ## Goals
-- Give managers a fast, reliable view of operational flow and deviations.
-- Show weekly pace and individual drilldowns (completion, reports, handover signals).
-- Allow managers to correct task completion and add coaching notes.
-- Capture per-task completion timestamps to detect slow or late completion.
+- Give managers a fast, reliable daily view of operational flow and deviations.
+- Show per-person task status (completed + timestamps) with optional history on demand.
+- Surface quality-check status for tasks with checklists (no sub-item persistence).
+- Show compact daily reports and compact start/uppfoljning submissions.
+- Allow managers to add coaching notes.
+- Capture per-task completion timestamps to detect slow or late completion vs `estimated_minutes`.
 - Preserve existing staff intranet experience.
 
 ## Non-Goals
@@ -55,24 +57,26 @@ Recommendation: Option A, while continuing to write `agenda_completions` for com
 
 ## Manager Dashboard UX
 
-### Main dashboard
-- Week summary cards: completion rate, reports submitted, handover count.
-- Deviation tiles: missing reports, incomplete days, late completions.
-- Trends: completion per person (week), report frequency.
+### Main dashboard (Daily)
+- Default view: "today".
+- All staff listed with completion counts, last completion time, and report status.
+- Optional staff filter / search (list remains the default).
+- Summary cards: total tasks, completed today, staff count, reports submitted.
+- Deviation flags: slow tasks vs `estimated_minutes`, missing report, incomplete day.
+- Compact sections: daily reports and start/uppfoljning submissions.
 
 ### Individual drilldown
-- Per-user weekly timeline with:
-  - Agenda tasks and completion status.
-  - Completion timestamps.
-  - Report (did/handover).
+- Per-user "today" task list:
+  - Completion status + completed_at.
+  - Quality-check status (binary).
+  - Report summary (did/handover + start/end).
   - Manager notes.
-- Manager can toggle a task completion for a specific user/day.
+- Optional "Visa historik" opens the last 7 days snapshot.
 
 ## Operational Signals (Examples)
-- Late completion: task completed after end of workday or after report end_time.
-- Slow day: completion time > estimated_minutes baseline per template.
+- Slow task: completion time exceeds `estimated_minutes` baseline per template.
 - Missing report: no `agenda_reports` for a day with tasks.
-- Incomplete past day: previous dates with open tasks.
+- Incomplete day: uncompleted tasks for the day.
 
 Note: Without explicit per-task start times, delays are estimated by comparing `completed_at` with report start_time or day start. This is approximate but directionally useful.
 

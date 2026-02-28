@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import globals from 'globals';
 
-const ignores = ['dist/**', '**/dist/**', 'node_modules/**', '**/node_modules/**'];
+const ignores = ['dist/**', '**/dist/**', 'node_modules/**', '**/node_modules/**', '.worktrees/**', '**/.worktrees/**'];
 
 export default [
   {

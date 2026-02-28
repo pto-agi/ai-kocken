@@ -22,17 +22,6 @@ function normalizeKey(value: string) {
   return value.toLowerCase().replace(/\s+/g, '');
 }
 
-function pickField(row: Record<string, unknown>, preferredKey: string): string | null {
-  const direct = row[preferredKey];
-  if (typeof direct === 'string' && direct.trim().length > 0) return direct.trim();
-  const target = normalizeKey(preferredKey);
-  for (const [key, value] of Object.entries(row)) {
-    if (normalizeKey(key) !== target) continue;
-    if (typeof value === 'string' && value.trim().length > 0) return value.trim();
-  }
-  return null;
-}
-
 function normalizeExpiry(value: string | null): string | null {
   if (!value) return null;
   const trimmed = value.trim();

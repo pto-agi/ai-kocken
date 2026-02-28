@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint api components pages store tests utils scripts App.tsx types.ts eslint.config.js",
     "test:unit": "vitest run",
     "build": "vite build",
     "test": "npm run typecheck && npm run lint && npm run test:unit && npm run build",

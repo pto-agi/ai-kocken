@@ -1,6 +1,49 @@
 {
-  "last_commit": "4add985358d9e3ae5fee3629a60cf210fb463f77",
+  "last_commit": "5e2e35724c9731a891ecf97ebee11496618a3146",
   "entries": [
+    {
+      "id": "2026-02-27T23:57:19.417Z-5e2e357",
+      "date": "2026-02-27T23:57:19.417Z",
+      "range": "4add985358d9e3ae5fee3629a60cf210fb463f77..5e2e35724c9731a891ecf97ebee11496618a3146",
+      "head": "5e2e35724c9731a891ecf97ebee11496618a3146",
+      "commit_count": 5,
+      "commits": [
+        {
+          "hash": "5e2e357",
+          "subject": "Add manager dashboard design"
+        },
+        {
+          "hash": "5bece06",
+          "subject": "Ignore .worktrees directory"
+        },
+        {
+          "hash": "e75898c",
+          "subject": "Add Trainerize hybrid agent design"
+        },
+        {
+          "hash": "ddd60ed",
+          "subject": "Add agenda reports and projects tables"
+        },
+        {
+          "hash": "a8d3c96",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        ".gitignore",
+        "data/changelog.json",
+        "docs/plans/2026-02-26-trainerize-hybrid-agent-design.md",
+        "docs/plans/2026-02-27-intranet-manager-dashboard-design.md",
+        "pages/Intranet.tsx",
+        "supabase/agenda_projects.sql",
+        "supabase/agenda_reports.sql"
+      ],
+      "stats": {
+        "files": 7,
+        "insertions": 1233,
+        "deletions": 207
+      }
+    },
     {
       "id": "2026-02-26T12:43:19.864Z-4add985",
       "date": "2026-02-26T12:43:19.864Z",
