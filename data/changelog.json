@@ -1,6 +1,72 @@
 {
-  "last_commit": "ddd60edfd79a34c68167d78b44c1bf333178378a",
+  "last_commit": "ce13ab2e9a7c582b3e27d5c770fecae696913eac",
   "entries": [
+    {
+      "id": "2026-02-28T00:47:33.227Z-ce13ab2",
+      "date": "2026-02-28T00:47:33.228Z",
+      "range": "ddd60edfd79a34c68167d78b44c1bf333178378a..ce13ab2e9a7c582b3e27d5c770fecae696913eac",
+      "head": "ce13ab2e9a7c582b3e27d5c770fecae696913eac",
+      "commit_count": 6,
+      "commits": [
+        {
+          "hash": "ce13ab2",
+          "subject": "Merge codex/manager-dashboard into main"
+        },
+        {
+          "hash": "efdccd4",
+          "subject": "Implement manager dashboard and agenda tracking"
+        },
+        {
+          "hash": "5e2e357",
+          "subject": "Add manager dashboard design"
+        },
+        {
+          "hash": "5bece06",
+          "subject": "Ignore .worktrees directory"
+        },
+        {
+          "hash": "e75898c",
+          "subject": "Add Trainerize hybrid agent design"
+        },
+        {
+          "hash": "c758cac",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        ".gitignore",
+        "App.tsx",
+        "api/membership-expiry.ts",
+        "components/AuthGuard.tsx",
+        "components/Navbar.tsx",
+        "data/changelog.json",
+        "docs/plans/2026-02-26-trainerize-hybrid-agent-design.md",
+        "docs/plans/2026-02-27-intranet-manager-dashboard-design.md",
+        "eslint.config.js",
+        "package.json",
+        "pages/Intranet.tsx",
+        "pages/IntranetManager.tsx",
+        "pages/Profile.tsx",
+        "store/authStore.ts",
+        "supabase/agenda_manager.sql",
+        "tests/agendaCompletionItems.test.ts",
+        "tests/managerAgenda.test.ts",
+        "tests/managerDashboard.test.ts",
+        "tests/managerNotes.test.ts",
+        "tests/roles.test.ts",
+        "types.ts",
+        "utils/agendaCompletionItems.ts",
+        "utils/managerAgenda.ts",
+        "utils/managerDashboard.ts",
+        "utils/managerNotes.ts",
+        "utils/roles.ts"
+      ],
+      "stats": {
+        "files": 26,
+        "insertions": 1505,
+        "deletions": 101
+      }
+    },
     {
       "id": "2026-02-26T22:45:18.039Z-ddd60ed",
       "date": "2026-02-26T22:45:18.039Z",
