@@ -80,6 +80,7 @@ export interface UserProfile {
   membership_level?: string; // 'free' | 'premium'
   isPremium?: boolean;       // Helper property often used in frontend
   is_staff?: boolean;
+  is_manager?: boolean;
   subscription_status?: string;
   coaching_expires_at?: string; // DATE STRING from Google Sheets/Zapier
   phone?: string;

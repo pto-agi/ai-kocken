@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Copy, FileText, LayoutDashboard, Loader2, Package, RefreshCcw, Trash2, X, Circle, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { buildCompletionItemAction } from '../utils/agendaCompletionItems';
 
 type BaseSubmission = {
   id: string;
@@ -334,15 +335,7 @@ const truncate = (value?: string | null, maxLength = 160) => {
   return `${value.slice(0, maxLength).trim()}…`;
 };
 
-const getNextWorkday = (date: Date) => {
-  const next = new Date(date);
-  do {
-    next.setDate(next.getDate() + 1);
-  } while (next.getDay() === 0 || next.getDay() === 6);
-  return next;
-};
-
-const formatDateInput = (date: Date) => date.toISOString().slice(0, 10);
+const formatDateInput = (date: Date) => date.toLocaleDateString('sv-SE');
 
 const createLocalId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -505,7 +498,7 @@ const Intranet: React.FC = () => {
   });
   const [reportStatus, setReportStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [reportError, setReportError] = useState<string | null>(null);
-  const [showAhead, setShowAhead] = useState(false);
+  const [showAhead] = useState(false);
   const focusTasksFallback = useMemo(() => ([
     {
       id: 'focus-1',
@@ -563,6 +556,15 @@ const Intranet: React.FC = () => {
   const [shipmentsError, setShipmentsError] = useState<string | null>(null);
   const [copiedShipmentId, setCopiedShipmentId] = useState<string | null>(null);
   const [showHandledShipments, setShowHandledShipments] = useState(false);
+
+  useEffect(() => {
+    const todayKey = formatDateInput(new Date());
+    setReportForm((prev) => {
+      if (prev.date === todayKey) return prev;
+      if (prev.startTime || prev.endTime || prev.did || prev.handover) return prev;
+      return { ...prev, date: todayKey };
+    });
+  }, []);
 
   const toggleFocusTask = useCallback((taskId: string) => {
     setFocusTasks((prev) =>
@@ -829,7 +831,7 @@ const Intranet: React.FC = () => {
     };
   }, [selectedDate, session?.user?.id, isStaff, isConfigured]);
 
-  const resolveTaskCount = useCallback(() => null, []);
+  const resolveTaskCount = useCallback((_title: string, _report: any, _useFormFallback: boolean) => null, []);
 
   const getTasksForDate = useCallback((date: Date): AgendaItem[] => {
     if (!agendaTemplates.length) return [];
@@ -928,6 +930,29 @@ const Intranet: React.FC = () => {
     }
     if (!isConfigured || !session?.user?.id) return;
     try {
+      const action = buildCompletionItemAction({
+        wasChecked,
+        userId: session.user.id,
+        reportDate: dateKey,
+        taskId,
+        source: 'staff'
+      });
+
+      if (action.type === 'insert') {
+        const { error } = await supabase
+          .from('agenda_completion_items')
+          .upsert(action.payload, { onConflict: 'user_id,report_date,task_id' });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('agenda_completion_items')
+          .delete()
+          .eq('user_id', action.selector.user_id)
+          .eq('report_date', action.selector.report_date)
+          .eq('task_id', action.selector.task_id);
+        if (error) throw error;
+      }
+
       const { error } = await supabase
         .from('agenda_completions')
         .upsert({
@@ -1173,7 +1198,6 @@ const Intranet: React.FC = () => {
 
   const toggleExpanded = (key: string) => {
     setExpandedId((current) => (current === key ? null : key));
-    setHistoryExpandedId(null);
   };
 
   const updateCompletion = async (submission: CombinedSubmission, nextDone: boolean) => {
@@ -1302,7 +1326,7 @@ const Intranet: React.FC = () => {
     }
   };
 
-  const handleAddShipment = () => {
+  const handleAddShipment = async () => {
     if (!orderDraft) return;
     setShipmentsError(null);
     const entry: ShipmentEntry = {
@@ -1325,33 +1349,32 @@ const Intranet: React.FC = () => {
     }
 
     setShipmentsStatus('loading');
-    supabase
-      .from('staff_shipments')
-      .insert([{
-        id: entry.id,
-        created_at: entry.createdAt,
-        created_by: entry.createdBy,
-        data: entry.data,
-        status: entry.status
-      }])
-      .then(({ error }) => {
-        if (error) {
-          console.warn('Failed to save shipment', error);
-          setShipmentsError('Kunde inte spara paketet. Försök igen.');
-          setShipmentsStatus('error');
-          return;
-        }
-        applyLocal();
-        setShipmentsStatus('idle');
-      })
-      .catch((err) => {
-        console.warn('Failed to save shipment', err);
+    try {
+      const { error } = await supabase
+        .from('staff_shipments')
+        .insert([{
+          id: entry.id,
+          created_at: entry.createdAt,
+          created_by: entry.createdBy,
+          data: entry.data,
+          status: entry.status
+        }]);
+      if (error) {
+        console.warn('Failed to save shipment', error);
         setShipmentsError('Kunde inte spara paketet. Försök igen.');
         setShipmentsStatus('error');
-      });
+        return;
+      }
+      applyLocal();
+      setShipmentsStatus('idle');
+    } catch (err) {
+      console.warn('Failed to save shipment', err);
+      setShipmentsError('Kunde inte spara paketet. Försök igen.');
+      setShipmentsStatus('error');
+    }
   };
 
-  const toggleShipmentStatus = (id: string, key: keyof ShipmentStatus) => {
+  const toggleShipmentStatus = async (id: string, key: keyof ShipmentStatus) => {
     setShipmentsError(null);
     const entry = shipments.find((item) => item.id === id);
     if (!entry) return;
@@ -1365,48 +1388,46 @@ const Intranet: React.FC = () => {
       current.id === id ? { ...current, status: nextStatus, updatedAt: new Date().toISOString() } : current
     )));
     if (!isConfigured) return;
-    supabase
-      .from('staff_shipments')
-      .update({ status: nextStatus, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .then(({ error }) => {
-        if (error) {
-          console.warn('Failed to update shipment status', error);
-          setShipmentsError('Kunde inte uppdatera paketet. Försök igen.');
-          setShipmentsStatus('error');
-          loadShipments();
-        }
-      })
-      .catch((err) => {
-        console.warn('Failed to update shipment status', err);
+    try {
+      const { error } = await supabase
+        .from('staff_shipments')
+        .update({ status: nextStatus, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) {
+        console.warn('Failed to update shipment status', error);
         setShipmentsError('Kunde inte uppdatera paketet. Försök igen.');
         setShipmentsStatus('error');
         loadShipments();
-      });
+      }
+    } catch (err) {
+      console.warn('Failed to update shipment status', err);
+      setShipmentsError('Kunde inte uppdatera paketet. Försök igen.');
+      setShipmentsStatus('error');
+      loadShipments();
+    }
   };
 
-  const removeShipment = (id: string) => {
+  const removeShipment = async (id: string) => {
     const prev = shipments;
     setShipments((current) => current.filter((entry) => entry.id !== id));
     if (!isConfigured) return;
-    supabase
-      .from('staff_shipments')
-      .delete()
-      .eq('id', id)
-      .then(({ error }) => {
-        if (error) {
-          console.warn('Failed to delete shipment', error);
-          setShipments(prev);
-          setShipmentsError('Kunde inte ta bort paketet. Försök igen.');
-          setShipmentsStatus('error');
-        }
-      })
-      .catch((err) => {
-        console.warn('Failed to delete shipment', err);
+    try {
+      const { error } = await supabase
+        .from('staff_shipments')
+        .delete()
+        .eq('id', id);
+      if (error) {
+        console.warn('Failed to delete shipment', error);
         setShipments(prev);
         setShipmentsError('Kunde inte ta bort paketet. Försök igen.');
         setShipmentsStatus('error');
-      });
+      }
+    } catch (err) {
+      console.warn('Failed to delete shipment', err);
+      setShipments(prev);
+      setShipmentsError('Kunde inte ta bort paketet. Försök igen.');
+      setShipmentsStatus('error');
+    }
   };
 
   const copyShipmentAddress = async (entry: ShipmentEntry) => {

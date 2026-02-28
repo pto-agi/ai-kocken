@@ -7,16 +7,19 @@ interface AuthGuardProps {
   children: React.ReactNode;
   requirePremium?: boolean;
   requireStaff?: boolean;
+  requireManager?: boolean;
 }
 
 export const AuthGuard: React.FC<AuthGuardProps> = ({ 
   children, 
   requirePremium: _requirePremium = false,
-  requireStaff = false
+  requireStaff = false,
+  requireManager = false
 }) => {
   const { session, profile, isLoading } = useAuthStore();
   const location = useLocation();
   const isStaff = profile?.is_staff === true;
+  const isManager = profile?.is_manager === true;
 
   // 1. Laddar profil/session
   if (isLoading) {
@@ -34,6 +37,10 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
 
   if (requireStaff && !isStaff) {
     return <Navigate to="/" replace />;
+  }
+
+  if (requireManager && !isManager) {
+    return <Navigate to="/intranet" replace />;
   }
 
   if (!requireStaff && isStaff) {

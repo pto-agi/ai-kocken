@@ -14,7 +14,8 @@ import {
   ShieldCheck,
   ClipboardCheck,
   ShoppingBasket,
-  TrendingUp
+  TrendingUp,
+  LayoutDashboard
 } from 'lucide-react';
 
 const Navbar: React.FC = () => {
@@ -26,6 +27,7 @@ const Navbar: React.FC = () => {
 
   const isActive = (path: string) => location.pathname === path;
   const isStaff = profile?.is_staff === true;
+  const isManager = profile?.is_manager === true;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -48,6 +50,7 @@ const Navbar: React.FC = () => {
   const navLinks = isStaff
     ? [
         { path: '/intranet', label: 'INTRANÄT', icon: ShieldCheck },
+        ...(isManager ? [{ path: '/intranet/manager', label: 'MANAGER', icon: LayoutDashboard }] : []),
         { path: '/sales-capital', label: 'SÄLJ & KAPITAL', icon: TrendingUp }
       ]
     : [

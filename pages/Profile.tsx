@@ -72,12 +72,6 @@ export const Profile: React.FC = () => {
     enabled: !!user,
   });
 
-  const { data: latestUppfoljning } = useQuery({
-    queryKey: ['latestUppfoljning', user?.id],
-    queryFn: () => user ? databaseService.getLatestUppfoljning(user.id) : Promise.resolve(null),
-    enabled: !!user,
-  });
-
   const { data: startSubmissions = [] } = useQuery({
     queryKey: ['startSubmissions', user?.id],
     queryFn: () => user ? databaseService.getUserStartformular(user.id) : Promise.resolve([]),
@@ -401,10 +395,6 @@ export const Profile: React.FC = () => {
     if (trimmed.length <= max) return trimmed;
     return `${trimmed.slice(0, max).trim()}…`;
   };
-
-  const uppStatus = latestUppfoljning
-    ? (latestUppfoljning.is_done ? 'Genomförd' : 'Pågående')
-    : 'Ej inskickad';
 
   const toggleSubmission = (key: string) => {
     setExpandedSubmissions((prev) => ({ ...prev, [key]: !prev[key] }));
