@@ -49,11 +49,27 @@ describe('agenda task catalog', () => {
     expect(result).toEqual([]);
   });
 
-  it('treats removals as global for the day regardless of who set it', () => {
+  it('does not hide tasks removed for another user when current user is different', () => {
     const result = buildAgendaItemsForDate({
       dateKey: '2026-03-02',
       dayCode: 'MO',
       currentUserId: 'staff-user',
+      templates: [
+        { id: 't1', title: 'Startupplägg', schedule_days: ['MO'], sort_order: 1, input_type: 'none', estimated_minutes: 30 }
+      ],
+      customTasks: [],
+      removals: [
+        { user_id: 'manager-user', report_date: '2026-03-02', task_id: 't1', is_removed: true }
+      ]
+    });
+
+    expect(result.map((task) => task.id)).toEqual(['t1']);
+  });
+
+  it('treats removals as global when current user id is omitted', () => {
+    const result = buildAgendaItemsForDate({
+      dateKey: '2026-03-02',
+      dayCode: 'MO',
       templates: [
         { id: 't1', title: 'Startupplägg', schedule_days: ['MO'], sort_order: 1, input_type: 'none', estimated_minutes: 30 }
       ],

@@ -5,6 +5,8 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { buildCompletionItemAction } from '../utils/agendaCompletionItems';
 import { buildAgendaItemsForDate } from '../utils/agendaTaskCatalog';
 import { buildAgendaCustomTaskRange } from '../utils/agendaCustomTaskRange';
+import { parseCompletedTaskIds, resolveCompletedTaskIds } from '../utils/agendaCompletionState';
+import { resolveIntranetMirrorUserId } from '../utils/intranetMirrorUser';
 
 type BaseSubmission = {
   id: string;
@@ -467,6 +469,8 @@ const buildMeasurements = (entry: StartFormEntry) => {
 const Intranet: React.FC = () => {
   const { session, profile } = useAuthStore();
   const isStaff = profile?.is_staff === true;
+  const isManager = profile?.is_manager === true;
+  const canUseStaffIntranet = isStaff || isManager;
   const [filter, setFilter] = useState<FilterValue>('uppfoljning');
   const [activeTab, setActiveTab] = useState<StaffTab>('BASE');
   const [startEntries, setStartEntries] = useState<StartFormEntry[]>([]);
@@ -576,6 +580,19 @@ const Intranet: React.FC = () => {
   const [shipmentsError, setShipmentsError] = useState<string | null>(null);
   const [copiedShipmentId, setCopiedShipmentId] = useState<string | null>(null);
   const [showHandledShipments, setShowHandledShipments] = useState(false);
+  const [staffMirrorCandidates, setStaffMirrorCandidates] = useState<Array<{
+    id: string;
+    is_staff?: boolean | null;
+    is_manager?: boolean | null;
+  }>>([]);
+
+  const intranetUserId = useMemo(() => (
+    resolveIntranetMirrorUserId({
+      sessionUserId: session?.user?.id || '',
+      isManager,
+      staffCandidates: staffMirrorCandidates
+    })
+  ), [isManager, session?.user?.id, staffMirrorCandidates]);
 
   useEffect(() => {
     const todayKey = formatDateInput(new Date());
@@ -585,6 +602,35 @@ const Intranet: React.FC = () => {
       return { ...prev, date: todayKey };
     });
   }, []);
+
+  useEffect(() => {
+    if (!isConfigured || !session?.user?.id || !isManager) {
+      setStaffMirrorCandidates([]);
+      return;
+    }
+
+    let active = true;
+    const loadMirrorCandidates = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, is_staff, is_manager')
+          .eq('is_staff', true);
+        if (error) throw error;
+        if (!active) return;
+        setStaffMirrorCandidates((data || []) as Array<{ id: string; is_staff?: boolean | null; is_manager?: boolean | null }>);
+      } catch (err) {
+        console.warn('Failed to load mirror candidates', err);
+        if (!active) return;
+        setStaffMirrorCandidates([]);
+      }
+    };
+
+    loadMirrorCandidates();
+    return () => {
+      active = false;
+    };
+  }, [isConfigured, isManager, session?.user?.id]);
 
   const toggleFocusTask = useCallback((taskId: string) => {
     setFocusTasks((prev) =>
@@ -623,39 +669,37 @@ const Intranet: React.FC = () => {
   }, [focusPage, focusPageCount]);
 
   const refreshDataOverview = useCallback(async () => {
-    if (!session?.user?.id || !isStaff || !isConfigured) return;
+    if (!intranetUserId || !canUseStaffIntranet || !isConfigured) return;
     try {
       setDataStatsError(null);
-      const [{ count: reportCount, error: reportError }, handoversRes, completionsRes] = await Promise.all([
+      const [{ count: reportCount, error: reportError }, handoversRes, completionItemsRes] = await Promise.all([
         supabase
           .from('agenda_reports')
           .select('id', { count: 'exact', head: true })
-          .eq('user_id', session.user.id),
+          .eq('user_id', intranetUserId),
         supabase
           .from('agenda_reports')
           .select('handover, created_at, report_date')
-          .eq('user_id', session.user.id)
+          .eq('user_id', intranetUserId)
           .not('handover', 'is', null)
           .neq('handover', '')
           .order('report_date', { ascending: false }),
         supabase
-          .from('agenda_completions')
-          .select('completed_task_ids')
-          .eq('user_id', session.user.id)
+          .from('agenda_completion_items')
+          .select('task_id', { count: 'exact', head: true })
+          .eq('user_id', intranetUserId)
       ]);
 
       if (reportError) throw reportError;
       if (handoversRes.error) throw handoversRes.error;
-      if (completionsRes.error) throw completionsRes.error;
+      if (completionItemsRes.error) throw completionItemsRes.error;
 
       const handovers = (handoversRes.data || []).map((item: any) => ({
         text: item.handover,
         created_at: item.created_at,
         report_date: item.report_date
       }));
-      const completedTasks = (completionsRes.data || []).reduce((sum: number, row: any) => (
-        sum + (row.completed_task_ids?.length || 0)
-      ), 0);
+      const completedTasks = completionItemsRes.count || 0;
 
       setHandoverHistory(handovers);
       setDataStats({
@@ -675,7 +719,7 @@ const Intranet: React.FC = () => {
         handoverCount: fallbackHandovers
       });
     }
-  }, [agendaCompletionByDate, handoverHistory.length, isConfigured, isStaff, session?.user?.id, weeklyReports]);
+  }, [agendaCompletionByDate, canUseStaffIntranet, handoverHistory.length, intranetUserId, isConfigured, weeklyReports]);
 
   useEffect(() => {
     let active = true;
@@ -690,7 +734,7 @@ const Intranet: React.FC = () => {
   }, [refreshDataOverview]);
 
   useEffect(() => {
-    if (!session?.user?.id || !isStaff) return;
+    if (!intranetUserId || !canUseStaffIntranet) return;
     let active = true;
     const loadReports = async () => {
       try {
@@ -700,6 +744,7 @@ const Intranet: React.FC = () => {
         const { data, error } = await supabase
           .from('agenda_reports')
           .select('*')
+          .eq('user_id', intranetUserId)
           .gte('report_date', startKey)
           .lte('report_date', endKey)
           .order('report_date', { ascending: true });
@@ -720,10 +765,10 @@ const Intranet: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [selectedDate, session?.user?.id, isStaff]);
+  }, [selectedDate, intranetUserId, canUseStaffIntranet]);
 
   useEffect(() => {
-    if (!session?.user?.id || !isStaff || !isConfigured) return;
+    if (!intranetUserId || !canUseStaffIntranet || !isConfigured) return;
     let active = true;
     const loadReportHistory = async () => {
       setReportHistoryError(null);
@@ -731,7 +776,7 @@ const Intranet: React.FC = () => {
         const { data, error } = await supabase
           .from('agenda_reports')
           .select('*')
-          .eq('user_id', session.user.id)
+          .eq('user_id', intranetUserId)
           .order('report_date', { ascending: false });
         if (error) throw error;
         if (!active) return;
@@ -747,10 +792,10 @@ const Intranet: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [isConfigured, isStaff, session?.user?.id]);
+  }, [canUseStaffIntranet, intranetUserId, isConfigured]);
 
   useEffect(() => {
-    if (!session?.user?.id || !isStaff || !isConfigured) return;
+    if (!session?.user?.id || !canUseStaffIntranet || !isConfigured) return;
     let active = true;
     const loadTemplates = async () => {
       setAgendaStatus('loading');
@@ -775,10 +820,10 @@ const Intranet: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [session?.user?.id, isStaff, isConfigured, agendaRefreshToken]);
+  }, [session?.user?.id, canUseStaffIntranet, isConfigured, agendaRefreshToken]);
 
   useEffect(() => {
-    if (!isStaff) return;
+    if (!canUseStaffIntranet) return;
     if (!isConfigured) {
       setManagerCustomTasks([]);
       return;
@@ -812,10 +857,10 @@ const Intranet: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [isConfigured, isStaff, selectedDate, agendaRefreshToken]);
+  }, [isConfigured, canUseStaffIntranet, selectedDate, agendaRefreshToken]);
 
   useEffect(() => {
-    if (!session?.user?.id || !isStaff) return;
+    if (!session?.user?.id || !canUseStaffIntranet) return;
     if (!isConfigured) {
       setManagerTaskRemovals([]);
       return;
@@ -847,10 +892,10 @@ const Intranet: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [isConfigured, isStaff, selectedDate, session?.user?.id, agendaRefreshToken]);
+  }, [isConfigured, canUseStaffIntranet, selectedDate, session?.user?.id, agendaRefreshToken]);
 
   useEffect(() => {
-    if (!isStaff) return;
+    if (!canUseStaffIntranet) return;
     let active = true;
     const loadFocusTasks = async () => {
       if (!isConfigured) {
@@ -883,35 +928,71 @@ const Intranet: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [focusTasksFallback, isConfigured, isStaff]);
+  }, [focusTasksFallback, isConfigured, canUseStaffIntranet]);
 
   useEffect(() => {
-    if (!session?.user?.id || !isStaff) return;
+    if (!intranetUserId || !canUseStaffIntranet) return;
     const dateKey = formatDateInput(selectedDate);
     let active = true;
     const loadCompletion = async () => {
+      let completionItemsAvailable = false;
+      let completionItemRows: Array<{ task_id: string }> = [];
+
+      try {
+        if (isConfigured) {
+          const { data, error } = await supabase
+            .from('agenda_completion_items')
+            .select('task_id')
+            .eq('user_id', intranetUserId)
+            .eq('report_date', dateKey)
+            .order('task_id', { ascending: true });
+          if (error) throw error;
+          if (!active) return;
+
+          completionItemsAvailable = true;
+          completionItemRows = (data || []) as Array<{ task_id: string }>;
+          const ids = resolveCompletedTaskIds({
+            completionItemsAvailable,
+            completionItemRows,
+            legacyCompletedTaskIds: []
+          });
+          setAgendaCompletionByDate((prev) => ({ ...prev, [dateKey]: ids }));
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to load completion items', err);
+      }
+
       try {
         if (isConfigured) {
           const { data, error } = await supabase
             .from('agenda_completions')
             .select('report_date, completed_task_ids')
-            .eq('user_id', session.user.id)
+            .eq('user_id', intranetUserId)
             .eq('report_date', dateKey)
             .limit(1)
             .maybeSingle();
           if (error) throw error;
           if (!active) return;
-          const ids = data?.completed_task_ids || [];
+
+          const ids = resolveCompletedTaskIds({
+            completionItemsAvailable,
+            completionItemRows,
+            legacyCompletedTaskIds: data?.completed_task_ids || []
+          });
           setAgendaCompletionByDate((prev) => ({ ...prev, [dateKey]: ids }));
           return;
         }
       } catch (err) {
-        console.warn('Failed to load agenda completion', err);
+        console.warn('Failed to load agenda completion fallback', err);
       }
 
       if (!active) return;
       try {
-        const stored = JSON.parse(localStorage.getItem(`staff-agenda-completed-${dateKey}`) || '[]');
+        const scopedKey = intranetUserId ? `staff-agenda-completed-${intranetUserId}-${dateKey}` : '';
+        const scopedRaw = scopedKey ? localStorage.getItem(scopedKey) : null;
+        const legacyRaw = localStorage.getItem(`staff-agenda-completed-${dateKey}`);
+        const stored = JSON.parse(scopedRaw || legacyRaw || '[]');
         setAgendaCompletionByDate((prev) => ({ ...prev, [dateKey]: stored }));
       } catch {
         setAgendaCompletionByDate((prev) => ({ ...prev, [dateKey]: [] }));
@@ -921,7 +1002,7 @@ const Intranet: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [selectedDate, session?.user?.id, isStaff, isConfigured, agendaRefreshToken]);
+  }, [selectedDate, intranetUserId, canUseStaffIntranet, isConfigured, agendaRefreshToken]);
 
   const resolveTaskCount = useCallback((_title: string, _report: any, _useFormFallback: boolean) => null, []);
 
@@ -933,29 +1014,32 @@ const Intranet: React.FC = () => {
       dayCode,
       templates: agendaTemplates,
       customTasks: managerCustomTasks,
-      currentUserId: session?.user?.id,
+      currentUserId: intranetUserId,
       removals: managerTaskRemovals
     });
     return merged.map((item) => ({
       ...item,
       count: item.inputType === 'count' ? resolveTaskCount(item.title, weeklyReports[key], key === reportForm.date) : null
     }));
-  }, [agendaTemplates, managerCustomTasks, managerTaskRemovals, reportForm.date, resolveTaskCount, session?.user?.id, weeklyReports]);
+  }, [agendaTemplates, managerCustomTasks, managerTaskRemovals, reportForm.date, resolveTaskCount, intranetUserId, weeklyReports]);
 
   const todayTasks = useMemo(() => getTasksForDate(selectedDate), [getTasksForDate, selectedDate]);
-  const completedTaskIdsForDay = useMemo(() => {
-    const key = formatDateInput(selectedDate);
-    return new Set(agendaCompletionByDate[key] || []);
-  }, [agendaCompletionByDate, selectedDate]);
   const reportHistoryMap = useMemo(() => {
     const map: Record<string, any> = {};
     reportHistory.forEach((report) => {
-      if (report?.report_date) {
+      if (report?.report_date && !map[report.report_date]) {
         map[report.report_date] = report;
       }
     });
     return map;
   }, [reportHistory]);
+  const completedTaskIdsForDay = useMemo(() => {
+    const key = formatDateInput(selectedDate);
+    const idsFromCompletions = agendaCompletionByDate[key] || [];
+    const reportForDate = reportHistoryMap[key] || weeklyReports[key] || null;
+    const idsFromReport = parseCompletedTaskIds(reportForDate?.completed_task_ids);
+    return new Set([...idsFromCompletions, ...idsFromReport]);
+  }, [agendaCompletionByDate, selectedDate, reportHistoryMap, weeklyReports]);
   const localReportSnapshot = useMemo(() => {
     if (!reportForm.date) return null;
     try {
@@ -1008,15 +1092,17 @@ const Intranet: React.FC = () => {
     const updated = Array.from(current);
     setAgendaCompletionByDate((prev) => ({ ...prev, [dateKey]: updated }));
     try {
-      localStorage.setItem(`staff-agenda-completed-${dateKey}`, JSON.stringify(updated));
+      const scopedKey = intranetUserId ? `staff-agenda-completed-${intranetUserId}-${dateKey}` : `staff-agenda-completed-${dateKey}`;
+      localStorage.setItem(scopedKey, JSON.stringify(updated));
     } catch (err) {
       console.warn('Failed to persist agenda completion locally', err);
     }
-    if (!isConfigured || !session?.user?.id) return;
+    if (!isConfigured || !intranetUserId) return;
     try {
       const action = buildCompletionItemAction({
         wasChecked,
-        userId: session.user.id,
+        userId: intranetUserId,
+        actorUserId: session?.user?.id,
         reportDate: dateKey,
         taskId,
         source: 'staff'
@@ -1040,7 +1126,7 @@ const Intranet: React.FC = () => {
       const { error } = await supabase
         .from('agenda_completions')
         .upsert({
-          user_id: session.user.id,
+          user_id: intranetUserId,
           report_date: dateKey,
           completed_task_ids: updated,
           updated_at: new Date().toISOString()
@@ -1054,7 +1140,7 @@ const Intranet: React.FC = () => {
     } catch (err) {
       console.warn('Failed to persist agenda completion', err);
     }
-  }, [agendaCompletionByDate, isConfigured, refreshDataOverview, session?.user?.id]);
+  }, [agendaCompletionByDate, intranetUserId, isConfigured, refreshDataOverview, session?.user?.id]);
 
   const toggleAgendaTaskForDate = useCallback(async (dateKey: string, task: AgendaItem) => {
     const current = new Set(agendaCompletionByDate[dateKey] || []);
@@ -1571,7 +1657,7 @@ const Intranet: React.FC = () => {
     const completedIds = completedTasks.map((task) => task.id);
     const incompleteIds = incompleteTasks.map((task) => task.id);
     const payload = {
-      user_id: session?.user?.id || '',
+      user_id: intranetUserId || session?.user?.id || '',
       email: profile?.email || session?.user?.email || '',
       name: profile?.full_name || '',
       date: reportForm.date,
@@ -1648,7 +1734,7 @@ const Intranet: React.FC = () => {
 
       try {
         const reportPayload = {
-          user_id: session?.user?.id,
+          user_id: intranetUserId || session?.user?.id,
           report_date: reportForm.date,
           start_time: reportForm.startTime,
           end_time: reportForm.endTime,

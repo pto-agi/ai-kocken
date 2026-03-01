@@ -10,7 +10,9 @@ import { applyCompletedTaskToggle } from '../utils/managerOverrides';
 import { computeWeeklyPerformance } from '../utils/managerPerformance';
 import { buildTaskDeltaAnalysis, type ManagerAlertOverrideLite, type TaskDeltaRow } from '../utils/managerAnalytics';
 import { buildTaskRemovalSet, isTaskRemoved } from '../utils/managerTaskRemovals';
-import { formatWindowDaysLabel } from '../utils/managerWindow';
+import { buildHistoricalReportSummaries } from '../utils/managerHistoricalReports';
+import { computeOverEstimateDays } from '../utils/managerStatus';
+import { resolveUniversalAgendaUserId } from '../utils/managerUniversalAgenda';
 
 const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const;
 const getWeekdayCode = (dateKey: string) => WEEKDAY_CODES[new Date(`${dateKey}T00:00:00`).getDay()];
@@ -35,17 +37,6 @@ const formatTime = (value: string | null | undefined) => {
   });
 };
 
-const formatDateTime = (value: string | null | undefined) => {
-  if (!value) return '—';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '—';
-  return parsed.toLocaleString('sv-SE', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Europe/Stockholm'
-  });
-};
-
 const truncateText = (value: string | null | undefined, max = 120) => {
   if (!value) return '—';
   const normalized = value.replace(/\s+/g, ' ').trim();
@@ -53,14 +44,36 @@ const truncateText = (value: string | null | undefined, max = 120) => {
   return `${normalized.slice(0, max)}…`;
 };
 
-const ui = {
-  page: 'min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-20 pt-24 px-4',
-  card: 'rounded-2xl border border-[#DAD1C5] bg-white p-5',
-  label: 'text-[10px] font-black uppercase tracking-[0.3em] text-[#8A8177]',
-  body: 'text-sm text-[#6B6158]'
+const getHistoricalStatusMeta = (status: 'complete' | 'incomplete' | 'no_plan') => {
+  if (status === 'complete') {
+    return {
+      label: 'Klar',
+      dot: 'bg-emerald-500',
+      badge: 'border-emerald-300/60 bg-emerald-50 text-emerald-700'
+    };
+  }
+  if (status === 'incomplete') {
+    return {
+      label: 'Avvikelse',
+      dot: 'bg-rose-500',
+      badge: 'border-rose-300/60 bg-rose-50 text-rose-700'
+    };
+  }
+  return {
+    label: 'Ingen plan',
+    dot: 'bg-slate-400',
+    badge: 'border-slate-300/60 bg-slate-50 text-slate-700'
+  };
 };
 
-type StaffProfile = { id: string; full_name?: string | null; email?: string | null; is_staff?: boolean | null };
+const ui = {
+  page: 'min-h-screen bg-[#F3F4F6] text-[#111111] font-sans pb-20 pt-24 px-4',
+  card: 'rounded-2xl border border-[#9CA3AF] bg-white p-5',
+  label: 'text-[10px] font-black uppercase tracking-[0.3em] text-[#111111]',
+  body: 'text-sm text-[#333333]'
+};
+
+type StaffProfile = { id: string; full_name?: string | null; email?: string | null; is_staff?: boolean | null; is_manager?: boolean | null };
 
 type AgendaTemplate = {
   id: string;
@@ -92,14 +105,6 @@ type WeeklyReport = {
   user_id: string;
   report_date: string;
   start_time: string | null;
-};
-
-type SubmissionEntry = {
-  id: string;
-  created_at: string;
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
 };
 
 type ManagerNote = {
@@ -139,6 +144,17 @@ type ManagerTaskRemoval = {
   set_at: string;
 };
 
+type AgendaProject = {
+  id: string;
+  title: string;
+  description: string | null;
+  sort_order: number;
+  is_done: boolean;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export const IntranetManager: React.FC = () => {
   const { profile } = useAuthStore();
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -149,10 +165,15 @@ export const IntranetManager: React.FC = () => {
   const [reports, setReports] = useState<AgendaReport[]>([]);
   const [weeklyCompletionItems, setWeeklyCompletionItems] = useState<CompletionItem[]>([]);
   const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
-  const [startSubmissions, setStartSubmissions] = useState<SubmissionEntry[]>([]);
-  const [uppSubmissions, setUppSubmissions] = useState<SubmissionEntry[]>([]);
-  const [rangeStartSubmissions, setRangeStartSubmissions] = useState<SubmissionEntry[]>([]);
-  const [rangeUppSubmissions, setRangeUppSubmissions] = useState<SubmissionEntry[]>([]);
+  const [projects, setProjects] = useState<AgendaProject[]>([]);
+  const [projectsSupported, setProjectsSupported] = useState(true);
+  const [projectEditorOpen, setProjectEditorOpen] = useState<Record<string, boolean>>({});
+  const [projectDetailsOpen, setProjectDetailsOpen] = useState<Record<string, boolean>>({});
+  const [activeProjectsExpanded, setActiveProjectsExpanded] = useState(false);
+  const [projectDrafts, setProjectDrafts] = useState<Record<string, { title: string; description: string }>>({});
+  const [newProjectDraft, setNewProjectDraft] = useState<{ title: string; description: string }>({ title: '', description: '' });
+  const [showAddProjectForm, setShowAddProjectForm] = useState(false);
+  const [projectMutationState, setProjectMutationState] = useState<Record<string, 'idle' | 'saving' | 'error'>>({});
   const [notes, setNotes] = useState<ManagerNote[]>([]);
   const [customTasks, setCustomTasks] = useState<ManagerCustomTask[]>([]);
   const [customTasksSupported, setCustomTasksSupported] = useState(true);
@@ -165,18 +186,23 @@ export const IntranetManager: React.FC = () => {
   const [taskRemovalsSupported, setTaskRemovalsSupported] = useState(true);
   const [taskRemovalMutationState, setTaskRemovalMutationState] = useState<Record<string, 'idle' | 'saving' | 'error'>>({});
   const [historicalReports, setHistoricalReports] = useState<AgendaReport[]>([]);
+  const [historicalCompletionItems, setHistoricalCompletionItems] = useState<CompletionItem[]>([]);
+  const [historicalCustomTasks, setHistoricalCustomTasks] = useState<ManagerCustomTask[]>([]);
+  const [historicalTaskRemovals, setHistoricalTaskRemovals] = useState<ManagerTaskRemoval[]>([]);
+  const [selectedHistoricalReportKey, setSelectedHistoricalReportKey] = useState<string | null>(null);
   const [alertOverrides, setAlertOverrides] = useState<ManagerAlertOverride[]>([]);
   const [alertOverrideSupported, setAlertOverrideSupported] = useState(true);
   const [alertMutationState, setAlertMutationState] = useState<Record<string, 'idle' | 'saving' | 'error'>>({});
   const [alertReasonDrafts, setAlertReasonDrafts] = useState<Record<string, string>>({});
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [noteStatus, setNoteStatus] = useState<Record<string, 'idle' | 'saving' | 'error'>>({});
+  const [showManagerAddTaskForm, setShowManagerAddTaskForm] = useState(false);
   const [staffFilter, setStaffFilter] = useState('');
   const [analysisWindowDays, setAnalysisWindowDays] = useState<1 | 7 | 30>(7);
-  const [sectionOpen, setSectionOpen] = useState<Record<'overview' | 'reports' | 'submissions' | 'staff', boolean>>({
+  const [sectionOpen, setSectionOpen] = useState<Record<'overview' | 'reports' | 'projects' | 'staff', boolean>>({
     overview: true,
     reports: true,
-    submissions: true,
+    projects: true,
     staff: true
   });
   const [expandedStaff, setExpandedStaff] = useState<Record<string, boolean>>({});
@@ -193,21 +219,25 @@ export const IntranetManager: React.FC = () => {
   const dataKeys = useMemo(() => getRecentDateKeys(selectedDate, dataWindowDays), [selectedDate, dataWindowDays]);
 
   useEffect(() => {
+    const fontLinkId = 'google-sans-code-font';
+    if (document.getElementById(fontLinkId)) return;
+    const link = document.createElement('link');
+    link.id = fontLinkId;
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@400;500;700;800&display=swap';
+    document.head.appendChild(link);
+  }, []);
+
+  useEffect(() => {
     if (!isSupabaseConfigured()) return;
     let active = true;
     const load = async () => {
       setStatus('loading');
       setError(null);
       try {
-        const dayStart = `${dateKey}T00:00:00`;
-        const nextDay = new Date(`${dateKey}T00:00:00`);
-        nextDay.setDate(nextDay.getDate() + 1);
-        const dayEnd = `${formatDateKey(nextDay)}T00:00:00`;
         const rangeStart = dataKeys[dataKeys.length - 1] || dateKey;
-        const rangeStartTs = `${rangeStart}T00:00:00`;
-
-        const [staffRes, templateRes, completionRes, reportRes, startRes, uppRes, rangeStartRes, rangeUppRes, notesRes, weeklyCompletionRes, weeklyReportRes, historicalReportsRes] = await Promise.all([
-          supabase.from('profiles').select('id, full_name, email, is_staff').eq('is_staff', true),
+        const [staffRes, templateRes, completionRes, reportRes, projectsRes, notesRes, weeklyCompletionRes, weeklyReportRes, historicalReportsRes] = await Promise.all([
+          supabase.from('profiles').select('id, full_name, email, is_staff, is_manager').eq('is_staff', true),
           supabase.from('agenda_templates').select('id,title,schedule_days,sort_order,estimated_minutes').eq('is_active', true),
           supabase
             .from('agenda_completion_items')
@@ -218,29 +248,11 @@ export const IntranetManager: React.FC = () => {
             .select('user_id, report_date, did, handover, start_time, end_time')
             .eq('report_date', dateKey),
           supabase
-            .from('startformular')
-            .select('id, created_at, first_name, last_name, email')
-            .gte('created_at', dayStart)
-            .lt('created_at', dayEnd)
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('uppfoljningar')
-            .select('id, created_at, first_name, last_name, email')
-            .gte('created_at', dayStart)
-            .lt('created_at', dayEnd)
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('startformular')
-            .select('id, created_at, first_name, last_name, email')
-            .gte('created_at', rangeStartTs)
-            .lt('created_at', dayEnd)
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('uppfoljningar')
-            .select('id, created_at, first_name, last_name, email')
-            .gte('created_at', rangeStartTs)
-            .lt('created_at', dayEnd)
-            .order('created_at', { ascending: false }),
+            .from('agenda_projects')
+            .select('id, title, description, sort_order, is_done, is_active, created_at, updated_at')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: true }),
           supabase
             .from('agenda_manager_notes')
             .select('id, user_id, report_date, task_id, note, created_by, created_at')
@@ -258,7 +270,6 @@ export const IntranetManager: React.FC = () => {
           supabase
             .from('agenda_reports')
             .select('user_id, report_date, did, handover, start_time, end_time')
-            .gte('report_date', rangeStart)
             .lte('report_date', dateKey)
             .order('report_date', { ascending: false })
         ]);
@@ -267,10 +278,6 @@ export const IntranetManager: React.FC = () => {
         if (templateRes.error) throw templateRes.error;
         if (completionRes.error) throw completionRes.error;
         if (reportRes.error) throw reportRes.error;
-        if (startRes.error) throw startRes.error;
-        if (uppRes.error) throw uppRes.error;
-        if (rangeStartRes.error) throw rangeStartRes.error;
-        if (rangeUppRes.error) throw rangeUppRes.error;
         if (notesRes.error) throw notesRes.error;
         if (weeklyCompletionRes.error) throw weeklyCompletionRes.error;
         if (weeklyReportRes.error) throw weeklyReportRes.error;
@@ -281,14 +288,31 @@ export const IntranetManager: React.FC = () => {
         setTemplates(templateRes.data || []);
         setCompletionItems(completionRes.data || []);
         setReports(reportRes.data || []);
-        setStartSubmissions(startRes.data || []);
-        setUppSubmissions(uppRes.data || []);
-        setRangeStartSubmissions(rangeStartRes.data || []);
-        setRangeUppSubmissions(rangeUppRes.data || []);
+        if (projectsRes.error) {
+          console.warn('Agenda projects unavailable', projectsRes.error);
+          setProjectsSupported(false);
+          setProjects([]);
+        } else {
+          setProjectsSupported(true);
+          setProjects((projectsRes.data || []) as AgendaProject[]);
+        }
         setNotes(notesRes.data || []);
         setWeeklyCompletionItems((weeklyCompletionRes.data || []) as CompletionItem[]);
         setWeeklyReports((weeklyReportRes.data || []) as WeeklyReport[]);
         setHistoricalReports((historicalReportsRes.data || []) as AgendaReport[]);
+
+        const historicalCompletionRes = await supabase
+          .from('agenda_completion_items')
+          .select('user_id, report_date, task_id, completed_at, completed_by, source')
+          .lte('report_date', dateKey);
+
+        if (!active) return;
+        if (historicalCompletionRes.error) {
+          console.warn('Historical completion items unavailable', historicalCompletionRes.error);
+          setHistoricalCompletionItems([]);
+        } else {
+          setHistoricalCompletionItems((historicalCompletionRes.data || []) as CompletionItem[]);
+        }
 
         const customTasksRes = await supabase
           .from('agenda_manager_custom_tasks')
@@ -302,9 +326,25 @@ export const IntranetManager: React.FC = () => {
           console.warn('Custom tasks unavailable', customTasksRes.error);
           setCustomTasksSupported(false);
           setCustomTasks([]);
+          setHistoricalCustomTasks([]);
         } else {
           setCustomTasksSupported(true);
           setCustomTasks((customTasksRes.data || []) as ManagerCustomTask[]);
+
+          const historicalCustomTasksRes = await supabase
+            .from('agenda_manager_custom_tasks')
+            .select('id, user_id, report_date, title, estimated_minutes, details, created_by, created_at, is_active')
+            .eq('is_active', true)
+            .lte('report_date', dateKey)
+            .order('created_at', { ascending: true });
+
+          if (!active) return;
+          if (historicalCustomTasksRes.error) {
+            console.warn('Historical custom tasks unavailable', historicalCustomTasksRes.error);
+            setHistoricalCustomTasks([]);
+          } else {
+            setHistoricalCustomTasks((historicalCustomTasksRes.data || []) as ManagerCustomTask[]);
+          }
         }
 
         const taskRemovalRes = await supabase
@@ -317,9 +357,23 @@ export const IntranetManager: React.FC = () => {
           console.warn('Task removals unavailable', taskRemovalRes.error);
           setTaskRemovalsSupported(false);
           setTaskRemovals([]);
+          setHistoricalTaskRemovals([]);
         } else {
           setTaskRemovalsSupported(true);
           setTaskRemovals((taskRemovalRes.data || []) as ManagerTaskRemoval[]);
+
+          const historicalTaskRemovalRes = await supabase
+            .from('agenda_manager_task_removals')
+            .select('user_id, report_date, task_id, is_removed, reason, set_by, set_at')
+            .lte('report_date', dateKey);
+
+          if (!active) return;
+          if (historicalTaskRemovalRes.error) {
+            console.warn('Historical task removals unavailable', historicalTaskRemovalRes.error);
+            setHistoricalTaskRemovals([]);
+          } else {
+            setHistoricalTaskRemovals((historicalTaskRemovalRes.data || []) as ManagerTaskRemoval[]);
+          }
         }
 
         const overrideRes = await supabase
@@ -432,35 +486,102 @@ export const IntranetManager: React.FC = () => {
     return map;
   }, [analytics.rows]);
 
-  const analysisDateSet = useMemo(() => new Set(analysisKeys), [analysisKeys]);
-
-  const historicalReportsInWindow = useMemo(() => (
-    historicalReports.filter((report) => analysisDateSet.has(report.report_date))
-  ), [analysisDateSet, historicalReports]);
-
-  const startSubmissionsInWindow = useMemo(() => (
-    rangeStartSubmissions.filter((item) => {
-      const key = formatDateKey(new Date(item.created_at));
-      return analysisDateSet.has(key);
+  const historicalReportSummaries = useMemo(() => (
+    buildHistoricalReportSummaries({
+      reports: historicalReports,
+      templates,
+      completions: historicalCompletionItems.map((item) => ({
+        user_id: item.user_id,
+        report_date: item.report_date,
+        task_id: item.task_id
+      })),
+      customTasks: historicalCustomTasks.map((task) => ({
+        id: task.id,
+        report_date: task.report_date,
+        title: task.title,
+        estimated_minutes: task.estimated_minutes,
+        is_active: task.is_active
+      })),
+      removals: historicalTaskRemovals.map((row) => ({
+        user_id: row.user_id,
+        report_date: row.report_date,
+        task_id: row.task_id,
+        is_removed: row.is_removed
+      }))
     })
-  ), [analysisDateSet, rangeStartSubmissions]);
+  ), [historicalReports, templates, historicalCompletionItems, historicalCustomTasks, historicalTaskRemovals]);
 
-  const uppSubmissionsInWindow = useMemo(() => (
-    rangeUppSubmissions.filter((item) => {
-      const key = formatDateKey(new Date(item.created_at));
-      return analysisDateSet.has(key);
-    })
-  ), [analysisDateSet, rangeUppSubmissions]);
+  useEffect(() => {
+    if (historicalReportSummaries.length === 0) {
+      setSelectedHistoricalReportKey(null);
+      return;
+    }
+    setSelectedHistoricalReportKey((prev) => {
+      if (!prev) return historicalReportSummaries[0].key;
+      const exists = historicalReportSummaries.some((row) => row.key === prev);
+      return exists ? prev : historicalReportSummaries[0].key;
+    });
+  }, [historicalReportSummaries]);
 
-  const analysisWindowLabel = formatWindowDaysLabel(analysisWindowDays);
-  const submissionsInRangeTotal = startSubmissionsInWindow.length + uppSubmissionsInWindow.length;
-  const completedTasksWindow = windowPerformance.totals.completedTasks;
+  const selectedHistoricalReport = useMemo(() => {
+    if (historicalReportSummaries.length === 0) return null;
+    return historicalReportSummaries.find((row) => row.key === selectedHistoricalReportKey) || historicalReportSummaries[0];
+  }, [historicalReportSummaries, selectedHistoricalReportKey]);
+
+  const selectedHistoricalStaff = selectedHistoricalReport
+    ? staffById[selectedHistoricalReport.user_id]
+    : null;
+
+  const projectsOrdered = useMemo(() => {
+    const open = projects.filter((item) => !item.is_done);
+    const done = projects.filter((item) => item.is_done);
+    return [...open, ...done];
+  }, [projects]);
+  const activeProjects = useMemo(
+    () => projectsOrdered.filter((item) => !item.is_done),
+    [projectsOrdered]
+  );
+
   const missedTasksWindow = Math.max(0, windowPerformance.totals.expectedTasks - windowPerformance.totals.completedTasks);
+  const missedTasksRateWindow = windowPerformance.totals.expectedTasks > 0
+    ? Math.round((missedTasksWindow / windowPerformance.totals.expectedTasks) * 100)
+    : 0;
   const completionRateWindow = windowPerformance.totals.expectedTasks > 0
     ? Math.round((windowPerformance.totals.completedTasks / windowPerformance.totals.expectedTasks) * 100)
     : 0;
+  const overEstimateWindow = useMemo(() => (
+    computeOverEstimateDays({
+      dateKeys: analysisKeys,
+      templates: templates.map((item) => ({
+        id: item.id,
+        schedule_days: item.schedule_days,
+        estimated_minutes: item.estimated_minutes ?? null
+      })),
+      customTasks: historicalCustomTasks.map((item) => ({
+        id: item.id,
+        report_date: item.report_date,
+        estimated_minutes: item.estimated_minutes ?? null,
+        is_active: item.is_active
+      })),
+      removals: historicalTaskRemovals.map((row) => ({
+        report_date: row.report_date,
+        task_id: row.task_id,
+        is_removed: row.is_removed
+      })),
+      reports: historicalReports.map((row) => ({
+        user_id: row.user_id,
+        report_date: row.report_date,
+        start_time: row.start_time,
+        end_time: row.end_time
+      }))
+    })
+  ), [analysisKeys, templates, historicalCustomTasks, historicalTaskRemovals, historicalReports]);
 
   const managerUserId = profile?.id || '';
+  const universalAgendaUserId = useMemo(
+    () => resolveUniversalAgendaUserId(staff, managerUserId),
+    [staff, managerUserId]
+  );
   const universalAgendaEnabled = true;
   const recurringTemplatesToday = useMemo(() => {
     const dayCode = getWeekdayCode(dateKey);
@@ -469,40 +590,25 @@ export const IntranetManager: React.FC = () => {
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }, [dateKey, templates]);
   const visibleRecurringTemplatesToday = useMemo(() => (
-    recurringTemplatesToday.filter((task) => !isTaskRemoved(removedTaskSet, managerUserId, dateKey, task.id))
-  ), [dateKey, managerUserId, recurringTemplatesToday, removedTaskSet]);
-  const removedRecurringTemplatesToday = useMemo(() => (
-    recurringTemplatesToday.filter((task) => isTaskRemoved(removedTaskSet, managerUserId, dateKey, task.id))
-  ), [dateKey, managerUserId, recurringTemplatesToday, removedTaskSet]);
-  const managerCompletionItemsToday = useMemo(() => (
-    completionItems.filter((item) => item.user_id === managerUserId && item.report_date === dateKey)
-  ), [completionItems, dateKey, managerUserId]);
-  const managerCompletedTaskIdsToday = useMemo(
-    () => new Set(managerCompletionItemsToday.map((item) => item.task_id)),
-    [managerCompletionItemsToday]
+    recurringTemplatesToday.filter((task) => !isTaskRemoved(removedTaskSet, universalAgendaUserId, dateKey, task.id))
+  ), [dateKey, recurringTemplatesToday, removedTaskSet, universalAgendaUserId]);
+  const universalCompletionItemsToday = useMemo(() => (
+    completionItems.filter((item) => item.user_id === universalAgendaUserId && item.report_date === dateKey)
+  ), [completionItems, dateKey, universalAgendaUserId]);
+  const universalCompletedTaskIdsToday = useMemo(
+    () => new Set(universalCompletionItemsToday.map((item) => item.task_id)),
+    [universalCompletionItemsToday]
   );
   const managerCustomTasksToday = useMemo(() => (
     customTasks.filter((task) => task.report_date === dateKey && task.is_active)
   ), [customTasks, dateKey]);
   const managerCustomCompletedToday = useMemo(() => (
-    managerCustomTasksToday.filter((task) => managerCompletedTaskIdsToday.has(`custom:${task.id}`)).length
-  ), [managerCompletedTaskIdsToday, managerCustomTasksToday]);
+    managerCustomTasksToday.filter((task) => universalCompletedTaskIdsToday.has(`custom:${task.id}`)).length
+  ), [universalCompletedTaskIdsToday, managerCustomTasksToday]);
   const universalTaskTotal = visibleRecurringTemplatesToday.length + managerCustomTasksToday.length;
-  const universalTaskCompleted = visibleRecurringTemplatesToday.filter((task) => managerCompletedTaskIdsToday.has(task.id)).length + managerCustomCompletedToday;
+  const universalTaskCompleted = visibleRecurringTemplatesToday.filter((task) => universalCompletedTaskIdsToday.has(task.id)).length + managerCustomCompletedToday;
   const managerDraft = customTaskDrafts[managerUserId] || { title: '', estimated_minutes: '', details: '' };
   const managerAddState = customTaskMutationState[`add:${managerUserId}`] || 'idle';
-  const notesForToday = useMemo(() => notes.filter((note) => note.report_date === dateKey), [dateKey, notes]);
-
-  const totals = useMemo(() => {
-    let totalTasks = 0;
-    let completedTasks = 0;
-    Object.entries(dailySummary.byUser).forEach(([userId, summary]) => {
-      const visibleTasks = summary.tasks.filter((task) => !isTaskRemoved(removedTaskSet, userId, dateKey, task.task_id));
-      totalTasks += visibleTasks.length;
-      completedTasks += visibleTasks.filter((task) => task.is_completed).length;
-    });
-    return { totalTasks, completedTasks };
-  }, [dailySummary, removedTaskSet, dateKey]);
 
   const filteredStaff = useMemo(() => {
     if (!staffFilter.trim()) return staff;
@@ -738,6 +844,7 @@ export const IntranetManager: React.FC = () => {
       }]);
       setCustomTaskDrafts((prev) => ({ ...prev, [userId]: { title: '', estimated_minutes: '', details: '' } }));
       setCustomTaskMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+      if (userId === managerUserId) setShowManagerAddTaskForm(false);
       return;
     }
 
@@ -766,6 +873,7 @@ export const IntranetManager: React.FC = () => {
     }
     setCustomTaskDrafts((prev) => ({ ...prev, [userId]: { title: '', estimated_minutes: '', details: '' } }));
     setCustomTaskMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+    if (userId === managerUserId) setShowManagerAddTaskForm(false);
   };
 
   const handleRemoveCustomTask = async (task: ManagerCustomTask) => {
@@ -906,24 +1014,180 @@ export const IntranetManager: React.FC = () => {
     setNoteStatus((prev) => ({ ...prev, [userId]: 'idle' }));
   };
 
+  const handleToggleProjectDone = async (project: AgendaProject) => {
+    const mutationKey = `toggle:${project.id}`;
+    const nextDone = !project.is_done;
+    setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'saving' }));
+    setProjects((prev) => prev.map((item) => (
+      item.id === project.id ? { ...item, is_done: nextDone } : item
+    )));
+
+    if (!projectsSupported) {
+      setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from('agenda_projects')
+      .update({ is_done: nextDone })
+      .eq('id', project.id);
+
+    if (updateError) {
+      console.warn('Failed to toggle project', updateError);
+      setProjects((prev) => prev.map((item) => (
+        item.id === project.id ? { ...item, is_done: project.is_done } : item
+      )));
+      setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'error' }));
+      return;
+    }
+
+    setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+  };
+
+  const handleSaveProject = async (project: AgendaProject) => {
+    const draft = projectDrafts[project.id] || {
+      title: project.title,
+      description: project.description || ''
+    };
+    const title = draft.title.trim();
+    const description = draft.description.trim();
+    if (!title) return;
+
+    const mutationKey = `save:${project.id}`;
+    setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'saving' }));
+    setProjects((prev) => prev.map((item) => (
+      item.id === project.id
+        ? { ...item, title, description: description || null }
+        : item
+    )));
+
+    if (!projectsSupported) {
+      setProjectEditorOpen((prev) => ({ ...prev, [project.id]: false }));
+      setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from('agenda_projects')
+      .update({
+        title,
+        description: description || null
+      })
+      .eq('id', project.id);
+
+    if (updateError) {
+      console.warn('Failed to save project', updateError);
+      setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'error' }));
+      return;
+    }
+
+    setProjectEditorOpen((prev) => ({ ...prev, [project.id]: false }));
+    setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+  };
+
+  const handleAddProject = async () => {
+    const title = newProjectDraft.title.trim();
+    const description = newProjectDraft.description.trim();
+    if (!title) return;
+
+    const mutationKey = 'add:new';
+    setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'saving' }));
+
+    const nextSortOrder = projects.reduce((max, item) => (
+      Math.max(max, Number.isFinite(item.sort_order) ? item.sort_order : 0)
+    ), 0) + 1;
+
+    if (!projectsSupported) {
+      const localId = `local-project-${Date.now()}`;
+      setProjects((prev) => [...prev, {
+        id: localId,
+        title,
+        description: description || null,
+        sort_order: nextSortOrder,
+        is_done: false,
+        is_active: true
+      }]);
+      setNewProjectDraft({ title: '', description: '' });
+      setShowAddProjectForm(false);
+      setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+      return;
+    }
+
+    const { data, error: insertError } = await supabase
+      .from('agenda_projects')
+      .insert([{
+        title,
+        description: description || null,
+        sort_order: nextSortOrder,
+        is_done: false,
+        is_active: true
+      }])
+      .select('id, title, description, sort_order, is_done, is_active, created_at, updated_at')
+      .maybeSingle();
+
+    if (insertError) {
+      console.warn('Failed to add project', insertError);
+      setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'error' }));
+      return;
+    }
+
+    if (data) {
+      setProjects((prev) => [...prev, data as AgendaProject]);
+    }
+    setNewProjectDraft({ title: '', description: '' });
+    setShowAddProjectForm(false);
+    setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+  };
+
+  const handleRemoveProject = async (project: AgendaProject) => {
+    const mutationKey = `remove:${project.id}`;
+    const previous = projects;
+    setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'saving' }));
+    setProjects((prev) => prev.filter((item) => item.id !== project.id));
+
+    if (!projectsSupported || project.id.startsWith('local-project-')) {
+      setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+      return;
+    }
+
+    const { error: removeError } = await supabase
+      .from('agenda_projects')
+      .update({ is_active: false })
+      .eq('id', project.id);
+
+    if (removeError) {
+      console.warn('Failed to remove project', removeError);
+      setProjects(previous);
+      setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'error' }));
+      return;
+    }
+
+    setProjectMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+  };
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#a0c81d]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#111111]" />
       </div>
     );
   }
 
   return (
-    <div className={ui.page}>
+    <div
+      className={ui.page}
+      style={{
+        fontFamily: "'Google Sans Code', 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', monospace"
+      }}
+    >
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-11 h-11 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
+          <div className="w-11 h-11 rounded-2xl bg-[#E5E7EB] border border-[#1F2937]/30 flex items-center justify-center text-[#111111]">
             <ClipboardList className="w-6 h-6" />
           </div>
           <div>
             <p className={ui.label}>Manager</p>
-            <h1 className="text-3xl md:text-4xl font-black text-[#3D3D3D]">Dagsagenda</h1>
+            <h1 className="text-3xl md:text-4xl font-black text-[#111111]">Dagsagenda</h1>
             <p className={ui.body}>Idag ({dateKey})</p>
           </div>
         </div>
@@ -942,278 +1206,159 @@ export const IntranetManager: React.FC = () => {
               onClick={() => setAnalysisWindowDays(days as 1 | 7 | 30)}
               className={`px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-[0.2em] ${
                 analysisWindowDays === days
-                  ? 'border-[#a0c81d] bg-[#a0c81d]/15 text-[#556b0b]'
-                  : 'border-[#DAD1C5] bg-white text-[#6B6158]'
+                  ? 'border-[#111111] bg-[#111111] text-white'
+                  : 'border-[#9CA3AF] bg-white text-[#374151]'
               }`}
             >
               {days === 1 ? '1 dag' : `${days} dagar`}
             </button>
           ))}
-          <div className="text-[11px] text-[#8A8177] self-center">
+          <div className="text-[11px] text-[#374151] self-center">
             Intervall: {analysisKeys[analysisKeys.length - 1]} - {dateKey}
           </div>
         </div>
 
-        <div className="flex flex-col">
-        <div className="order-1 mb-8 rounded-2xl border border-[#DAD1C5] bg-white">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
+        <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:order-3 h-full flex flex-col">
           <button
             type="button"
             onClick={() => setSectionOpen((prev) => ({ ...prev, overview: !prev.overview }))}
-            className="w-full px-5 py-4 flex items-center justify-between text-left"
+            className="w-full px-5 py-4 min-h-[84px] flex items-center justify-between text-left"
           >
-            <div>
-              <div className={ui.label}>Analysöversikt (klickbar rubrik)</div>
-              <div className="text-sm text-[#6B6158]">KPI: avvikelser, täckning, kritiska uppgifter och snittdelta.</div>
-            </div>
-            <ChevronDown className={`w-5 h-5 text-[#8A8177] transition-transform ${sectionOpen.overview ? 'rotate-180' : ''}`} />
+            <h2 className="text-[28px] leading-none font-black text-[#111111]">Status</h2>
+            <ChevronDown className={`w-5 h-5 text-[#111111] transition-transform ${sectionOpen.overview ? 'rotate-180' : ''}`} />
           </button>
           {sectionOpen.overview && (
-            <div className="border-t border-[#EFE7DC] p-5 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className={ui.card}>
-                  <div className={ui.label}>Klarmarkerat idag</div>
-                  <div className="mt-2 text-3xl font-black text-[#3D3D3D]">{totals.completedTasks}</div>
-                </div>
-                <div className={ui.card}>
-                  <div className={ui.label}>Totala uppgifter idag</div>
-                  <div className="mt-2 text-3xl font-black text-[#3D3D3D]">{totals.totalTasks}</div>
-                </div>
-                <div className={ui.card}>
-                  <div className={ui.label}>Rapporter idag</div>
-                  <div className="mt-2 text-3xl font-black text-[#3D3D3D]">{reports.length}</div>
-                </div>
-                <div className={ui.card}>
-                  <div className={ui.label}>Inlämningar idag</div>
-                  <div className="mt-2 text-3xl font-black text-[#3D3D3D]">{startSubmissions.length + uppSubmissions.length}</div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className={ui.card}>
-                  <div className={ui.label}>Slutförda uppgifter ({analysisWindowLabel})</div>
-                  <div className="mt-2 text-3xl font-black text-[#3D3D3D]">{completedTasksWindow}</div>
-                </div>
-                <div className={ui.card}>
-                  <div className={ui.label}>Missade uppgifter ({analysisWindowLabel})</div>
-                  <div className="mt-2 text-3xl font-black text-rose-700">{missedTasksWindow}</div>
-                </div>
-                <div className={ui.card}>
-                  <div className={ui.label}>Slutförandegrad ({analysisWindowLabel})</div>
-                  <div className="mt-2 text-3xl font-black text-[#3D3D3D]">{completionRateWindow}%</div>
-                </div>
-                <div className={ui.card}>
-                  <div className={ui.label}>Veckoföljsamhet ({analysisWindowLabel})</div>
-                  <div className="mt-2 text-3xl font-black text-[#3D3D3D]">{windowPerformance.totals.adherencePct}%</div>
-                </div>
-              </div>
+            <div className="border-t border-[#E5E7EB] p-5 flex-1">
+              <ul className="space-y-2 text-sm text-[#111111]">
+                <li><span className="font-semibold">Slutförandegrad:</span> {completionRateWindow}%</li>
+                <li><span className="font-semibold">Missade uppgifter:</span> {missedTasksRateWindow}%</li>
+                <li><span className="font-semibold">Dagar över estimat:</span> {overEstimateWindow.overEstimatePct}%</li>
+              </ul>
             </div>
           )}
         </div>
 
-        <div className="order-2 mb-6 rounded-2xl border border-[#DAD1C5] bg-white">
+        <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:order-1 h-full flex flex-col">
           <button
             type="button"
             onClick={() => setSectionOpen((prev) => ({ ...prev, staff: !prev.staff }))}
-            className="w-full px-5 py-4 flex items-center justify-between text-left"
+            className="w-full px-5 py-4 min-h-[84px] flex items-center justify-between text-left"
           >
-            <div>
-              <div className={ui.label}>Avvikelseanalys (dagsagenda-hanterare)</div>
-              <div className="text-sm text-[#6B6158]">Universell dagsagenda som todo-lista med avvikelser, kommentarer och snabb redigering.</div>
-            </div>
-            <ChevronDown className={`w-5 h-5 text-[#8A8177] transition-transform ${sectionOpen.staff ? 'rotate-180' : ''}`} />
+            <h2 className="text-[28px] leading-none font-black text-[#111111]">Dagsagenda</h2>
+            <ChevronDown className={`w-5 h-5 text-[#111111] transition-transform ${sectionOpen.staff ? 'rotate-180' : ''}`} />
           </button>
           {sectionOpen.staff && (
-            <div className="border-t border-[#EFE7DC] p-5">
+            <div className="border-t border-[#E5E7EB] p-5 flex-1">
               {universalAgendaEnabled ? (
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 px-4 py-3">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.25em] text-[#8A8177]">Dagsagenda</p>
-                      <h3 className="text-lg font-black text-[#3D3D3D]">{universalTaskCompleted}/{universalTaskTotal} klara</h3>
-                    </div>
-                    <div className="text-[11px] text-[#8A8177]">Datum {dateKey}</div>
-                  </div>
+                <div className="space-y-4">
+                  <ul className="space-y-2 text-sm text-[#111111]">
+                    <li><span className="font-semibold">Dagsagenda:</span> {universalTaskCompleted}/{universalTaskTotal} slutförda</li>
+                    <li><span className="font-semibold">Datum:</span> {dateKey}</li>
+                  </ul>
 
-                  <div className="space-y-2">
+                  <ul className="space-y-1 text-[14px] text-[#111111]">
                     {visibleRecurringTemplatesToday.map((task) => {
                       const taskId = task.id;
-                      const completion = managerCompletionItemsToday.find((item) => item.task_id === taskId);
+                      const completion = universalCompletionItemsToday.find((item) => item.task_id === taskId);
                       const isCompleted = Boolean(completion);
-                      const taskMutationKey = `${managerUserId}:${dateKey}:${taskId}`;
+                      const taskMutationKey = `${universalAgendaUserId}:${dateKey}:${taskId}`;
                       const taskMutation = taskMutationState[taskMutationKey] || 'idle';
-                      const taskRemovalKey = `remove-template:${managerUserId}:${dateKey}:${taskId}`;
+                      const taskRemovalKey = `remove-template:${universalAgendaUserId}:${dateKey}:${taskId}`;
                       const taskRemovalState = taskRemovalMutationState[taskRemovalKey] || 'idle';
-                      const taskNotes = notesForToday.filter((note) => note.task_id === taskId);
-                      const taskNoteKey = `${managerUserId}:${taskId}`;
-                      const taskNoteValue = taskNoteDrafts[taskNoteKey] || '';
-                      const taskNoteMutation = taskNoteStatus[taskNoteKey] || 'idle';
                       return (
-                        <div key={task.id} className="rounded-xl border border-[#E6E1D8] bg-white/80 p-3 space-y-2">
-                          <div className="flex items-start gap-3">
-                            <input
-                              type="checkbox"
-                              checked={isCompleted}
-                              onChange={() => handleManagerToggleTask(managerUserId, taskId, isCompleted)}
-                              disabled={!managerUserId || taskMutation === 'saving'}
-                              className="mt-1 accent-[#a0c81d]"
-                            />
-                            <div className="flex-1">
-                              <div className={`text-sm font-semibold ${isCompleted ? 'line-through text-[#8A8177]' : 'text-[#3D3D3D]'}`}>
-                                {task.title}
-                              </div>
-                              <div className="text-[11px] text-[#8A8177] mt-1 flex items-center gap-2">
-                                <span>{isCompleted ? `Klarmarkerad ${formatTime(completion?.completed_at)}` : 'Ej klarmarkerad'}</span>
-                                {task.estimated_minutes && (
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] border border-[#E6E1D8] rounded-full px-2 py-0.5 bg-white/80">
-                                    {task.estimated_minutes} min
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                        <li key={task.id} className="flex items-start justify-between gap-3">
+                          <div className={`min-w-0 ${isCompleted ? 'line-through text-[#4B5563]' : 'text-[#111111]'}`}>
+                            - {task.title}
+                          </div>
+                          <div className="flex items-center gap-3">
                             <button
                               type="button"
-                              onClick={() => handleSetTaskRemoved(managerUserId, taskId, true)}
-                              disabled={!managerUserId || taskRemovalState === 'saving'}
-                              className="px-2 py-1 rounded-md border border-slate-400/40 text-slate-700 bg-slate-100 text-[10px] font-black uppercase tracking-[0.15em]"
+                              onClick={() => handleSetTaskRemoved(universalAgendaUserId, taskId, true)}
+                              disabled={!universalAgendaUserId || taskRemovalState === 'saving'}
+                              className="text-[11px] font-semibold text-[#4B5563] hover:text-[#111111] disabled:opacity-50"
                             >
                               {taskRemovalState === 'saving' ? 'Tar bort...' : 'Ta bort'}
                             </button>
+                            <button
+                              type="button"
+                              aria-label={isCompleted ? `Markera ${task.title} som ej klar` : `Markera ${task.title} som klar`}
+                              onClick={() => handleManagerToggleTask(universalAgendaUserId, taskId, isCompleted)}
+                              disabled={!universalAgendaUserId || taskMutation === 'saving'}
+                              className="text-[18px] leading-none font-black text-[#111111] disabled:opacity-50"
+                            >
+                              {isCompleted ? '✓' : '○'}
+                            </button>
                           </div>
-                          <div className="rounded-lg border border-[#E6E1D8] bg-white p-2 space-y-1">
-                            {taskNotes.slice(0, 2).map((note) => (
-                              <div key={note.id} className="text-[11px] text-[#6B6158]">
-                                {note.note}
-                              </div>
-                            ))}
-                            <div className="flex items-center gap-2">
-                              <input
-                                value={taskNoteValue}
-                                onChange={(event) => setTaskNoteDrafts((prev) => ({ ...prev, [taskNoteKey]: event.target.value }))}
-                                placeholder="Kommentar till uppgift..."
-                                className="flex-1 rounded-md border border-[#DAD1C5] bg-white px-2 py-1 text-[11px]"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleAddTaskNote(managerUserId, taskId)}
-                                disabled={!managerUserId || taskNoteMutation === 'saving'}
-                                className="px-2 py-1 rounded-md border border-[#a0c81d]/40 bg-[#a0c81d]/10 text-[#556b0b] text-[10px] font-black uppercase tracking-[0.15em]"
-                              >
-                                {taskNoteMutation === 'saving' ? 'Sparar' : 'Spara'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
+                        </li>
                       );
                     })}
 
                     {managerCustomTasksToday.map((task) => {
                       const taskId = `custom:${task.id}`;
-                      const completion = managerCompletionItemsToday.find((item) => item.task_id === taskId);
+                      const completion = universalCompletionItemsToday.find((item) => item.task_id === taskId);
                       const isCompleted = Boolean(completion);
-                      const taskMutationKey = `${managerUserId}:${dateKey}:${taskId}`;
+                      const taskMutationKey = `${universalAgendaUserId}:${dateKey}:${taskId}`;
                       const taskMutation = taskMutationState[taskMutationKey] || 'idle';
                       const removeState = customTaskMutationState[`remove:${task.id}`] || 'idle';
-                      const taskNotes = notesForToday.filter((note) => note.task_id === taskId);
-                      const taskNoteKey = `${managerUserId}:${taskId}`;
-                      const taskNoteValue = taskNoteDrafts[taskNoteKey] || '';
-                      const taskNoteMutation = taskNoteStatus[taskNoteKey] || 'idle';
                       const detailsExpanded = !!expandedTaskDetails[taskId];
                       return (
-                        <div key={task.id} className="rounded-xl border border-[#D8E7BE] bg-[#F0F7DF] p-3 space-y-2">
-                          <div className="flex items-start gap-3">
-                            <input
-                              type="checkbox"
-                              checked={isCompleted}
-                              onChange={() => handleManagerToggleTask(managerUserId, taskId, isCompleted)}
-                              disabled={!managerUserId || taskMutation === 'saving'}
-                              className="mt-1 accent-[#a0c81d]"
-                            />
-                            <div className="flex-1">
-                              <div className={`text-sm font-semibold ${isCompleted ? 'line-through text-[#8A8177]' : 'text-[#3D3D3D]'}`}>{task.title}</div>
-                              <div className="text-[11px] text-[#8A8177] mt-1">
-                                Extra uppgift {task.estimated_minutes ? `· Est ${task.estimated_minutes} min` : ''}
-                              </div>
-                            </div>
-                            <button
+                        <li key={task.id}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className={`min-w-0 ${isCompleted ? 'line-through text-[#4B5563]' : 'text-[#111111]'}`}>- {task.title}</div>
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCustomTask(task)}
+                                disabled={removeState === 'saving'}
+                                className="text-[11px] font-semibold text-[#4B5563] hover:text-[#111111] disabled:opacity-50"
+                              >
+                                {removeState === 'saving' ? 'Tar bort...' : 'Ta bort'}
+                              </button>
+                              <button
                               type="button"
-                              onClick={() => handleRemoveCustomTask(task)}
-                              disabled={removeState === 'saving'}
-                              className="px-2 py-1 rounded-md border border-slate-400/40 text-slate-700 bg-slate-100 text-[10px] font-black uppercase tracking-[0.15em]"
+                              aria-label={isCompleted ? `Markera ${task.title} som ej klar` : `Markera ${task.title} som klar`}
+                              onClick={() => handleManagerToggleTask(universalAgendaUserId, taskId, isCompleted)}
+                              disabled={!universalAgendaUserId || taskMutation === 'saving'}
+                              className="text-[18px] leading-none font-black text-[#111111] disabled:opacity-50"
                             >
-                              {removeState === 'saving' ? 'Tar bort...' : 'Ta bort'}
-                            </button>
+                              {isCompleted ? '✓' : '○'}
+                              </button>
+                            </div>
                           </div>
                           {task.details && (
-                            <div className="text-[11px] text-[#6B6158] rounded-lg border border-[#E6E1D8] bg-white p-2">
-                              {detailsExpanded ? task.details : truncateText(task.details, 110)}
-                              {task.details.length > 110 && (
+                            <div className="mt-1 ml-3 text-[11px] text-[#4B5563]">
+                              {detailsExpanded ? task.details : truncateText(task.details, 120)}
+                              {task.details.length > 120 && (
                                 <button
                                   type="button"
                                   onClick={() => setExpandedTaskDetails((prev) => ({ ...prev, [taskId]: !prev[taskId] }))}
-                                  className="ml-2 text-[#556b0b] font-black uppercase tracking-[0.12em]"
+                                  className="ml-2 font-semibold text-[#111111] hover:underline"
                                 >
                                   {detailsExpanded ? 'Visa mindre' : 'Läs mer'}
                                 </button>
                               )}
                             </div>
                           )}
-                          <div className="rounded-lg border border-[#E6E1D8] bg-white p-2 space-y-1">
-                            {taskNotes.slice(0, 2).map((note) => (
-                              <div key={note.id} className="text-[11px] text-[#6B6158]">
-                                {note.note}
-                              </div>
-                            ))}
-                            <div className="flex items-center gap-2">
-                              <input
-                                value={taskNoteValue}
-                                onChange={(event) => setTaskNoteDrafts((prev) => ({ ...prev, [taskNoteKey]: event.target.value }))}
-                                placeholder="Kommentar till uppgift..."
-                                className="flex-1 rounded-md border border-[#DAD1C5] bg-white px-2 py-1 text-[11px]"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleAddTaskNote(managerUserId, taskId)}
-                                disabled={!managerUserId || taskNoteMutation === 'saving'}
-                                className="px-2 py-1 rounded-md border border-[#a0c81d]/40 bg-[#a0c81d]/10 text-[#556b0b] text-[10px] font-black uppercase tracking-[0.15em]"
-                              >
-                                {taskNoteMutation === 'saving' ? 'Sparar' : 'Spara'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
+                        </li>
                       );
                     })}
 
-                    {removedRecurringTemplatesToday.length > 0 && (
-                      <div className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-3 space-y-2">
-                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8A8177]">Borttagna idag</div>
-                        {removedRecurringTemplatesToday.map((task) => {
-                          const taskRemovalKey = `remove-template:${managerUserId}:${dateKey}:${task.id}`;
-                          const taskRemovalState = taskRemovalMutationState[taskRemovalKey] || 'idle';
-                          return (
-                            <div key={`removed-${task.id}`} className="flex items-center justify-between rounded-lg border border-[#DAD1C5] bg-white px-3 py-2">
-                              <div className="text-[11px] text-[#6B6158]">{task.title}</div>
-                              <button
-                                type="button"
-                                onClick={() => handleSetTaskRemoved(managerUserId, task.id, false)}
-                                disabled={!managerUserId || taskRemovalState === 'saving'}
-                                className="px-2 py-1 rounded-md border border-[#a0c81d]/40 bg-[#a0c81d]/10 text-[#556b0b] text-[10px] font-black uppercase tracking-[0.15em]"
-                              >
-                                {taskRemovalState === 'saving' ? 'Sparar...' : 'Återställ'}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
+                    {(visibleRecurringTemplatesToday.length + managerCustomTasksToday.length) === 0 && (
+                      <li className="text-sm text-[#4B5563]">Inga schemalagda uppgifter idag.</li>
                     )}
+                  </ul>
 
-                    <div className="rounded-xl border border-[#E6E1D8] bg-white/80 p-3 space-y-2">
-                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8A8177]">Lägg till uppgift</div>
-                      {!customTasksSupported && (
-                        <div className="text-[11px] text-amber-700">Databas-tabell saknas. Extra uppgifter sparas bara lokalt tills SQL körs.</div>
-                      )}
-                      {!taskRemovalsSupported && (
-                        <div className="text-[11px] text-amber-700">Databas-tabell för borttagna uppgifter saknas. Ta bort/återställ sparas bara lokalt tills SQL körs.</div>
-                      )}
+                  <button
+                    type="button"
+                    onClick={() => setShowManagerAddTaskForm((prev) => !prev)}
+                    className="text-sm font-semibold text-[#111111] hover:underline"
+                  >
+                    {showManagerAddTaskForm ? 'Stäng ny uppgift' : 'Lägg till ny uppgift'}
+                  </button>
+
+                  {showManagerAddTaskForm && (
+                    <div className="rounded-xl border border-[#D1D5DB] bg-white/80 p-3 space-y-2">
                       <input
                         value={managerDraft.title}
                         onChange={(event) => setCustomTaskDrafts((prev) => ({
@@ -1221,7 +1366,16 @@ export const IntranetManager: React.FC = () => {
                           [managerUserId]: { ...managerDraft, title: event.target.value }
                         }))}
                         placeholder="Uppgiftstitel"
-                        className="w-full rounded-md border border-[#DAD1C5] bg-white px-2 py-1 text-[11px]"
+                        className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
+                      />
+                      <input
+                        value={managerDraft.estimated_minutes}
+                        onChange={(event) => setCustomTaskDrafts((prev) => ({
+                          ...prev,
+                          [managerUserId]: { ...managerDraft, estimated_minutes: event.target.value }
+                        }))}
+                        placeholder="Estimerad tid (minuter)"
+                        className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
                       />
                       <textarea
                         value={managerDraft.details}
@@ -1229,33 +1383,33 @@ export const IntranetManager: React.FC = () => {
                           ...prev,
                           [managerUserId]: { ...managerDraft, details: event.target.value }
                         }))}
-                        placeholder="Kommentar / kontext (Läs mer)"
-                        className="w-full rounded-md border border-[#DAD1C5] bg-white px-2 py-1 text-[11px] min-h-[64px]"
+                        placeholder="Kort kontext (valfritt)"
+                        className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px] min-h-[56px]"
                       />
                       <button
                         type="button"
                         onClick={() => handleAddCustomTask(managerUserId)}
                         disabled={!managerUserId || managerAddState === 'saving'}
-                        className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-[#a0c81d]/40 text-[#556b0b] bg-[#a0c81d]/10"
+                        className="text-sm font-semibold text-[#111111] hover:underline disabled:opacity-50"
                       >
-                        {managerAddState === 'saving' ? 'Sparar...' : 'Lägg till'}
+                        {managerAddState === 'saving' ? 'Sparar...' : 'Spara uppgift'}
                       </button>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <>
               <div className="flex items-center gap-3 mb-6">
                 <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-[#8A8177] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-[#374151] absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     value={staffFilter}
                     onChange={(event) => setStaffFilter(event.target.value)}
                     placeholder="Filtrera personal..."
-                    className="w-full pl-9 pr-3 py-3 rounded-2xl border border-[#DAD1C5] bg-white text-sm text-[#3D3D3D]"
+                    className="w-full pl-9 pr-3 py-3 rounded-2xl border border-[#9CA3AF] bg-white text-sm text-[#111111]"
                   />
                 </div>
-                <div className="text-xs font-black uppercase tracking-[0.25em] text-[#8A8177]">{filteredStaff.length} personal</div>
+                <div className="text-xs font-black uppercase tracking-[0.25em] text-[#374151]">{filteredStaff.length} personal</div>
               </div>
 
               <div className="space-y-4">
@@ -1285,24 +1439,24 @@ export const IntranetManager: React.FC = () => {
             const addState = customTaskMutationState[`add:${member.id}`] || 'idle';
 
             return (
-              <div key={member.id} className="rounded-2xl border border-[#DAD1C5] bg-white">
+              <div key={member.id} className="rounded-2xl border border-[#9CA3AF] bg-white">
                 <button
                   type="button"
                   onClick={() => setExpandedStaff((prev) => ({ ...prev, [member.id]: !prev[member.id] }))}
                   className="w-full text-left px-5 py-4 flex items-center justify-between"
                 >
                   <div>
-                    <div className="text-sm font-black text-[#3D3D3D]">{member.full_name || member.email}</div>
-                    <div className="text-xs text-[#8A8177]">{member.email}</div>
+                    <div className="text-sm font-black text-[#111111]">{member.full_name || member.email}</div>
+                    <div className="text-xs text-[#374151]">{member.email}</div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-xs font-black uppercase tracking-[0.2em] text-[#8A8177]">
+                    <div className="text-xs font-black uppercase tracking-[0.2em] text-[#374151]">
                       {completedTaskCount}/{totalTaskCount} uppgifter
                     </div>
-                    <div className="text-xs font-black uppercase tracking-[0.2em] text-[#6B6158]">
+                    <div className="text-xs font-black uppercase tracking-[0.2em] text-[#4B5563]">
                       Vecka {performance?.adherencePct ?? 0}%
                     </div>
-                    <div className="text-xs font-black uppercase tracking-[0.2em] text-[#6B6158]">
+                    <div className="text-xs font-black uppercase tracking-[0.2em] text-[#4B5563]">
                       Rapport {performance?.reportCoveragePct ?? 0}%
                     </div>
                     {(performance?.slowTasks || 0) > 0 && (
@@ -1310,16 +1464,16 @@ export const IntranetManager: React.FC = () => {
                         Långsam {performance?.slowTasks}
                       </div>
                     )}
-                    <div className="text-xs text-[#6B6158]">Senast: {formatTime(summary?.last_completed_at ?? null)}</div>
+                    <div className="text-xs text-[#4B5563]">Senast: {formatTime(summary?.last_completed_at ?? null)}</div>
                     <div className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border ${report ? 'border-emerald-400/40 text-emerald-700 bg-emerald-50' : 'border-amber-400/40 text-amber-700 bg-amber-50'}`}>
                       {report ? 'Rapport' : 'Ingen rapport'}
                     </div>
-                    <ChevronDown className={`w-5 h-5 text-[#8A8177] transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-5 h-5 text-[#374151] transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                   </div>
                 </button>
 
                 {isExpanded && summary && (
-                  <div className="border-t border-[#EFE7DC] px-5 py-4 space-y-4">
+                  <div className="border-t border-[#E5E7EB] px-5 py-4 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <div className={ui.label}>Uppgifter idag</div>
@@ -1338,13 +1492,13 @@ export const IntranetManager: React.FC = () => {
                             const taskNoteMutation = taskNoteStatus[taskNoteKey] || 'idle';
                             return (
                               <div key={task.task_id} className="space-y-2">
-                                <div className="flex items-center justify-between rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 px-3 py-2">
+                                <div className="flex items-center justify-between rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/70 px-3 py-2">
                                   <div>
-                                    <div className="text-sm font-bold text-[#3D3D3D]">{task.title}</div>
-                                    <div className="text-[11px] text-[#8A8177]">
+                                    <div className="text-sm font-bold text-[#111111]">{task.title}</div>
+                                    <div className="text-[11px] text-[#374151]">
                                       {task.is_completed ? `Klarmarkerad ${formatTime(task.completed_at)}` : 'Ej klarmarkerad'}
                                     </div>
-                                    <div className="text-[11px] text-[#8A8177]">
+                                    <div className="text-[11px] text-[#374151]">
                                       Delta: {taskAnalytics?.delta_minutes === null || taskAnalytics?.delta_minutes === undefined ? '—' : `${taskAnalytics.delta_minutes} min`} · Förväntad {taskAnalytics ? formatTime(taskAnalytics.expected_completed_at) : '—'}
                                     </div>
                                   </div>
@@ -1420,12 +1574,12 @@ export const IntranetManager: React.FC = () => {
                                     value={alertReasonDrafts[overrideKey] ?? taskAnalytics.manager_reason ?? ''}
                                     onChange={(event) => setAlertReasonDrafts((prev) => ({ ...prev, [overrideKey]: event.target.value }))}
                                     placeholder="Managerkommentar till alarmbeslut..."
-                                    className="w-full rounded-lg border border-[#E6E1D8] bg-white px-3 py-2 text-[11px] text-[#3D3D3D]"
+                                    className="w-full rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-[11px] text-[#111111]"
                                   />
                                 )}
-                                <div className="rounded-lg border border-[#E6E1D8] bg-white/80 p-2 space-y-2">
+                                <div className="rounded-lg border border-[#D1D5DB] bg-white/80 p-2 space-y-2">
                                   {taskNotes.slice(0, 2).map((note) => (
-                                    <div key={note.id} className="text-[11px] text-[#6B6158]">
+                                    <div key={note.id} className="text-[11px] text-[#4B5563]">
                                       {note.note}
                                     </div>
                                   ))}
@@ -1434,13 +1588,13 @@ export const IntranetManager: React.FC = () => {
                                       value={taskNoteValue}
                                       onChange={(event) => setTaskNoteDrafts((prev) => ({ ...prev, [taskNoteKey]: event.target.value }))}
                                       placeholder="Kommentar till uppgift..."
-                                      className="flex-1 rounded-md border border-[#DAD1C5] bg-white px-2 py-1 text-[11px]"
+                                      className="flex-1 rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
                                     />
                                     <button
                                       type="button"
                                       onClick={() => handleAddTaskNote(member.id, task.task_id)}
                                       disabled={taskNoteMutation === 'saving'}
-                                      className="px-2 py-1 rounded-md border border-[#a0c81d]/40 bg-[#a0c81d]/10 text-[#556b0b] text-[10px] font-black uppercase tracking-[0.15em]"
+                                      className="px-2 py-1 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em]"
                                     >
                                       {taskNoteMutation === 'saving' ? 'Sparar' : 'Spara'}
                                     </button>
@@ -1470,19 +1624,19 @@ export const IntranetManager: React.FC = () => {
                             );
                           })}
                           {removedBaseTasks.length > 0 && (
-                            <div className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-3 space-y-2">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8A8177]">Borttagna idag</div>
+                            <div className="rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/60 p-3 space-y-2">
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#374151]">Borttagna idag</div>
                               {removedBaseTasks.map((task) => {
                                 const taskRemovalKey = `remove-template:${member.id}:${dateKey}:${task.task_id}`;
                                 const taskRemovalState = taskRemovalMutationState[taskRemovalKey] || 'idle';
                                 return (
-                                  <div key={`removed-${task.task_id}`} className="flex items-center justify-between rounded-lg border border-[#DAD1C5] bg-white px-3 py-2">
-                                    <div className="text-[11px] text-[#6B6158]">{task.title}</div>
+                                  <div key={`removed-${task.task_id}`} className="flex items-center justify-between rounded-lg border border-[#9CA3AF] bg-white px-3 py-2">
+                                    <div className="text-[11px] text-[#4B5563]">{task.title}</div>
                                     <button
                                       type="button"
                                       onClick={() => handleSetTaskRemoved(member.id, task.task_id, false)}
                                       disabled={taskRemovalState === 'saving'}
-                                      className="px-2 py-1 rounded-md border border-[#a0c81d]/40 bg-[#a0c81d]/10 text-[#556b0b] text-[10px] font-black uppercase tracking-[0.15em]"
+                                      className="px-2 py-1 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em]"
                                     >
                                       {taskRemovalState === 'saving' ? 'Sparar...' : 'Återställ'}
                                     </button>
@@ -1511,13 +1665,13 @@ export const IntranetManager: React.FC = () => {
                               <div key={task.id} className="space-y-2">
                                 <div className="flex items-center justify-between rounded-xl border border-[#D8E7BE] bg-[#F0F7DF] px-3 py-2">
                                   <div>
-                                    <div className="text-sm font-bold text-[#3D3D3D]">{task.title}</div>
-                                    <div className="text-[11px] text-[#8A8177]">
+                                    <div className="text-sm font-bold text-[#111111]">{task.title}</div>
+                                    <div className="text-[11px] text-[#374151]">
                                       Extra uppgift {task.estimated_minutes ? `· Est ${task.estimated_minutes} min` : ''} · {isCompleted ? `Klarmarkerad ${formatTime(completion?.completed_at)}` : 'Ej klarmarkerad'}
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border border-[#a0c81d]/40 text-[#556b0b] bg-[#a0c81d]/10">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border border-[#111111]/40 text-[#111111] bg-[#111111]/10">
                                       Extra
                                     </span>
                                     <button
@@ -1539,22 +1693,22 @@ export const IntranetManager: React.FC = () => {
                                   </div>
                                 </div>
                                 {task.details && (
-                                  <div className="rounded-lg border border-[#E6E1D8] bg-white/80 p-2 text-[11px] text-[#6B6158]">
+                                  <div className="rounded-lg border border-[#D1D5DB] bg-white/80 p-2 text-[11px] text-[#4B5563]">
                                     {detailsExpanded ? task.details : truncateText(task.details, 110)}
                                     {task.details.length > 110 && (
                                       <button
                                         type="button"
                                         onClick={() => setExpandedTaskDetails((prev) => ({ ...prev, [taskId]: !prev[taskId] }))}
-                                        className="ml-2 text-[#556b0b] font-black uppercase tracking-[0.12em]"
+                                        className="ml-2 text-[#111111] font-black uppercase tracking-[0.12em]"
                                       >
                                         {detailsExpanded ? 'Visa mindre' : 'Läs mer'}
                                       </button>
                                     )}
                                   </div>
                                 )}
-                                <div className="rounded-lg border border-[#E6E1D8] bg-white/80 p-2 space-y-2">
+                                <div className="rounded-lg border border-[#D1D5DB] bg-white/80 p-2 space-y-2">
                                   {taskNotes.slice(0, 2).map((note) => (
-                                    <div key={note.id} className="text-[11px] text-[#6B6158]">
+                                    <div key={note.id} className="text-[11px] text-[#4B5563]">
                                       {note.note}
                                     </div>
                                   ))}
@@ -1563,13 +1717,13 @@ export const IntranetManager: React.FC = () => {
                                       value={taskNoteValue}
                                       onChange={(event) => setTaskNoteDrafts((prev) => ({ ...prev, [taskNoteKey]: event.target.value }))}
                                       placeholder="Kommentar till extra uppgift..."
-                                      className="flex-1 rounded-md border border-[#DAD1C5] bg-white px-2 py-1 text-[11px]"
+                                      className="flex-1 rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
                                     />
                                     <button
                                       type="button"
                                       onClick={() => handleAddTaskNote(member.id, taskId)}
                                       disabled={taskNoteMutation === 'saving'}
-                                      className="px-2 py-1 rounded-md border border-[#a0c81d]/40 bg-[#a0c81d]/10 text-[#556b0b] text-[10px] font-black uppercase tracking-[0.15em]"
+                                      className="px-2 py-1 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em]"
                                     >
                                       {taskNoteMutation === 'saving' ? 'Sparar' : 'Spara'}
                                     </button>
@@ -1579,10 +1733,10 @@ export const IntranetManager: React.FC = () => {
                             );
                           })}
                           {(visibleBaseTasks.length + memberCustomTasks.length) === 0 && (
-                            <div className="text-sm text-[#8A8177]">Inga schemalagda uppgifter idag.</div>
+                            <div className="text-sm text-[#374151]">Inga schemalagda uppgifter idag.</div>
                           )}
-                          <div className="rounded-xl border border-[#E6E1D8] bg-white/80 p-3 space-y-2">
-                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8A8177]">Lägg till uppgift (manager)</div>
+                          <div className="rounded-xl border border-[#D1D5DB] bg-white/80 p-3 space-y-2">
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#374151]">Lägg till uppgift (manager)</div>
                             {!customTasksSupported && (
                               <div className="text-[11px] text-amber-700">Databas-tabell saknas. Extra uppgifter sparas bara lokalt tills SQL körs.</div>
                             )}
@@ -1596,7 +1750,7 @@ export const IntranetManager: React.FC = () => {
                                 [member.id]: { ...customDraft, title: event.target.value }
                               }))}
                               placeholder="Uppgiftstitel"
-                              className="w-full rounded-md border border-[#DAD1C5] bg-white px-2 py-1 text-[11px]"
+                              className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
                             />
                             <input
                               value={customDraft.estimated_minutes}
@@ -1605,7 +1759,7 @@ export const IntranetManager: React.FC = () => {
                                 [member.id]: { ...customDraft, estimated_minutes: event.target.value }
                               }))}
                               placeholder="Estimerad tid i minuter (valfritt)"
-                              className="w-full rounded-md border border-[#DAD1C5] bg-white px-2 py-1 text-[11px]"
+                              className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
                             />
                             <textarea
                               value={customDraft.details}
@@ -1614,13 +1768,13 @@ export const IntranetManager: React.FC = () => {
                                 [member.id]: { ...customDraft, details: event.target.value }
                               }))}
                               placeholder="Kontext / instruktion (visas i Läs mer)"
-                              className="w-full rounded-md border border-[#DAD1C5] bg-white px-2 py-1 text-[11px] min-h-[64px]"
+                              className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px] min-h-[64px]"
                             />
                             <button
                               type="button"
                               onClick={() => handleAddCustomTask(member.id)}
                               disabled={addState === 'saving'}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-[#a0c81d]/40 text-[#556b0b] bg-[#a0c81d]/10"
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-[#111111]/40 text-[#111111] bg-[#111111]/10"
                             >
                               {addState === 'saving' ? 'Sparar...' : 'Lägg till'}
                             </button>
@@ -1632,7 +1786,7 @@ export const IntranetManager: React.FC = () => {
                       </div>
                       <div>
                         <div className={ui.label}>Rapport</div>
-                        <div className="mt-3 rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-3 text-sm text-[#6B6158] space-y-2">
+                        <div className="mt-3 rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/70 p-3 text-sm text-[#4B5563] space-y-2">
                           {report ? (
                             <>
                               <div><strong>Start:</strong> {report.start_time || '—'} &nbsp; <strong>Slut:</strong> {report.end_time || '—'}</div>
@@ -1650,12 +1804,12 @@ export const IntranetManager: React.FC = () => {
                       <div className={ui.label}>Noteringar</div>
                       <div className="mt-3 space-y-2">
                         {generalUserNotes.length === 0 && (
-                          <div className="text-sm text-[#8A8177]">Inga noteringar idag.</div>
+                          <div className="text-sm text-[#374151]">Inga noteringar idag.</div>
                         )}
                         {generalUserNotes.map((note) => (
-                          <div key={note.id} className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-3 text-sm text-[#6B6158]">
+                          <div key={note.id} className="rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/70 p-3 text-sm text-[#4B5563]">
                             <div>{note.note}</div>
-                            <div className="text-[11px] text-[#8A8177] mt-1">{formatTime(note.created_at)}</div>
+                            <div className="text-[11px] text-[#374151] mt-1">{formatTime(note.created_at)}</div>
                           </div>
                         ))}
                       </div>
@@ -1664,14 +1818,14 @@ export const IntranetManager: React.FC = () => {
                           value={noteValue}
                           onChange={(event) => setNoteDrafts((prev) => ({ ...prev, [member.id]: event.target.value }))}
                           placeholder="Lägg till notering..."
-                          className="w-full rounded-xl border border-[#E6E1D8] bg-white/80 px-3 py-2 text-sm text-[#3D3D3D] min-h-[80px]"
+                          className="w-full rounded-xl border border-[#D1D5DB] bg-white/80 px-3 py-2 text-sm text-[#111111] min-h-[80px]"
                         />
                         <div className="flex items-center gap-3">
                           <button
                             type="button"
                             onClick={() => handleAddNote(member.id)}
                             disabled={noteState === 'saving'}
-                            className="px-4 py-2 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest disabled:opacity-60"
+                            className="px-4 py-2 rounded-xl bg-[#111111] text-[#F9FAFB] text-xs font-black uppercase tracking-widest disabled:opacity-60"
                           >
                             {noteState === 'saving' ? 'Sparar...' : 'Spara notering'}
                           </button>
@@ -1687,7 +1841,7 @@ export const IntranetManager: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleToggleHistory(member.id)}
-                        className="text-[10px] font-black uppercase tracking-[0.3em] text-[#6B6158]"
+                        className="text-[10px] font-black uppercase tracking-[0.3em] text-[#4B5563]"
                       >
                         {historyOpen[member.id] ? 'Dölj historik' : 'Visa historik'}
                       </button>
@@ -1698,9 +1852,9 @@ export const IntranetManager: React.FC = () => {
                         {historyKeys.map((key) => {
                           const history = getHistorySummary(member.id, key);
                           return (
-                            <div key={key} className="rounded-xl border border-[#E6E1D8] bg-white/70 p-3">
-                              <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8A8177]">{key}</div>
-                              <div className="mt-2 text-sm text-[#3D3D3D]">
+                            <div key={key} className="rounded-xl border border-[#D1D5DB] bg-white/70 p-3">
+                              <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#374151]">{key}</div>
+                              <div className="mt-2 text-sm text-[#111111]">
                                 {history.completed}/{history.total} klara
                               </div>
                               <div className={`mt-2 text-[10px] font-black uppercase tracking-[0.2em] ${history.hasReport ? 'text-emerald-700' : 'text-amber-700'}`}>
@@ -1723,8 +1877,195 @@ export const IntranetManager: React.FC = () => {
           )}
         </div>
 
-        <div className="order-3 grid grid-cols-1 lg:grid-cols-2 gap-6 mt-10 mb-8">
-          <div className="rounded-2xl border border-[#DAD1C5] bg-white">
+        <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:order-2 h-full flex flex-col">
+            <button
+              type="button"
+              onClick={() => setSectionOpen((prev) => ({ ...prev, projects: !prev.projects }))}
+              className="w-full px-5 py-4 min-h-[84px] flex items-center justify-between text-left"
+            >
+              <h2 className="text-[28px] leading-none font-black text-[#111111]">Projekt</h2>
+              <ChevronDown className={`w-5 h-5 text-[#111111] transition-transform ${sectionOpen.projects ? 'rotate-180' : ''}`} />
+            </button>
+            {sectionOpen.projects && (
+              <div className="border-t border-[#E5E7EB] p-5 flex-1">
+                <div className="space-y-4">
+                  <ul className="space-y-2 text-sm text-[#111111]">
+                    <li className="flex items-center justify-between gap-3">
+                      <span className="font-semibold">Aktiva projekt ({activeProjects.length})</span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveProjectsExpanded((prev) => !prev)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#111111] hover:underline"
+                      >
+                        {activeProjectsExpanded ? 'Dölj' : 'Visa'}
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${activeProjectsExpanded ? 'rotate-180' : ''}`} />
+                      </button>
+                    </li>
+                    <li><span className="font-semibold">Slutförda:</span> {projectsOrdered.filter((item) => item.is_done).length}</li>
+                  </ul>
+
+                  {!projectsSupported && (
+                    <div className="text-[11px] text-amber-700">
+                      Databas-tabellen för projekt saknas. Ändringar sparas bara lokalt tills SQL körs.
+                    </div>
+                  )}
+
+                  {activeProjectsExpanded && (
+                    <ul className="space-y-2 text-sm text-[#111111]">
+                    {activeProjects.map((project) => {
+                      const isEditing = !!projectEditorOpen[project.id];
+                      const isDetailsOpen = !!projectDetailsOpen[project.id];
+                      const draft = projectDrafts[project.id] || {
+                        title: project.title,
+                        description: project.description || ''
+                      };
+                      const toggleState = projectMutationState[`toggle:${project.id}`] || 'idle';
+                      const saveState = projectMutationState[`save:${project.id}`] || 'idle';
+                      const removeState = projectMutationState[`remove:${project.id}`] || 'idle';
+
+                      return (
+                        <li key={project.id} className="pb-2 border-b border-[#D1D5DB] last:border-b-0">
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <input
+                                value={draft.title}
+                                onChange={(event) => setProjectDrafts((prev) => ({
+                                  ...prev,
+                                  [project.id]: { ...draft, title: event.target.value }
+                                }))}
+                                placeholder="Projekttitel"
+                                className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
+                              />
+                              <textarea
+                                value={draft.description}
+                                onChange={(event) => setProjectDrafts((prev) => ({
+                                  ...prev,
+                                  [project.id]: { ...draft, description: event.target.value }
+                                }))}
+                                placeholder="Kommentar / kontext"
+                                className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px] min-h-[56px]"
+                              />
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveProject(project)}
+                                  disabled={saveState === 'saving'}
+                                  className="text-[11px] font-semibold text-[#111111] hover:underline disabled:opacity-50"
+                                >
+                                  {saveState === 'saving' ? 'Sparar...' : 'Spara'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setProjectEditorOpen((prev) => ({ ...prev, [project.id]: false }))}
+                                  className="text-[11px] font-semibold text-[#4B5563] hover:underline"
+                                >
+                                  Avbryt
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="flex items-start justify-between gap-3">
+                                <div className={`font-semibold ${project.is_done ? 'line-through text-[#374151]' : 'text-[#111111]'}`}>
+                                  <span className="text-[13px]">{project.title}</span>
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  checked={project.is_done}
+                                  onChange={() => handleToggleProjectDone(project)}
+                                  disabled={toggleState === 'saving'}
+                                  className="h-4 w-4 mt-0.5 accent-[#111111]"
+                                />
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 text-[11px]">
+                                <button
+                                  type="button"
+                                  onClick={() => setProjectDetailsOpen((prev) => ({ ...prev, [project.id]: !prev[project.id] }))}
+                                  className="font-semibold text-[#111111] hover:underline"
+                                >
+                                  {isDetailsOpen ? 'Dölj kommentar' : 'Visa kommentar'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setProjectDrafts((prev) => ({
+                                      ...prev,
+                                      [project.id]: {
+                                        title: project.title,
+                                        description: project.description || ''
+                                      }
+                                    }));
+                                    setProjectEditorOpen((prev) => ({ ...prev, [project.id]: true }));
+                                  }}
+                                  className="font-semibold text-[#111111] hover:underline"
+                                >
+                                  Redigera
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveProject(project)}
+                                  disabled={removeState === 'saving'}
+                                  className="font-semibold text-[#4B5563] hover:text-[#111111] hover:underline disabled:opacity-50"
+                                  >
+                                    {removeState === 'saving' ? 'Tar bort...' : 'Ta bort'}
+                                  </button>
+                              </div>
+                              {isDetailsOpen && (
+                                <div className="mt-1 text-[13px] text-[#4B5563] whitespace-pre-wrap">
+                                  {project.description?.trim() || 'Ingen kommentar registrerad.'}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+                    {activeProjects.length === 0 && (
+                      <li className="text-sm text-[#374151]">Inga aktiva projekt.</li>
+                    )}
+                  </ul>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowAddProjectForm((prev) => !prev)}
+                    className="text-sm font-semibold text-[#111111] hover:underline"
+                  >
+                    {showAddProjectForm ? 'Stäng nytt projekt' : 'Lägg till nytt projekt'}
+                  </button>
+
+                  {showAddProjectForm && (
+                    <div className="space-y-2 pl-0.5">
+                      <input
+                        value={newProjectDraft.title}
+                        onChange={(event) => setNewProjectDraft((prev) => ({ ...prev, title: event.target.value }))}
+                        placeholder="Projekttitel"
+                        className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
+                      />
+                      <textarea
+                        value={newProjectDraft.description}
+                        onChange={(event) => setNewProjectDraft((prev) => ({ ...prev, description: event.target.value }))}
+                        placeholder="Kommentar / kontext"
+                        className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px] min-h-[56px]"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddProject}
+                        disabled={projectMutationState['add:new'] === 'saving'}
+                        className="text-sm font-semibold text-[#111111] hover:underline disabled:opacity-50"
+                      >
+                        {projectMutationState['add:new'] === 'saving' ? 'Sparar...' : 'Spara projekt'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-8 mb-8">
+          <div className="rounded-2xl border border-[#9CA3AF] bg-white">
             <button
               type="button"
               onClick={() => setSectionOpen((prev) => ({ ...prev, reports: !prev.reports }))}
@@ -1732,81 +2073,139 @@ export const IntranetManager: React.FC = () => {
             >
               <div>
                 <div className={ui.label}>Historiska rapporter (klickbar rubrik)</div>
-                <div className="text-sm text-[#6B6158]">Alla inskickade rapporter inom valt intervall.</div>
+                <div className="text-sm text-[#4B5563]">Alla inskickade rapporter i hela historiken med status per dag.</div>
               </div>
-              <ChevronDown className={`w-5 h-5 text-[#8A8177] transition-transform ${sectionOpen.reports ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-5 h-5 text-[#374151] transition-transform ${sectionOpen.reports ? 'rotate-180' : ''}`} />
             </button>
             {sectionOpen.reports && (
-              <div className="border-t border-[#EFE7DC] p-5">
-                <div className="text-xs text-[#8A8177] mb-3">
+              <div className="border-t border-[#E5E7EB] p-5">
+                <div className="text-xs text-[#374151] mb-3">
                   Rapporttäckning: {analytics.totals.report_coverage_pct}% ({analytics.totals.report_days}/{analytics.totals.expected_report_days} dagar)
                 </div>
-                <div className="space-y-3 text-sm text-[#6B6158] max-h-[420px] overflow-auto pr-1">
-                  {historicalReportsInWindow.length === 0 && <div>Inga rapporter i valt intervall.</div>}
-                  {historicalReportsInWindow.map((report, index) => {
-                    const staffMember = staffById[report.user_id];
-                    return (
-                      <div key={`${report.user_id}:${report.report_date}:${index}`} className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-3">
-                        <div className="text-sm font-bold text-[#3D3D3D]">{staffMember?.full_name || staffMember?.email || report.user_id}</div>
-                        <div className="text-[11px] text-[#8A8177]">{report.report_date} · Start {report.start_time || '—'} · Slut {report.end_time || '—'}</div>
-                        <div className="mt-2"><strong>Gjort:</strong> {truncateText(report.did, 180)}</div>
-                        <div><strong>Handover:</strong> {truncateText(report.handover, 180)}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+                <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-4">
+                  <div className="space-y-3 text-sm text-[#4B5563] max-h-[520px] overflow-auto pr-1">
+                    {historicalReportSummaries.length === 0 && <div>Inga historiska rapporter ännu.</div>}
+                    {historicalReportSummaries.map((report) => {
+                      const staffMember = staffById[report.user_id];
+                      const isSelected = selectedHistoricalReport?.key === report.key;
+                      const statusMeta = getHistoricalStatusMeta(report.status);
+                      return (
+                        <button
+                          key={report.key}
+                          type="button"
+                          onClick={() => setSelectedHistoricalReportKey(report.key)}
+                          className={`w-full rounded-xl border p-3 text-left transition ${isSelected ? 'border-[#111111]/70 bg-[#E5E7EB]' : 'border-[#D1D5DB] bg-[#F9FAFB]/70 hover:border-[#111111]/40'}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-bold text-[#111111]">{staffMember?.full_name || staffMember?.email || report.user_id}</div>
+                              <div className="text-[11px] text-[#374151]">
+                                {report.report_date} · Start {report.start_time || '—'} · Slut {report.end_time || '—'}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-block h-2.5 w-2.5 rounded-full ${statusMeta.dot}`} />
+                              <span className={`px-2 py-1 rounded-full border text-[10px] font-black uppercase tracking-[0.15em] ${statusMeta.badge}`}>
+                                {statusMeta.label}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between text-[11px]">
+                            <span className="text-[#374151]">Slutförda / planerade</span>
+                            <span className="font-black text-[#111111]">{report.completionLabel}</span>
+                          </div>
+                          <div className="mt-2"><strong>Gjort:</strong> {truncateText(report.did, 110)}</div>
+                          <div><strong>Handover:</strong> {truncateText(report.handover, 110)}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-          <div className="rounded-2xl border border-[#DAD1C5] bg-white">
-            <button
-              type="button"
-              onClick={() => setSectionOpen((prev) => ({ ...prev, submissions: !prev.submissions }))}
-              className="w-full px-5 py-4 flex items-center justify-between text-left"
-            >
-              <div>
-                <div className={ui.label}>Inlämningsanalys (klickbar rubrik)</div>
-                <div className="text-sm text-[#6B6158]">Startformulär + uppföljning, idag och i valt intervall.</div>
-              </div>
-              <ChevronDown className={`w-5 h-5 text-[#8A8177] transition-transform ${sectionOpen.submissions ? 'rotate-180' : ''}`} />
-            </button>
-            {sectionOpen.submissions && (
-              <div className="border-t border-[#EFE7DC] p-5 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                  <div className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-3">
-                    <div className={ui.label}>Idag</div>
-                    <div className="mt-2 text-xl font-black text-[#3D3D3D]">{startSubmissions.length + uppSubmissions.length}</div>
+                  <div className="rounded-xl border border-[#D1D5DB] bg-white/80 p-4">
+                    {!selectedHistoricalReport ? (
+                      <div className="text-sm text-[#374151]">Välj en rapport för att se detaljer.</div>
+                    ) : (
+                      <div className="space-y-4 text-sm text-[#4B5563]">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className={ui.label}>Vald rapport</div>
+                            <h3 className="mt-1 text-lg font-black text-[#111111]">
+                              {selectedHistoricalStaff?.full_name || selectedHistoricalStaff?.email || selectedHistoricalReport.user_id}
+                            </h3>
+                            <div className="text-[11px] text-[#374151]">{selectedHistoricalReport.report_date}</div>
+                          </div>
+                          {(() => {
+                            const statusMeta = getHistoricalStatusMeta(selectedHistoricalReport.status);
+                            return (
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-block h-2.5 w-2.5 rounded-full ${statusMeta.dot}`} />
+                                <span className={`px-2 py-1 rounded-full border text-[10px] font-black uppercase tracking-[0.15em] ${statusMeta.badge}`}>
+                                  {statusMeta.label}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="rounded-lg border border-[#D1D5DB] bg-[#F9FAFB]/70 p-2">
+                            <div className={ui.label}>Start</div>
+                            <div className="mt-1 text-sm font-bold text-[#111111]">{selectedHistoricalReport.start_time || '—'}</div>
+                          </div>
+                          <div className="rounded-lg border border-[#D1D5DB] bg-[#F9FAFB]/70 p-2">
+                            <div className={ui.label}>Slut</div>
+                            <div className="mt-1 text-sm font-bold text-[#111111]">{selectedHistoricalReport.end_time || '—'}</div>
+                          </div>
+                          <div className="rounded-lg border border-[#D1D5DB] bg-[#F9FAFB]/70 p-2 col-span-2">
+                            <div className={ui.label}>Slutförda / planerade</div>
+                            <div className="mt-1 text-sm font-bold text-[#111111]">
+                              {selectedHistoricalReport.completedCount}/{selectedHistoricalReport.plannedCount}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-[#D1D5DB] bg-[#F9FAFB]/70 p-3">
+                          <div className={ui.label}>Gjort</div>
+                          <div className="mt-2 whitespace-pre-wrap text-sm text-[#111111]">
+                            {selectedHistoricalReport.did?.trim() || 'Ingen text inskickad.'}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-[#D1D5DB] bg-[#F9FAFB]/70 p-3">
+                          <div className={ui.label}>Handover</div>
+                          <div className="mt-2 whitespace-pre-wrap text-sm text-[#111111]">
+                            {selectedHistoricalReport.handover?.trim() || 'Ingen handover inskickad.'}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-[#D1D5DB] bg-[#F9FAFB]/70 p-3">
+                          <div className={ui.label}>Planerade uppgifter</div>
+                          <div className="mt-2 space-y-2">
+                            {selectedHistoricalReport.plannedTasks.length === 0 && (
+                              <div className="text-[12px] text-[#374151]">Ingen planerad uppgift för denna dag.</div>
+                            )}
+                            {selectedHistoricalReport.plannedTasks.map((task) => (
+                              <div key={task.id} className="flex items-start justify-between gap-3 rounded-md border border-[#D1D5DB] bg-white px-2 py-1.5">
+                                <div>
+                                  <div className="text-[12px] font-semibold text-[#111111]">{task.title}</div>
+                                  <div className="text-[10px] text-[#374151] uppercase tracking-[0.12em]">
+                                    {task.kind === 'custom' ? 'Extra uppgift' : 'Återkommande uppgift'}
+                                    {task.estimatedMinutes ? ` · Est ${task.estimatedMinutes} min` : ''}
+                                  </div>
+                                </div>
+                                <span className={`inline-block h-2.5 w-2.5 mt-1 rounded-full ${task.isCompleted ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-3">
-                    <div className={ui.label}>Intervall ({analysisWindowDays}d)</div>
-                    <div className="mt-2 text-xl font-black text-[#3D3D3D]">{submissionsInRangeTotal}</div>
-                  </div>
-                  <div className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-3">
-                    <div className={ui.label}>Override-beslut ({analysisWindowDays}d)</div>
-                    <div className="mt-2 text-xl font-black text-[#3D3D3D]">{analytics.totals.manager_overrides}</div>
-                  </div>
-                </div>
-                <div className="space-y-3 text-sm text-[#6B6158]">
-                  {submissionsInRangeTotal === 0 && <div>Inga formulär i valt intervall.</div>}
-                  {startSubmissionsInWindow.slice(0, 5).map((item) => (
-                    <div key={`start-${item.id}`} className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-3">
-                      <div className="text-sm font-bold text-[#3D3D3D]">Startformulär</div>
-                      <div className="text-[11px] text-[#8A8177]">{item.first_name} {item.last_name} · {formatDateTime(item.created_at)}</div>
-                    </div>
-                  ))}
-                  {uppSubmissionsInWindow.slice(0, 5).map((item) => (
-                    <div key={`upp-${item.id}`} className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-3">
-                      <div className="text-sm font-bold text-[#3D3D3D]">Uppföljning</div>
-                      <div className="text-[11px] text-[#8A8177]">{item.first_name} {item.last_name} · {formatDateTime(item.created_at)}</div>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
           </div>
         </div>
-      </div>
       </div>
     </div>
   );

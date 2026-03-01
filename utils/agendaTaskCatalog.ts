@@ -41,7 +41,11 @@ export const buildAgendaItemsForDate = (input: {
 }): AgendaCatalogItem[] => {
   const removalSet = new Set(
     (input.removals || [])
-      .filter((row) => row.is_removed && row.report_date === input.dateKey)
+      .filter((row) => (
+        row.is_removed &&
+        row.report_date === input.dateKey &&
+        (!input.currentUserId || row.user_id === input.currentUserId)
+      ))
       .map((row) => row.task_id)
   );
 
