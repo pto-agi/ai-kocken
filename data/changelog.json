@@ -1,6 +1,45 @@
 {
-  "last_commit": "7f92a690691b3689e1583426b1a2f2c6a254bea6",
+  "last_commit": "842fe12349f307d7166e315c2cac6774a825d47b",
   "entries": [
+    {
+      "id": "2026-03-01T18:52:17.027Z-842fe12",
+      "date": "2026-03-01T18:52:17.027Z",
+      "range": "7f92a690691b3689e1583426b1a2f2c6a254bea6..842fe12349f307d7166e315c2cac6774a825d47b",
+      "head": "842fe12349f307d7166e315c2cac6774a825d47b",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "842fe12",
+          "subject": "Sync intranet manager/staff agenda state and tighten dashboard UX"
+        },
+        {
+          "hash": "c4de9fd",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "pages/Intranet.tsx",
+        "pages/IntranetManager.tsx",
+        "tests/agendaCompletionState.test.ts",
+        "tests/agendaTaskCatalog.test.ts",
+        "tests/intranetMirrorUser.test.ts",
+        "tests/managerHistoricalReports.test.ts",
+        "tests/managerStatus.test.ts",
+        "tests/managerUniversalAgenda.test.ts",
+        "utils/agendaCompletionState.ts",
+        "utils/agendaTaskCatalog.ts",
+        "utils/intranetMirrorUser.ts",
+        "utils/managerHistoricalReports.ts",
+        "utils/managerStatus.ts",
+        "utils/managerUniversalAgenda.ts"
+      ],
+      "stats": {
+        "files": 15,
+        "insertions": 1663,
+        "deletions": 494
+      }
+    },
     {
       "id": "2026-03-01T16:50:57.873Z-7f92a69",
       "date": "2026-03-01T16:50:57.873Z",
