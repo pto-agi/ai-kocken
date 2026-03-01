@@ -1,6 +1,62 @@
 {
-  "last_commit": "ce13ab2e9a7c582b3e27d5c770fecae696913eac",
+  "last_commit": "7f92a690691b3689e1583426b1a2f2c6a254bea6",
   "entries": [
+    {
+      "id": "2026-03-01T16:50:57.873Z-7f92a69",
+      "date": "2026-03-01T16:50:57.873Z",
+      "range": "ce13ab2e9a7c582b3e27d5c770fecae696913eac..7f92a690691b3689e1583426b1a2f2c6a254bea6",
+      "head": "7f92a690691b3689e1583426b1a2f2c6a254bea6",
+      "commit_count": 3,
+      "commits": [
+        {
+          "hash": "7f92a69",
+          "subject": "Implement manager analytics dashboard and universal agenda controls"
+        },
+        {
+          "hash": "f45165a",
+          "subject": "Add updated Trainerize hybrid agent design"
+        },
+        {
+          "hash": "9dfaa77",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "docs/branch-worktree-structure.md",
+        "docs/plans/2026-02-28-trainerize-hybrid-agent-design.md",
+        "docs/plans/2026-03-01-intranet-manager-analytics-dashboard-design.md",
+        "docs/plans/2026-03-01-intranet-manager-analytics-dashboard-implementation-plan.md",
+        "docs/plans/2026-03-01-intranet-manager-dashboard-phase-2-implementation-plan.md",
+        "pages/Intranet.tsx",
+        "pages/IntranetManager.tsx",
+        "supabase/agenda_manager.sql",
+        "tests/agendaCompletionItems.test.ts",
+        "tests/agendaCustomTaskRange.test.ts",
+        "tests/agendaTaskCatalog.test.ts",
+        "tests/managerAgenda.test.ts",
+        "tests/managerAnalytics.test.ts",
+        "tests/managerOverrides.test.ts",
+        "tests/managerPerformance.test.ts",
+        "tests/managerTaskRemovals.test.ts",
+        "tests/managerWindow.test.ts",
+        "utils/agendaCompletionItems.ts",
+        "utils/agendaCustomTaskRange.ts",
+        "utils/agendaTaskCatalog.ts",
+        "utils/managerAgenda.ts",
+        "utils/managerAnalytics.ts",
+        "utils/managerNotes.ts",
+        "utils/managerOverrides.ts",
+        "utils/managerPerformance.ts",
+        "utils/managerTaskRemovals.ts",
+        "utils/managerWindow.ts"
+      ],
+      "stats": {
+        "files": 28,
+        "insertions": 3328,
+        "deletions": 124
+      }
+    },
     {
       "id": "2026-02-28T00:47:33.227Z-ce13ab2",
       "date": "2026-02-28T00:47:33.228Z",
