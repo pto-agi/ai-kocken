@@ -14,6 +14,7 @@ type CompletionAction =
 type Input = {
   wasChecked: boolean;
   userId: string;
+  actorUserId?: string;
   reportDate: string;
   taskId: string;
   source?: 'staff' | 'manager';
@@ -27,6 +28,8 @@ export const buildCompletionItemAction = (input: Input): CompletionAction => {
     };
   }
 
+  const actorId = input.actorUserId ?? input.userId;
+
   return {
     type: 'insert',
     payload: {
@@ -34,7 +37,7 @@ export const buildCompletionItemAction = (input: Input): CompletionAction => {
       report_date: input.reportDate,
       task_id: input.taskId,
       completed_at: new Date().toISOString(),
-      completed_by: input.userId,
+      completed_by: actorId,
       source: input.source ?? 'staff'
     }
   };

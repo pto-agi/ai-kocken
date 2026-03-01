@@ -2,6 +2,7 @@ type ManagerNoteLite = {
   id: string;
   user_id: string;
   report_date: string;
+  task_id?: string | null;
   note: string;
   created_at?: string;
 };

@@ -12,6 +12,7 @@ type CompletionItem = {
   task_id: string;
   completed_at: string;
   completed_by: string;
+  source?: string | null;
 };
 
 type ReportLite = { start_time: string | null };
@@ -21,6 +22,31 @@ const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const;
 
 const normalizeTitle = (value: string) => value.toLowerCase().replace(/\s+/g, ' ').trim();
 const getWeekdayCode = (dateKey: string) => WEEKDAY_CODES[new Date(`${dateKey}T00:00:00`).getDay()];
+
+const normalizeStartTime = (value: string | null | undefined) => {
+  if (!value) return '08:00:00';
+  const match = value.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) return '08:00:00';
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const seconds = Number(match[3] || '0');
+  const valid = (
+    Number.isInteger(hours) &&
+    Number.isInteger(minutes) &&
+    Number.isInteger(seconds) &&
+    hours >= 0 && hours <= 23 &&
+    minutes >= 0 && minutes <= 59 &&
+    seconds >= 0 && seconds <= 59
+  );
+  if (!valid) return '08:00:00';
+  return `${match[1]}:${match[2]}:${String(seconds).padStart(2, '0')}`;
+};
+
+const safeIsoFromDateTime = (dateTime: string) => {
+  const ms = new Date(dateTime).getTime();
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString();
+};
 
 export const isSlowTask = (input: {
   completedAt: string;
@@ -33,11 +59,12 @@ export const isSlowTask = (input: {
   return completed - anchor > input.estimatedMinutes * 60 * 1000;
 };
 
-const buildAnchorTime = (dateKey: string, report: ReportLite | undefined) => {
-  if (report?.start_time) {
-    return new Date(`${dateKey}T${report.start_time}:00`).toISOString();
-  }
-  return new Date(`${dateKey}T08:00:00`).toISOString();
+export const buildAnchorTime = (dateKey: string, report: ReportLite | undefined) => {
+  const preferred = safeIsoFromDateTime(`${dateKey}T${normalizeStartTime(report?.start_time)}`);
+  if (preferred) return preferred;
+  const fallback = safeIsoFromDateTime(`${dateKey}T08:00:00`);
+  if (fallback) return fallback;
+  return '1970-01-01T08:00:00.000Z';
 };
 
 type DailyTaskStatus = {
@@ -46,6 +73,7 @@ type DailyTaskStatus = {
   is_completed: boolean;
   completed_at: string | null;
   completed_by: string | null;
+  completion_source: string | null;
   is_slow: boolean;
   requires_quality_check: boolean;
 };
@@ -92,6 +120,7 @@ export const buildDailyAgendaSummary = (input: {
         is_completed: !!completed,
         completed_at: completed?.completed_at ?? null,
         completed_by: completed?.completed_by ?? null,
+        completion_source: completed?.source ?? null,
         is_slow: completed
           ? isSlowTask({
               completedAt: completed.completed_at,

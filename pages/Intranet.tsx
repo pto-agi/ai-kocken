@@ -3,6 +3,8 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Copy, FileText
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { buildCompletionItemAction } from '../utils/agendaCompletionItems';
+import { buildAgendaItemsForDate } from '../utils/agendaTaskCatalog';
+import { buildAgendaCustomTaskRange } from '../utils/agendaCustomTaskRange';
 
 type BaseSubmission = {
   id: string;
@@ -70,6 +72,21 @@ type AgendaTemplate = {
   sort_order: number | null;
   is_active?: boolean | null;
   estimated_minutes?: number | null;
+};
+
+type ManagerCustomTask = {
+  id: string;
+  report_date: string;
+  title: string;
+  estimated_minutes: number | null;
+  is_active: boolean;
+};
+
+type ManagerTaskRemoval = {
+  user_id: string;
+  report_date: string;
+  task_id: string;
+  is_removed: boolean;
 };
 
 type AgendaItem = {
@@ -531,6 +548,9 @@ const Intranet: React.FC = () => {
   }, [reportForm.date]);
 
   const [agendaTemplates, setAgendaTemplates] = useState<AgendaTemplate[]>([]);
+  const [managerCustomTasks, setManagerCustomTasks] = useState<ManagerCustomTask[]>([]);
+  const [managerTaskRemovals, setManagerTaskRemovals] = useState<ManagerTaskRemoval[]>([]);
+  const [agendaRefreshToken, setAgendaRefreshToken] = useState(0);
   const [agendaStatus, setAgendaStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [agendaError, setAgendaError] = useState<string | null>(null);
 
@@ -755,7 +775,79 @@ const Intranet: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [session?.user?.id, isStaff, isConfigured]);
+  }, [session?.user?.id, isStaff, isConfigured, agendaRefreshToken]);
+
+  useEffect(() => {
+    if (!isStaff) return;
+    if (!isConfigured) {
+      setManagerCustomTasks([]);
+      return;
+    }
+    let active = true;
+    const loadCustomTasks = async () => {
+      try {
+        const days = getWorkweekDates(selectedDate);
+        const selectedDateKey = formatDateInput(selectedDate);
+        const range = buildAgendaCustomTaskRange({
+          selectedDateKey,
+          workweekDateKeys: days.map((day) => formatDateInput(day))
+        });
+        const { data, error } = await supabase
+          .from('agenda_manager_custom_tasks')
+          .select('id, report_date, title, estimated_minutes, is_active')
+          .eq('is_active', true)
+          .gte('report_date', range.startKey)
+          .lte('report_date', range.endKey)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        if (!active) return;
+        setManagerCustomTasks((data || []) as ManagerCustomTask[]);
+      } catch (err) {
+        console.warn('Failed to load manager custom tasks', err);
+        if (!active) return;
+        setManagerCustomTasks([]);
+      }
+    };
+    loadCustomTasks();
+    return () => {
+      active = false;
+    };
+  }, [isConfigured, isStaff, selectedDate, agendaRefreshToken]);
+
+  useEffect(() => {
+    if (!session?.user?.id || !isStaff) return;
+    if (!isConfigured) {
+      setManagerTaskRemovals([]);
+      return;
+    }
+    let active = true;
+    const loadTaskRemovals = async () => {
+      try {
+        const days = getWorkweekDates(selectedDate);
+        const selectedDateKey = formatDateInput(selectedDate);
+        const range = buildAgendaCustomTaskRange({
+          selectedDateKey,
+          workweekDateKeys: days.map((day) => formatDateInput(day))
+        });
+        const { data, error } = await supabase
+          .from('agenda_manager_task_removals')
+          .select('user_id, report_date, task_id, is_removed')
+          .gte('report_date', range.startKey)
+          .lte('report_date', range.endKey);
+        if (error) throw error;
+        if (!active) return;
+        setManagerTaskRemovals((data || []) as ManagerTaskRemoval[]);
+      } catch (err) {
+        console.warn('Failed to load manager task removals', err);
+        if (!active) return;
+        setManagerTaskRemovals([]);
+      }
+    };
+    loadTaskRemovals();
+    return () => {
+      active = false;
+    };
+  }, [isConfigured, isStaff, selectedDate, session?.user?.id, agendaRefreshToken]);
 
   useEffect(() => {
     if (!isStaff) return;
@@ -829,34 +921,26 @@ const Intranet: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [selectedDate, session?.user?.id, isStaff, isConfigured]);
+  }, [selectedDate, session?.user?.id, isStaff, isConfigured, agendaRefreshToken]);
 
   const resolveTaskCount = useCallback((_title: string, _report: any, _useFormFallback: boolean) => null, []);
 
   const getTasksForDate = useCallback((date: Date): AgendaItem[] => {
-    if (!agendaTemplates.length) return [];
     const dayCode = getWeekdayCode(date);
     const key = formatDateInput(date);
-    const report = weeklyReports[key];
-    const useFormFallback = key === reportForm.date;
-    return agendaTemplates
-      .filter((template) => (template.schedule_days || []).includes(dayCode))
-      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-      .map((template) => {
-        const inputType = (template.input_type as AgendaItem['inputType']) || 'none';
-        const count = inputType === 'count'
-          ? resolveTaskCount(template.title, report, useFormFallback)
-          : null;
-        return {
-          id: template.id,
-          title: template.title,
-          inputType,
-          sortOrder: template.sort_order ?? 0,
-          count,
-          estimatedMinutes: template.estimated_minutes ?? null
-        };
-      });
-  }, [agendaTemplates, reportForm.date, resolveTaskCount, weeklyReports]);
+    const merged = buildAgendaItemsForDate({
+      dateKey: key,
+      dayCode,
+      templates: agendaTemplates,
+      customTasks: managerCustomTasks,
+      currentUserId: session?.user?.id,
+      removals: managerTaskRemovals
+    });
+    return merged.map((item) => ({
+      ...item,
+      count: item.inputType === 'count' ? resolveTaskCount(item.title, weeklyReports[key], key === reportForm.date) : null
+    }));
+  }, [agendaTemplates, managerCustomTasks, managerTaskRemovals, reportForm.date, resolveTaskCount, session?.user?.id, weeklyReports]);
 
   const todayTasks = useMemo(() => getTasksForDate(selectedDate), [getTasksForDate, selectedDate]);
   const completedTaskIdsForDay = useMemo(() => {
@@ -2233,6 +2317,13 @@ const Intranet: React.FC = () => {
                         Här finns dagens basuppgifter som måste göras. Utöver detta kan du lägga tid på förbättringar och utveckling när volymen tillåter.
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setAgendaRefreshToken((prev) => prev + 1)}
+                      className="self-start px-3 py-2 rounded-xl border border-[#DAD1C5] text-[10px] font-black uppercase tracking-[0.2em] text-[#6B6158] bg-white hover:border-[#a0c81d]/40 hover:text-[#3D3D3D] transition"
+                    >
+                      Uppdatera
+                    </button>
                   </div>
 
                   <div className="pt-6 border-t border-[#E6E1D8] flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">

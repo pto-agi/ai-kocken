@@ -20,7 +20,14 @@ describe('manager agenda', () => {
         { id: 't2', title: 'Ärenden', sort_order: 2, estimated_minutes: 30, schedule_days: ['FR'] }
       ],
       completionItems: [
-        { user_id: 'u1', report_date: '2026-02-27', task_id: 't1', completed_at: '2026-02-27T09:10:00Z', completed_by: 'u1' }
+        {
+          user_id: 'u1',
+          report_date: '2026-02-27',
+          task_id: 't1',
+          completed_at: '2026-02-27T09:10:00Z',
+          completed_by: 'u1',
+          source: 'manager'
+        }
       ],
       reportsByUser: {
         u1: { start_time: '08:00' },
@@ -32,7 +39,25 @@ describe('manager agenda', () => {
     expect(summary.byUser.u1.total).toBe(2);
     expect(summary.byUser.u1.tasks[0].is_slow).toBe(true);
     expect(summary.byUser.u1.tasks[0].requires_quality_check).toBe(true);
+    expect(summary.byUser.u1.tasks[0].completion_source).toBe('manager');
     expect(summary.byUser.u2.completed).toBe(0);
     expect(summary.byUser.u2.total).toBe(2);
+  });
+
+  it('handles start_time with seconds without crashing', () => {
+    const summary = buildDailyAgendaSummary({
+      dateKey: '2026-02-27',
+      staff: [{ id: 'u1' }],
+      templates: [
+        { id: 't1', title: 'Startupplägg', sort_order: 1, estimated_minutes: 60, schedule_days: ['FR'] }
+      ],
+      completionItems: [],
+      reportsByUser: {
+        u1: { start_time: '08:00:00' }
+      }
+    });
+
+    expect(summary.byUser.u1.total).toBe(1);
+    expect(summary.byUser.u1.completed).toBe(0);
   });
 });

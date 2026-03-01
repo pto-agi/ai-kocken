@@ -34,4 +34,22 @@ describe('agenda completion items', () => {
       });
     }
   });
+
+  it('uses actorUserId as completed_by for manager writes', () => {
+    const result = buildCompletionItemAction({
+      wasChecked: false,
+      userId: 'staff-user',
+      actorUserId: 'manager-user',
+      reportDate: '2026-03-01',
+      taskId: 'task-1',
+      source: 'manager'
+    });
+
+    expect(result.type).toBe('insert');
+    if (result.type === 'insert') {
+      expect(result.payload.user_id).toBe('staff-user');
+      expect(result.payload.completed_by).toBe('manager-user');
+      expect(result.payload.source).toBe('manager');
+    }
+  });
 });
