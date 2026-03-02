@@ -9,13 +9,14 @@ describe('agenda task catalog', () => {
       templates: [
         { id: 't1', title: 'Startupplägg', schedule_days: ['MO'], sort_order: 1, input_type: 'none', estimated_minutes: 30 }
       ],
-      customTasks: [
-        { id: 'c1', report_date: '2026-03-02', title: 'Ring 3 kunder', estimated_minutes: 15, is_active: true }
-      ]
+      customTasks: ([
+        { id: 'c1', report_date: '2026-03-02', title: 'Ring 3 kunder', estimated_minutes: 15, is_active: true, details: 'Kontakta leads som väntar' }
+      ] as any)
     });
 
     expect(result.map((task) => task.id)).toEqual(['t1', 'custom:c1']);
     expect(result[1].title).toBe('Ring 3 kunder');
+    expect((result[1] as any).details).toBe('Kontakta leads som väntar');
   });
 
   it('excludes inactive and wrong-date custom tasks', () => {

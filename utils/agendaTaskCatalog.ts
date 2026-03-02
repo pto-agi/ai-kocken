@@ -12,6 +12,7 @@ type CustomTaskLite = {
   report_date: string;
   title: string;
   estimated_minutes: number | null;
+  details?: string | null;
   is_active: boolean;
 };
 
@@ -25,6 +26,7 @@ type TaskRemovalLite = {
 export type AgendaCatalogItem = {
   id: string;
   title: string;
+  details?: string | null;
   inputType: 'none' | 'count' | 'text';
   sortOrder: number;
   count: null;
@@ -56,6 +58,7 @@ export const buildAgendaItemsForDate = (input: {
     .map((template) => ({
       id: template.id,
       title: template.title,
+      details: null,
       inputType: (template.input_type as AgendaCatalogItem['inputType']) || 'none',
       sortOrder: template.sort_order ?? 0,
       count: null,
@@ -67,6 +70,7 @@ export const buildAgendaItemsForDate = (input: {
     .map((task, index) => ({
       id: `custom:${task.id}`,
       title: task.title,
+      details: task.details ?? null,
       inputType: 'none',
       sortOrder: 10000 + index,
       count: null,

@@ -22,17 +22,6 @@ export enum Goal {
   GAIN_MUSCLE = 'bulk',
 }
 
-export enum AppRoute {
-  HOME = 'home',
-  CHEF = 'chef',
-  KITCHEN = 'kitchen',
-  FOOD_HUB = 'food_hub',
-  HEALTH = 'health',
-  AUTH = 'auth',
-  PROFILE = 'profile',
-  COACH = 'coach' 
-}
-
 // --- CALCULATOR TYPES ---
 
 export interface MacroSplit {

@@ -6,6 +6,8 @@ import { buildCompletionItemAction } from '../utils/agendaCompletionItems';
 import { buildAgendaItemsForDate } from '../utils/agendaTaskCatalog';
 import { buildAgendaCustomTaskRange } from '../utils/agendaCustomTaskRange';
 import { parseCompletedTaskIds, resolveCompletedTaskIds } from '../utils/agendaCompletionState';
+import { buildLatestTaskNoteMap } from '../utils/agendaTaskNotes';
+import { resolveCopyText } from '../utils/copyValue';
 import { resolveIntranetMirrorUserId } from '../utils/intranetMirrorUser';
 
 type BaseSubmission = {
@@ -81,6 +83,7 @@ type ManagerCustomTask = {
   report_date: string;
   title: string;
   estimated_minutes: number | null;
+  details: string | null;
   is_active: boolean;
 };
 
@@ -91,9 +94,19 @@ type ManagerTaskRemoval = {
   is_removed: boolean;
 };
 
+type ManagerTaskNote = {
+  id: string;
+  user_id: string;
+  report_date: string;
+  task_id: string | null;
+  note: string;
+  created_at: string;
+};
+
 type AgendaItem = {
   id: string;
   title: string;
+  details?: string | null;
   inputType: 'none' | 'count' | 'text';
   sortOrder: number;
   count?: string | number | null;
@@ -284,6 +297,9 @@ const ORDER_IMPORT_PRODUCTS = [
 type InfoRowProps = {
   label: string;
   value: React.ReactNode;
+  copyKey?: string;
+  copiedKey?: string | null;
+  onCopy?: (copyKey: string, value: React.ReactNode) => void;
 };
 
 const formatTimestamp = (value?: string | null) => {
@@ -439,12 +455,35 @@ const getWorkweekDates = (date: Date) => {
   });
 };
 
-const InfoRow: React.FC<InfoRowProps> = ({ label, value }) => (
-  <div className="flex flex-col gap-1">
-    <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">{label}</span>
-    <span className="text-sm text-[#3D3D3D]">{value}</span>
-  </div>
-);
+const InfoRow: React.FC<InfoRowProps> = ({ label, value, copyKey, copiedKey, onCopy }) => {
+  const copyText = resolveCopyText(value);
+  const canCopy = Boolean(copyText && copyKey && onCopy);
+  const isCopied = canCopy && copiedKey === copyKey;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">{label}</span>
+      <span className="flex items-start justify-between gap-3">
+        <span className="text-sm text-[#3D3D3D]">{value}</span>
+        {canCopy && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onCopy?.(copyKey!, value);
+            }}
+            className="inline-flex items-center gap-1 rounded-md border border-[#DAD1C5] px-2 py-1 text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition"
+            aria-label={`Kopiera ${label}`}
+            title={`Kopiera ${label}`}
+          >
+            <Copy className="w-3 h-3" />
+            {isCopied ? 'Kopierad' : 'Kopiera'}
+          </button>
+        )}
+      </span>
+    </div>
+  );
+};
 
 const buildMeasurements = (entry: StartFormEntry) => {
   const pairs: Array<[string, number | null | undefined]> = [
@@ -553,6 +592,7 @@ const Intranet: React.FC = () => {
 
   const [agendaTemplates, setAgendaTemplates] = useState<AgendaTemplate[]>([]);
   const [managerCustomTasks, setManagerCustomTasks] = useState<ManagerCustomTask[]>([]);
+  const [managerTaskNotes, setManagerTaskNotes] = useState<ManagerTaskNote[]>([]);
   const [managerTaskRemovals, setManagerTaskRemovals] = useState<ManagerTaskRemoval[]>([]);
   const [agendaRefreshToken, setAgendaRefreshToken] = useState(0);
   const [agendaStatus, setAgendaStatus] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -580,6 +620,7 @@ const Intranet: React.FC = () => {
   const [shipmentsError, setShipmentsError] = useState<string | null>(null);
   const [copiedShipmentId, setCopiedShipmentId] = useState<string | null>(null);
   const [showHandledShipments, setShowHandledShipments] = useState(false);
+  const [copiedFieldKey, setCopiedFieldKey] = useState<string | null>(null);
   const [staffMirrorCandidates, setStaffMirrorCandidates] = useState<Array<{
     id: string;
     is_staff?: boolean | null;
@@ -631,6 +672,21 @@ const Intranet: React.FC = () => {
       active = false;
     };
   }, [isConfigured, isManager, session?.user?.id]);
+
+  const handleCopyField = useCallback(async (copyKey: string, value: React.ReactNode) => {
+    const text = resolveCopyText(value);
+    if (!text || typeof navigator === 'undefined' || !navigator.clipboard) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedFieldKey(copyKey);
+      window.setTimeout(() => {
+        setCopiedFieldKey((prev) => (prev === copyKey ? null : prev));
+      }, 1500);
+    } catch (err) {
+      console.warn('Failed to copy field value', err);
+    }
+  }, []);
 
   const toggleFocusTask = useCallback((taskId: string) => {
     setFocusTasks((prev) =>
@@ -839,7 +895,7 @@ const Intranet: React.FC = () => {
         });
         const { data, error } = await supabase
           .from('agenda_manager_custom_tasks')
-          .select('id, report_date, title, estimated_minutes, is_active')
+          .select('id, report_date, title, estimated_minutes, details, is_active')
           .eq('is_active', true)
           .gte('report_date', range.startKey)
           .lte('report_date', range.endKey)
@@ -858,6 +914,38 @@ const Intranet: React.FC = () => {
       active = false;
     };
   }, [isConfigured, canUseStaffIntranet, selectedDate, agendaRefreshToken]);
+
+  useEffect(() => {
+    if (!canUseStaffIntranet || !intranetUserId) return;
+    if (!isConfigured) {
+      setManagerTaskNotes([]);
+      return;
+    }
+    let active = true;
+    const loadTaskNotes = async () => {
+      try {
+        const dateKey = formatDateInput(selectedDate);
+        const { data, error } = await supabase
+          .from('agenda_manager_notes')
+          .select('id, user_id, report_date, task_id, note, created_at')
+          .eq('user_id', intranetUserId)
+          .eq('report_date', dateKey)
+          .not('task_id', 'is', null)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        if (!active) return;
+        setManagerTaskNotes((data || []) as ManagerTaskNote[]);
+      } catch (err) {
+        console.warn('Failed to load manager task notes', err);
+        if (!active) return;
+        setManagerTaskNotes([]);
+      }
+    };
+    loadTaskNotes();
+    return () => {
+      active = false;
+    };
+  }, [canUseStaffIntranet, intranetUserId, isConfigured, selectedDate, agendaRefreshToken]);
 
   useEffect(() => {
     if (!session?.user?.id || !canUseStaffIntranet) return;
@@ -1040,6 +1128,13 @@ const Intranet: React.FC = () => {
     const idsFromReport = parseCompletedTaskIds(reportForDate?.completed_task_ids);
     return new Set([...idsFromCompletions, ...idsFromReport]);
   }, [agendaCompletionByDate, selectedDate, reportHistoryMap, weeklyReports]);
+  const managerTaskNoteById = useMemo(() => buildLatestTaskNoteMap(
+    managerTaskNotes.map((note) => ({
+      task_id: note.task_id,
+      note: note.note,
+      created_at: note.created_at
+    }))
+  ), [managerTaskNotes]);
   const localReportSnapshot = useMemo(() => {
     if (!reportForm.date) return null;
     try {
@@ -1775,53 +1870,63 @@ const Intranet: React.FC = () => {
 
   const renderSubmissionDetails = (submission: CombinedSubmission, options?: { compact?: boolean }) => {
     const wrapperClass = options?.compact ? 'mt-4 space-y-6' : 'mt-6 space-y-6';
+    const row = (label: string, value: React.ReactNode) => (
+      <InfoRow
+        label={label}
+        value={value}
+        copyKey={`${submission.kind}:${submission.data.id}:${label}`}
+        copiedKey={copiedFieldKey}
+        onCopy={handleCopyField}
+      />
+    );
+
     if (submission.kind === 'start') {
       return (
         <div className={wrapperClass}>
           <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
             <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Nyckelinfo</h4>
             <div className="space-y-3">
-              <InfoRow label="Önskat startdatum" value={formatDateOnly(submission.data.desired_start_date)} />
-              <InfoRow label="Pass per vecka" value={submission.data.sessions_per_week || '—'} />
-              <InfoRow label="Fokusområden" value={formatList(submission.data.focus_areas)} />
+              {row('Önskat startdatum', formatDateOnly(submission.data.desired_start_date))}
+              {row('Pass per vecka', submission.data.sessions_per_week || '—')}
+              {row('Fokusområden', formatList(submission.data.focus_areas))}
             </div>
           </section>
 
           <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
             <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Grunddata</h4>
             <div className="space-y-3">
-              <InfoRow label="Vikt" value={formatNumber(submission.data.weight_kg, ' kg')} />
-              <InfoRow label="Längd" value={formatNumber(submission.data.height_cm, ' cm')} />
-              <InfoRow label="Ålder" value={formatNumber(submission.data.age)} />
+              {row('Vikt', formatNumber(submission.data.weight_kg, ' kg'))}
+              {row('Längd', formatNumber(submission.data.height_cm, ' cm'))}
+              {row('Ålder', formatNumber(submission.data.age))}
             </div>
           </section>
 
           <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
             <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Mål & bakgrund</h4>
             <div className="space-y-3">
-              <InfoRow label="Målbeskrivning" value={submission.data.goal_description || '—'} />
-              <InfoRow label="Skador" value={submission.data.injuries || '—'} />
-              <InfoRow label="Träningserfarenhet" value={submission.data.training_experience || '—'} />
-              <InfoRow label="Aktivitet 6 månader" value={submission.data.activity_last_6_months || '—'} />
-              <InfoRow label="Kosthållning 6 månader" value={submission.data.diet_last_6_months || '—'} />
+              {row('Målbeskrivning', submission.data.goal_description || '—')}
+              {row('Skador', submission.data.injuries || '—')}
+              {row('Träningserfarenhet', submission.data.training_experience || '—')}
+              {row('Aktivitet 6 månader', submission.data.activity_last_6_months || '—')}
+              {row('Kosthållning 6 månader', submission.data.diet_last_6_months || '—')}
             </div>
           </section>
 
           <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
             <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träningsupplägg</h4>
             <div className="space-y-3">
-              <InfoRow label="Träningsformer" value={formatList(submission.data.training_forms)} />
-              <InfoRow label="Träningsformer annat" value={submission.data.training_forms_other || '—'} />
-              <InfoRow label="Träningsplatser" value={formatList(submission.data.training_places)} />
-              <InfoRow label="Träningsplatser annat" value={submission.data.training_places_other || '—'} />
-              <InfoRow label="Pass/vecka (detalj)" value={submission.data.sessions_per_week_other || '—'} />
+              {row('Träningsformer', formatList(submission.data.training_forms))}
+              {row('Träningsformer annat', submission.data.training_forms_other || '—')}
+              {row('Träningsplatser', formatList(submission.data.training_places))}
+              {row('Träningsplatser annat', submission.data.training_places_other || '—')}
+              {row('Pass/vecka (detalj)', submission.data.sessions_per_week_other || '—')}
             </div>
           </section>
 
           <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
             <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kroppsmått</h4>
             <div className="space-y-3">
-              <InfoRow label="Mått (cm)" value={buildMeasurements(submission.data)} />
+              {row('Mått (cm)', buildMeasurements(submission.data))}
             </div>
           </section>
         </div>
@@ -1833,35 +1938,35 @@ const Intranet: React.FC = () => {
         <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
           <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Översikt</h4>
           <div className="space-y-3">
-            <InfoRow label="Mål" value={submission.data.goal || '—'} />
-            <InfoRow label="Pass per vecka" value={formatNumber(submission.data.sessions_per_week)} />
-            <InfoRow label="Behåll upplägg" value={formatBoolean(submission.data.quick_keep_plan)} />
+            {row('Mål', submission.data.goal || '—')}
+            {row('Pass per vecka', formatNumber(submission.data.sessions_per_week))}
+            {row('Behåll upplägg', formatBoolean(submission.data.quick_keep_plan))}
           </div>
         </section>
 
         <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
           <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Summering & feedback</h4>
           <div className="space-y-3">
-            <InfoRow label="Sammanfattning" value={submission.data.summary_feedback || '—'} />
+            {row('Sammanfattning', submission.data.summary_feedback || '—')}
           </div>
         </section>
 
         <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
           <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träning</h4>
           <div className="space-y-3">
-            <InfoRow label="Övrig aktivitet" value={formatList(submission.data.other_activity)} />
-            <InfoRow label="Träningsplatser" value={formatList(submission.data.training_places)} />
-            <InfoRow label="Träningsplatser annat" value={submission.data.training_places_other || '—'} />
-            <InfoRow label="Utrustning hemma" value={formatList(submission.data.home_equipment)} />
-            <InfoRow label="Utrustning annat" value={submission.data.home_equipment_other || '—'} />
+            {row('Övrig aktivitet', formatList(submission.data.other_activity))}
+            {row('Träningsplatser', formatList(submission.data.training_places))}
+            {row('Träningsplatser annat', submission.data.training_places_other || '—')}
+            {row('Utrustning hemma', formatList(submission.data.home_equipment))}
+            {row('Utrustning annat', submission.data.home_equipment_other || '—')}
           </div>
         </section>
 
         <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
           <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Produkter & fortsättning</h4>
           <div className="space-y-3">
-            <InfoRow label="Påfyllnad" value={formatList(submission.data.refill_products)} />
-            <InfoRow label="Auto fortsätt" value={submission.data.auto_continue || '—'} />
+            {row('Påfyllnad', formatList(submission.data.refill_products))}
+            {row('Auto fortsätt', submission.data.auto_continue || '—')}
           </div>
         </section>
       </div>
@@ -2153,16 +2258,31 @@ const Intranet: React.FC = () => {
                   <div>
                     <h3 className="text-lg font-black text-[#3D3D3D]">{fullName || 'Okänt namn'}</h3>
                     {data.email ? (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleOpenProfilePanel(data, key);
-                        }}
-                        className="text-sm text-[#6B6158] underline-offset-2 hover:underline hover:text-[#3D3D3D] transition"
-                      >
-                        {data.email}
-                      </button>
+                      <span className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleOpenProfilePanel(data, key);
+                          }}
+                          className="text-sm text-[#6B6158] underline-offset-2 hover:underline hover:text-[#3D3D3D] transition"
+                        >
+                          {data.email}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleCopyField(`submission-email:${key}`, data.email || '');
+                          }}
+                          className="inline-flex items-center gap-1 rounded-md border border-[#DAD1C5] px-2 py-1 text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition"
+                          aria-label="Kopiera e-post"
+                          title="Kopiera e-post"
+                        >
+                          <Copy className="w-3 h-3" />
+                          {copiedFieldKey === `submission-email:${key}` ? 'Kopierad' : 'Kopiera'}
+                        </button>
+                      </span>
                     ) : (
                       <p className="text-sm text-[#6B6158]">Ingen e-post</p>
                     )}
@@ -2437,6 +2557,8 @@ const Intranet: React.FC = () => {
                         {todayTasks.map((task) => {
                           const showCount = task.count !== null && task.count !== undefined && `${task.count}` !== '';
                           const isChecked = completedTaskIdsForDay.has(task.id);
+                          const taskDetails = task.details?.trim() || '';
+                          const managerTaskNote = managerTaskNoteById[task.id] || '';
                           return (
                             <li key={task.id}>
                               <label className="flex items-start gap-3 cursor-pointer">
@@ -2446,18 +2568,34 @@ const Intranet: React.FC = () => {
                                   onChange={() => toggleAgendaTask(task)}
                                   className="mt-1 accent-[#a0c81d]"
                                 />
-                                <span className="flex flex-wrap items-baseline gap-2">
-                                  <span className={isChecked ? 'line-through text-[#8A8177]' : undefined}>
-                                    {task.title}
-                                  </span>
-                                  {showCount && (
-                                    <span className="text-[11px] font-black uppercase tracking-widest text-[#8A8177]">
-                                      {task.count}
+                                <span className="flex-1">
+                                  <span className="flex flex-wrap items-baseline gap-2">
+                                    <span className={isChecked ? 'line-through text-[#8A8177]' : undefined}>
+                                      {task.title}
                                     </span>
-                                  )}
-                                  {task.estimatedMinutes && (
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] border border-[#E6E1D8] rounded-full px-2 py-0.5 bg-white/80">
-                                      {task.estimatedMinutes}
+                                    {showCount && (
+                                      <span className="text-[11px] font-black uppercase tracking-widest text-[#8A8177]">
+                                        {task.count}
+                                      </span>
+                                    )}
+                                    {task.estimatedMinutes && (
+                                      <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] border border-[#E6E1D8] rounded-full px-2 py-0.5 bg-white/80">
+                                        {task.estimatedMinutes}
+                                      </span>
+                                    )}
+                                  </span>
+                                  {(taskDetails || managerTaskNote) && (
+                                    <span className="mt-1 block space-y-1">
+                                      {taskDetails && (
+                                        <span className="block text-[11px] text-[#6B6158]">
+                                          {taskDetails}
+                                        </span>
+                                      )}
+                                      {managerTaskNote && (
+                                        <span className="block text-[11px] font-semibold text-[#3D3D3D]">
+                                          Manager: {managerTaskNote}
+                                        </span>
+                                      )}
                                     </span>
                                   )}
                                 </span>

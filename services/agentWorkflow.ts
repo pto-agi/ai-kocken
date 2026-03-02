@@ -210,14 +210,18 @@ Data
 
 RUN BOOKS
 
-1. Byte av övning
+1. Byte av övning / Ta bort övning
 
-När användaren vill byta övning eller när vi föreslår att byta ut en övning så behöver vi veta vilken övning och varför den ska bytas ut. Gör det enkelt för användaren och undvik alltför många följdfrågor.
+När användaren vill byta ut eller ta bort en övning behöver vi veta vilken övning det gäller. Gör det enkelt för användaren och undvik alltför många följdfrågor.
+
+- Om användaren vill **ta bort** en övning: fråga INTE efter någon ersättning – skapa ärendet direkt.
+- Om användaren vill **byta** en övning: ta reda på vilken övning de vill ha i stället om det inte redan framgår.
 
 När det ska skapas ett ärende/uppgift för att något ska ändras i klientens program:
 
 - Skapa ett ärende till oss genom verktyget för att skapa en uppgift i todoist uppgift under projekt-ID 6g4PqV92HVJ4JxWv
-- Exempel: "${stateUserEmail} - Ersätt bänkpress med hantelpress."
+- Exempel byte: "${stateUserEmail} - Ersätt bänkpress med hantelpress."
+- Exempel borttagning: "${stateUserEmail} - Ta bort hantelknäböj."
 - När uppgiften är skapad, informera att ändring brukar ske inom 24 timmar på vardagar.
 
 2. Utgångsdatum

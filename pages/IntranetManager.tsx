@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ClipboardList, Loader2, Search, ChevronDown } from 'lucide-react';
+import { ClipboardList, Loader2, Search, ChevronDown, Pencil } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { formatDateKey } from '../utils/managerDashboard';
@@ -13,6 +13,7 @@ import { buildTaskRemovalSet, isTaskRemoved } from '../utils/managerTaskRemovals
 import { buildHistoricalReportSummaries } from '../utils/managerHistoricalReports';
 import { computeOverEstimateDays } from '../utils/managerStatus';
 import { resolveUniversalAgendaUserId } from '../utils/managerUniversalAgenda';
+import { normalizeManagerCustomTaskDraft } from '../utils/managerCustomTaskDraft';
 
 const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const;
 const getWeekdayCode = (dateKey: string) => WEEKDAY_CODES[new Date(`${dateKey}T00:00:00`).getDay()];
@@ -178,6 +179,8 @@ export const IntranetManager: React.FC = () => {
   const [customTasks, setCustomTasks] = useState<ManagerCustomTask[]>([]);
   const [customTasksSupported, setCustomTasksSupported] = useState(true);
   const [customTaskDrafts, setCustomTaskDrafts] = useState<Record<string, { title: string; estimated_minutes: string; details: string }>>({});
+  const [customTaskEditDrafts, setCustomTaskEditDrafts] = useState<Record<string, { title: string; estimated_minutes: string; details: string }>>({});
+  const [customTaskEditorOpen, setCustomTaskEditorOpen] = useState<Record<string, boolean>>({});
   const [customTaskMutationState, setCustomTaskMutationState] = useState<Record<string, 'idle' | 'saving' | 'error'>>({});
   const [expandedTaskDetails, setExpandedTaskDetails] = useState<Record<string, boolean>>({});
   const [taskNoteDrafts, setTaskNoteDrafts] = useState<Record<string, string>>({});
@@ -817,15 +820,11 @@ export const IntranetManager: React.FC = () => {
   const handleAddCustomTask = async (userId: string) => {
     if (!profile?.id) return;
     const draft = customTaskDrafts[userId] || { title: '', estimated_minutes: '', details: '' };
-    const title = draft.title.trim();
+    const normalized = normalizeManagerCustomTaskDraft(draft);
+    const title = normalized.title;
     if (!title) return;
-
-    const estimatedMinutesRaw = draft.estimated_minutes.trim();
-    const estimatedMinutes = estimatedMinutesRaw ? Number(estimatedMinutesRaw) : null;
-    const safeEstimated = Number.isFinite(estimatedMinutes) && (estimatedMinutes as number) > 0
-      ? Math.round(estimatedMinutes as number)
-      : null;
-    const details = draft.details.trim() || null;
+    const safeEstimated = normalized.estimatedMinutes;
+    const details = normalized.details;
     const mutationKey = `add:${userId}`;
     setCustomTaskMutationState((prev) => ({ ...prev, [mutationKey]: 'saving' }));
 
@@ -874,6 +873,71 @@ export const IntranetManager: React.FC = () => {
     setCustomTaskDrafts((prev) => ({ ...prev, [userId]: { title: '', estimated_minutes: '', details: '' } }));
     setCustomTaskMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
     if (userId === managerUserId) setShowManagerAddTaskForm(false);
+  };
+
+  const handleOpenCustomTaskEditor = (task: ManagerCustomTask) => {
+    setCustomTaskEditDrafts((prev) => ({
+      ...prev,
+      [task.id]: prev[task.id] || {
+        title: task.title,
+        estimated_minutes: task.estimated_minutes ? `${task.estimated_minutes}` : '',
+        details: task.details || ''
+      }
+    }));
+    setCustomTaskEditorOpen((prev) => ({ ...prev, [task.id]: true }));
+  };
+
+  const handleCloseCustomTaskEditor = (taskId: string) => {
+    setCustomTaskEditorOpen((prev) => ({ ...prev, [taskId]: false }));
+  };
+
+  const handleSaveCustomTaskEdit = async (task: ManagerCustomTask) => {
+    const mutationKey = `edit:${task.id}`;
+    const draft = customTaskEditDrafts[task.id] || {
+      title: task.title,
+      estimated_minutes: task.estimated_minutes ? `${task.estimated_minutes}` : '',
+      details: task.details || ''
+    };
+    const normalized = normalizeManagerCustomTaskDraft(draft);
+    if (!normalized.title) return;
+
+    const previous = customTasks;
+    const updatedTask = {
+      ...task,
+      title: normalized.title,
+      estimated_minutes: normalized.estimatedMinutes,
+      details: normalized.details
+    };
+
+    setCustomTaskMutationState((prev) => ({ ...prev, [mutationKey]: 'saving' }));
+    setCustomTasks((prev) => prev.map((item) => (
+      item.id === task.id ? updatedTask : item
+    )));
+
+    if (!customTasksSupported || task.id.startsWith('local-')) {
+      setCustomTaskMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+      setCustomTaskEditorOpen((prev) => ({ ...prev, [task.id]: false }));
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from('agenda_manager_custom_tasks')
+      .update({
+        title: normalized.title,
+        estimated_minutes: normalized.estimatedMinutes,
+        details: normalized.details
+      })
+      .eq('id', task.id);
+
+    if (updateError) {
+      console.warn('Failed to update custom task', updateError);
+      setCustomTasks(previous);
+      setCustomTaskMutationState((prev) => ({ ...prev, [mutationKey]: 'error' }));
+      return;
+    }
+
+    setCustomTaskMutationState((prev) => ({ ...prev, [mutationKey]: 'idle' }));
+    setCustomTaskEditorOpen((prev) => ({ ...prev, [task.id]: false }));
   };
 
   const handleRemoveCustomTask = async (task: ManagerCustomTask) => {
@@ -1301,12 +1365,29 @@ export const IntranetManager: React.FC = () => {
                       const taskMutationKey = `${universalAgendaUserId}:${dateKey}:${taskId}`;
                       const taskMutation = taskMutationState[taskMutationKey] || 'idle';
                       const removeState = customTaskMutationState[`remove:${task.id}`] || 'idle';
+                      const editState = customTaskMutationState[`edit:${task.id}`] || 'idle';
+                      const isEditing = !!customTaskEditorOpen[task.id];
+                      const editDraft = customTaskEditDrafts[task.id] || {
+                        title: task.title,
+                        estimated_minutes: task.estimated_minutes ? `${task.estimated_minutes}` : '',
+                        details: task.details || ''
+                      };
                       const detailsExpanded = !!expandedTaskDetails[taskId];
                       return (
                         <li key={task.id}>
                           <div className="flex items-start justify-between gap-3">
                             <div className={`min-w-0 ${isCompleted ? 'line-through text-[#4B5563]' : 'text-[#111111]'}`}>- {task.title}</div>
                             <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                aria-label={`Redigera ${task.title}`}
+                                onClick={() => handleOpenCustomTaskEditor(task)}
+                                disabled={editState === 'saving'}
+                                className="text-[11px] font-semibold text-[#4B5563] hover:text-[#111111] disabled:opacity-50 inline-flex items-center gap-1"
+                              >
+                                <Pencil className="w-3 h-3" />
+                                Redigera
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveCustomTask(task)}
@@ -1337,6 +1418,60 @@ export const IntranetManager: React.FC = () => {
                                 >
                                   {detailsExpanded ? 'Visa mindre' : 'Läs mer'}
                                 </button>
+                              )}
+                            </div>
+                          )}
+                          {isEditing && (
+                            <div className="mt-2 ml-3 rounded-lg border border-[#D1D5DB] bg-white/90 p-3 space-y-2">
+                              <input
+                                value={editDraft.title}
+                                onChange={(event) => setCustomTaskEditDrafts((prev) => ({
+                                  ...prev,
+                                  [task.id]: { ...editDraft, title: event.target.value }
+                                }))}
+                                placeholder="Uppgiftstitel"
+                                className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
+                              />
+                              <input
+                                value={editDraft.estimated_minutes}
+                                onChange={(event) => setCustomTaskEditDrafts((prev) => ({
+                                  ...prev,
+                                  [task.id]: { ...editDraft, estimated_minutes: event.target.value }
+                                }))}
+                                placeholder="Estimerad tid (minuter)"
+                                className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
+                              />
+                              <textarea
+                                value={editDraft.details}
+                                onChange={(event) => setCustomTaskEditDrafts((prev) => ({
+                                  ...prev,
+                                  [task.id]: { ...editDraft, details: event.target.value }
+                                }))}
+                                placeholder="Beskrivning"
+                                className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px] min-h-[56px]"
+                              />
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveCustomTaskEdit(task)}
+                                  disabled={editState === 'saving'}
+                                  className="px-3 py-1.5 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em] disabled:opacity-50"
+                                >
+                                  {editState === 'saving' ? 'Sparar...' : 'Spara'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCloseCustomTaskEditor(task.id)}
+                                  disabled={editState === 'saving'}
+                                  className="px-3 py-1.5 rounded-md border border-[#9CA3AF] bg-white text-[#374151] text-[10px] font-black uppercase tracking-[0.15em] disabled:opacity-50"
+                                >
+                                  Avbryt
+                                </button>
+                              </div>
+                              {editState === 'error' && (
+                                <div className="text-[11px] text-rose-600 font-bold">
+                                  Kunde inte uppdatera uppgift.
+                                </div>
                               )}
                             </div>
                           )}
