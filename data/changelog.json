@@ -1,6 +1,54 @@
 {
-  "last_commit": "842fe12349f307d7166e315c2cac6774a825d47b",
+  "last_commit": "944e79f6d2ab7067ab3c1eac7b2e25001555640f",
   "entries": [
+    {
+      "id": "2026-03-02T13:48:34.622Z-944e79f",
+      "date": "2026-03-02T13:48:34.622Z",
+      "range": "842fe12349f307d7166e315c2cac6774a825d47b..944e79f6d2ab7067ab3c1eac7b2e25001555640f",
+      "head": "944e79f6d2ab7067ab3c1eac7b2e25001555640f",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "944e79f",
+          "subject": "cleanup: remove unused code and refine intranet workflows"
+        },
+        {
+          "hash": "71f9e24",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "components/InputForm.tsx",
+        "components/Layout.tsx",
+        "components/ui/Button.tsx",
+        "components/ui/Card.tsx",
+        "constants.ts",
+        "data/changelog.json",
+        "pages/Intranet.tsx",
+        "pages/IntranetManager.tsx",
+        "services/agentWorkflow.ts",
+        "tests/agendaTaskCatalog.test.ts",
+        "tests/agendaTaskNotes.test.ts",
+        "tests/calculations.test.ts",
+        "tests/copyValue.test.ts",
+        "tests/managerCustomTaskDraft.test.ts",
+        "tests/managerWindow.test.ts",
+        "tests/roles.test.ts",
+        "types.ts",
+        "utils/agendaTaskCatalog.ts",
+        "utils/agendaTaskNotes.ts",
+        "utils/calculations.ts",
+        "utils/copyValue.ts",
+        "utils/managerCustomTaskDraft.ts",
+        "utils/managerWindow.ts",
+        "utils/roles.ts"
+      ],
+      "stats": {
+        "files": 24,
+        "insertions": 541,
+        "deletions": 695
+      }
+    },
     {
       "id": "2026-03-01T18:52:17.027Z-842fe12",
       "date": "2026-03-01T18:52:17.027Z",
