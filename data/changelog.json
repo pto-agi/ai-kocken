@@ -1,6 +1,103 @@
 {
-  "last_commit": "b626335b1c55bae34cc41ee405cdb11157206366",
+  "last_commit": "9af78e3a17691b077214f4df866abac2bb0ee559",
   "entries": [
+    {
+      "id": "2026-03-02T20:26:27.421Z-9af78e3",
+      "date": "2026-03-02T20:26:27.421Z",
+      "range": "b626335b1c55bae34cc41ee405cdb11157206366..9af78e3a17691b077214f4df866abac2bb0ee559",
+      "head": "9af78e3a17691b077214f4df866abac2bb0ee559",
+      "commit_count": 10,
+      "commits": [
+        {
+          "hash": "9af78e3",
+          "subject": "Add referral flows, NPS, progress tracking, Todoist intranet sync, and tests"
+        },
+        {
+          "hash": "a08f2a6",
+          "subject": "Revert \"docs: add intranet submission summary design\""
+        },
+        {
+          "hash": "2c6e9e2",
+          "subject": "Revert \"feat: add submission summary normalization and schema utils\""
+        },
+        {
+          "hash": "b8de623",
+          "subject": "Revert \"feat: add submission summaries cache table script\""
+        },
+        {
+          "hash": "7c52329",
+          "subject": "Revert \"feat: add submission summary prompt and cache policy helpers\""
+        },
+        {
+          "hash": "9b7383a",
+          "subject": "feat: add submission summary prompt and cache policy helpers"
+        },
+        {
+          "hash": "2971bb0",
+          "subject": "feat: add submission summaries cache table script"
+        },
+        {
+          "hash": "c8e6f9c",
+          "subject": "feat: add submission summary normalization and schema utils"
+        },
+        {
+          "hash": "266e132",
+          "subject": "docs: add intranet submission summary design"
+        },
+        {
+          "hash": "348cb44",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "App.tsx",
+        "api/_todoistMcp.ts",
+        "api/member-actions.ts",
+        "api/membership-expiry.ts",
+        "api/todoist-staff-sync.ts",
+        "components/AuthScreen.tsx",
+        "components/Navbar.tsx",
+        "data/changelog.json",
+        "pages/Home.tsx",
+        "pages/IntranetManager.tsx",
+        "pages/IntranetTodoist.tsx",
+        "pages/NpsSurvey.tsx",
+        "pages/Profile.tsx",
+        "pages/Referral.tsx",
+        "pages/ReferralRegister.tsx",
+        "services/agentWorkflow.ts",
+        "services/databaseService.ts",
+        "store/authStore.ts",
+        "supabase_migration.sql",
+        "tests/membershipExtensionStatus.test.ts",
+        "tests/npsHelpers.test.ts",
+        "tests/onboardingProgress.test.ts",
+        "tests/progressTracker.test.ts",
+        "tests/referralHelpers.test.ts",
+        "tests/referralRegression.test.ts",
+        "tests/renewalNudge.test.ts",
+        "tests/renewalPipeline.test.ts",
+        "tests/salesOverview.test.ts",
+        "tests/staffNotes.test.ts",
+        "tests/todoistMirror.test.ts",
+        "types.ts",
+        "utils/membershipExtensionStatus.ts",
+        "utils/npsHelpers.ts",
+        "utils/onboardingProgress.ts",
+        "utils/progressTracker.ts",
+        "utils/referralHelpers.ts",
+        "utils/renewalNudge.ts",
+        "utils/renewalPipeline.ts",
+        "utils/salesOverview.ts",
+        "utils/staffNotes.ts",
+        "utils/todoistMirror.ts"
+      ],
+      "stats": {
+        "files": 41,
+        "insertions": 5564,
+        "deletions": 1815
+      }
+    },
     {
       "id": "2026-03-02T14:09:02.147Z-b626335",
       "date": "2026-03-02T14:09:02.147Z",
