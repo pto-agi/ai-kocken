@@ -1,6 +1,34 @@
 {
-  "last_commit": "944e79f6d2ab7067ab3c1eac7b2e25001555640f",
+  "last_commit": "b626335b1c55bae34cc41ee405cdb11157206366",
   "entries": [
+    {
+      "id": "2026-03-02T14:09:02.147Z-b626335",
+      "date": "2026-03-02T14:09:02.147Z",
+      "range": "944e79f6d2ab7067ab3c1eac7b2e25001555640f..b626335b1c55bae34cc41ee405cdb11157206366",
+      "head": "b626335b1c55bae34cc41ee405cdb11157206366",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "b626335",
+          "subject": "Fix intranet shipping table fallback and order import endpoint"
+        },
+        {
+          "hash": "93a0f1e",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "pages/Intranet.tsx",
+        "tests/intranetShippingConfig.test.ts",
+        "utils/intranetShippingConfig.ts"
+      ],
+      "stats": {
+        "files": 4,
+        "insertions": 234,
+        "deletions": 18
+      }
+    },
     {
       "id": "2026-03-02T13:48:34.622Z-944e79f",
       "date": "2026-03-02T13:48:34.622Z",
