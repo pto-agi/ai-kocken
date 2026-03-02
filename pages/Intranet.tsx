@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Copy, FileText, LayoutDashboard, Loader2, Package, RefreshCcw, Trash2, X, Circle, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { getEnv } from '../lib/env';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { buildCompletionItemAction } from '../utils/agendaCompletionItems';
 import { buildAgendaItemsForDate } from '../utils/agendaTaskCatalog';
@@ -8,6 +9,7 @@ import { buildAgendaCustomTaskRange } from '../utils/agendaCustomTaskRange';
 import { parseCompletedTaskIds, resolveCompletedTaskIds } from '../utils/agendaCompletionState';
 import { buildLatestTaskNoteMap } from '../utils/agendaTaskNotes';
 import { resolveCopyText } from '../utils/copyValue';
+import { resolveOrderImportEndpoint, resolveShipmentsTableFallback, resolveShipmentsTableFromEnv, type ShipmentsTable } from '../utils/intranetShippingConfig';
 import { resolveIntranetMirrorUserId } from '../utils/intranetMirrorUser';
 
 type BaseSubmission = {
@@ -616,6 +618,7 @@ const Intranet: React.FC = () => {
   const [orderParseError, setOrderParseError] = useState<string | null>(null);
   const [orderDraft, setOrderDraft] = useState<OrderImportResult | null>(null);
   const [shipments, setShipments] = useState<ShipmentEntry[]>([]);
+  const [shipmentsTable, setShipmentsTable] = useState<ShipmentsTable>(() => resolveShipmentsTableFromEnv(getEnv('VITE_SHIPMENTS_TABLE')));
   const [shipmentsStatus, setShipmentsStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [shipmentsError, setShipmentsError] = useState<string | null>(null);
   const [copiedShipmentId, setCopiedShipmentId] = useState<string | null>(null);
@@ -634,6 +637,7 @@ const Intranet: React.FC = () => {
       staffCandidates: staffMirrorCandidates
     })
   ), [isManager, session?.user?.id, staffMirrorCandidates]);
+  const orderImportEndpoint = useMemo(() => resolveOrderImportEndpoint(getEnv('VITE_ORDER_IMPORT_PROXY_URL')), []);
 
   useEffect(() => {
     const todayKey = formatDateInput(new Date());
@@ -1500,7 +1504,7 @@ const Intranet: React.FC = () => {
     setUpdatingId(null);
   };
 
-  const purgeOldHandledShipments = useCallback(async (entries: ShipmentEntry[]) => {
+  const purgeOldHandledShipments = useCallback(async (entries: ShipmentEntry[], table: ShipmentsTable) => {
     if (!isConfigured || !entries.length) return 0;
     const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const toDelete = entries.filter((entry) => {
@@ -1514,7 +1518,7 @@ const Intranet: React.FC = () => {
     if (toDelete.length === 0) return 0;
     try {
       const { error } = await supabase
-        .from('staff_shipments')
+        .from(table)
         .delete()
         .in('id', toDelete.map((entry) => entry.id));
       if (error) throw error;
@@ -1525,21 +1529,35 @@ const Intranet: React.FC = () => {
     }
   }, [isConfigured]);
 
+  const loadShipmentsForTable = useCallback(async (table: ShipmentsTable) => {
+    const { data, error } = await supabase
+      .from(table)
+      .select('id, created_at, updated_at, created_by, data, status')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || [])
+      .map(normalizeShipmentRow)
+      .filter(Boolean) as ShipmentEntry[];
+  }, []);
+
   const loadShipments = useCallback(async () => {
     if (!isConfigured || !isStaff) return;
     setShipmentsStatus('loading');
     setShipmentsError(null);
+    let tableToUse = shipmentsTable;
     try {
-      const { data, error } = await supabase
-        .from('staff_shipments')
-        .select('id, created_at, updated_at, created_by, data, status')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      const mapped = (data || [])
-        .map(normalizeShipmentRow)
-        .filter(Boolean) as ShipmentEntry[];
+      let mapped: ShipmentEntry[];
+      try {
+        mapped = await loadShipmentsForTable(tableToUse);
+      } catch (err) {
+        const fallbackTable = resolveShipmentsTableFallback(tableToUse, err as { code?: string | null; message?: string | null; hint?: string | null });
+        if (!fallbackTable) throw err;
+        mapped = await loadShipmentsForTable(fallbackTable);
+        tableToUse = fallbackTable;
+        setShipmentsTable(fallbackTable);
+      }
       setShipments(mapped);
-      const purged = await purgeOldHandledShipments(mapped);
+      const purged = await purgeOldHandledShipments(mapped, tableToUse);
       if (purged > 0) {
         setShipments((prev) => prev.filter((entry) => {
           if (!entry.status.labelPrinted) return true;
@@ -1555,7 +1573,7 @@ const Intranet: React.FC = () => {
       setShipmentsStatus('error');
       setShipmentsError('Kunde inte hämta fraktlistan. Försök igen.');
     }
-  }, [isConfigured, isStaff]);
+  }, [isConfigured, isStaff, loadShipmentsForTable, purgeOldHandledShipments, shipmentsTable]);
 
   useEffect(() => {
     if (!session?.user?.id || !isStaff || !isConfigured) return;
@@ -1568,7 +1586,7 @@ const Intranet: React.FC = () => {
     setOrderParseError(null);
     setOrderDraft(null);
     try {
-      const response = await fetch('/api/order-import', {
+      const response = await fetch(orderImportEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1579,6 +1597,9 @@ const Intranet: React.FC = () => {
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
+        if (response.status === 404) {
+          throw new Error(`Order-import endpoint saknas: ${orderImportEndpoint}`);
+        }
         throw new Error(err?.error || `Order-import failed (${response.status})`);
       }
       const data = await response.json();
@@ -1587,7 +1608,12 @@ const Intranet: React.FC = () => {
     } catch (err: any) {
       console.error('Order import failed', err);
       setOrderParseStatus('error');
-      setOrderParseError('Kunde inte analysera ordern. Kontrollera att texten är komplett och försök igen.');
+      const message = String(err?.message || '');
+      if (message.includes('Order-import endpoint saknas')) {
+        setOrderParseError('Kunde inte nå order-import. Sätt VITE_ORDER_IMPORT_PROXY_URL eller kör appen via Vercel så /api/order-import finns.');
+      } else {
+        setOrderParseError('Kunde inte analysera ordern. Kontrollera att texten är komplett och försök igen.');
+      }
     }
   };
 
@@ -1616,7 +1642,7 @@ const Intranet: React.FC = () => {
     setShipmentsStatus('loading');
     try {
       const { error } = await supabase
-        .from('staff_shipments')
+        .from(shipmentsTable)
         .insert([{
           id: entry.id,
           created_at: entry.createdAt,
@@ -1655,7 +1681,7 @@ const Intranet: React.FC = () => {
     if (!isConfigured) return;
     try {
       const { error } = await supabase
-        .from('staff_shipments')
+        .from(shipmentsTable)
         .update({ status: nextStatus, updated_at: new Date().toISOString() })
         .eq('id', id);
       if (error) {
@@ -1678,7 +1704,7 @@ const Intranet: React.FC = () => {
     if (!isConfigured) return;
     try {
       const { error } = await supabase
-        .from('staff_shipments')
+        .from(shipmentsTable)
         .delete()
         .eq('id', id);
       if (error) {
