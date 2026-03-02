@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import type { UserProfile } from '../types';
 
 const EXPIRY_SYNC_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -65,14 +67,14 @@ const maybeSyncMembershipExpiry = async (
 };
 
 interface AuthState {
-  session: any;
-  profile: any;
+  session: Session | null;
+  profile: UserProfile | null;
   profileError: string | null;
   isLoading: boolean;
   initialize: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  registerUser: (email: string, pass: string, name: string) => Promise<any>;
-  signInUser: (email: string, pass: string) => Promise<any>;
+  registerUser: (email: string, pass: string, name: string) => Promise<{ user: any; error: any }>;
+  signInUser: (email: string, pass: string) => Promise<{ user: any; error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -80,60 +82,74 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   profile: null,
   profileError: null,
-  isLoading: true, 
+  isLoading: true,
 
   initialize: async () => {
     // Sätt isLoading true vid första laddning
     if (!get().session) {
-        set({ isLoading: true });
+      set({ isLoading: true });
     }
 
     try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
 
-        if (session?.user) {
-            // Vi hämtar bara profilen (Triggern i databasen har redan skapat den!)
-            // Vi lägger in en liten fördröjning/retry om triggern är långsam
-            let { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .maybeSingle();
+      if (session?.user) {
+        // Vi hämtar bara profilen (Triggern i databasen har redan skapat den!)
+        // Vi lägger in en liten fördröjning/retry om triggern är långsam
+        let { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle();
 
-            if (profileError) {
-              console.error('Profile load error:', profileError);
-              set({ session, profile: null, profileError: profileError.message });
-            } else {
-              set({ session, profile, profileError: null });
-            }
+        if (profileError) {
+          console.error('Profile load error:', profileError);
+          set({ session, profile: null, profileError: profileError.message });
+        } else {
+          set({ session, profile, profileError: null });
+        }
+        if (profile) {
+          await maybeSyncMembershipExpiry(profile, session, get().refreshProfile, set);
+        }
+      } else {
+        set({ session: null, profile: null, profileError: null });
+      }
+    } catch (error) {
+      console.error("Auth Init Error:", error);
+      set({
+        session: null,
+        profile: null,
+        profileError: error instanceof Error ? error.message : 'Okänt fel vid inloggning.'
+      });
+    } finally {
+      set({ isLoading: false });
+    }
+
+    // Lyssna på ändringar – anropa INTE initialize() rekursivt.
+    // Hämta profilen direkt istället för att riskera en oändlig loop.
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        set({ session: null, profile: null, profileError: null, isLoading: false });
+      } else if (event === 'SIGNED_IN' && session) {
+        const current = get().session;
+        if (!current || current.user.id !== session.user.id) {
+          set({ session, isLoading: true });
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          if (profileError) {
+            set({ profile: null, profileError: profileError.message, isLoading: false });
+          } else {
+            set({ profile, profileError: null, isLoading: false });
             if (profile) {
               await maybeSyncMembershipExpiry(profile, session, get().refreshProfile, set);
             }
-        } else {
-            set({ session: null, profile: null, profileError: null });
+          }
         }
-    } catch (error) {
-        console.error("Auth Init Error:", error);
-        set({
-          session: null,
-          profile: null,
-          profileError: error instanceof Error ? error.message : 'Okänt fel vid inloggning.'
-        });
-    } finally {
-        set({ isLoading: false });
-    }
-
-    // Lyssna på ändringar
-    supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_OUT') {
-            set({ session: null, profile: null, profileError: null, isLoading: false });
-        } else if (event === 'SIGNED_IN' && session) {
-            const current = get().session;
-            if (!current || current.user.id !== session.user.id) {
-                get().initialize();
-            }
-        }
+      }
     });
   },
 
@@ -162,13 +178,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // VIKTIGT: Vi skickar med 'full_name' i metadatan.
     // SQL-triggern vi skapade nyss kommer plocka upp detta och skapa profilen åt oss.
     const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { 
-            data: { full_name: name } 
-        }
+      email,
+      password,
+      options: {
+        data: { full_name: name }
+      }
     });
-    
+
     // Vi gör ingen manuell insert här längre. Databasen sköter det.
     return { user: data.user, error };
   },

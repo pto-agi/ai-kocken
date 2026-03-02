@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation, NavLink } from 'react-router-dom';
-import { 
+import {
   User, LogOut, Mail, Settings, Trash2, Loader2,
   FileText, FileDown, Plus, Clock, RefreshCw,
   ArrowRight, LayoutDashboard, ClipboardList, CreditCard, Sparkles,
-  AlertTriangle, PauseCircle, Ban
+  AlertTriangle, PauseCircle, Ban, LineChart
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { databaseService } from '../services/databaseService';
@@ -12,8 +12,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { generateWeeklySchedulePDF } from '../utils/pdfGenerator';
 import { generateFullWeeklyDetails } from '../services/geminiService';
+import { buildProgressTimeline } from '../utils/progressTracker';
 
-type MainTab = 'OVERVIEW' | 'PLANS' | 'SUBMISSIONS' | 'MEMBERSHIP' | 'SETTINGS';
+type MainTab = 'OVERVIEW' | 'PLANS' | 'SUBMISSIONS' | 'MEMBERSHIP' | 'SETTINGS' | 'PROGRESS';
 
 type StartSubmission = {
   id: string;
@@ -285,7 +286,7 @@ export const Profile: React.FC = () => {
   const handleDownloadSavedPlanPdf = async (plan: any) => {
     setIsDownloadingPdf(plan.id);
     try {
-      const targets = { 
+      const targets = {
         kcal: user.biometrics?.results?.targetCalories || 2200,
         p: user.biometrics?.data?.macroSplit?.protein || 35,
         c: user.biometrics?.data?.macroSplit?.carbs || 35,
@@ -414,7 +415,8 @@ export const Profile: React.FC = () => {
     { id: 'SUBMISSIONS', label: 'Inlämningar', path: '/profile/inlamningar', description: 'Startformulär & uppföljning', icon: ClipboardList },
     { id: 'PLANS', label: 'Veckomenyer', path: '/profile/veckomenyer', description: 'Sparade planer', icon: FileText },
     { id: 'MEMBERSHIP', label: 'Medlemskap', path: '/profile/medlemskap', description: 'Pausa, deaktivera, återaktivera', icon: CreditCard },
-    { id: 'SETTINGS', label: 'Konto', path: '/profile/konto', description: 'Uppgifter & säkerhet', icon: Settings }
+    { id: 'SETTINGS', label: 'Konto', path: '/profile/konto', description: 'Uppgifter & säkerhet', icon: Settings },
+    { id: 'PROGRESS', label: 'Progress', path: '/profile/progress', description: 'Din resa', icon: LineChart }
   ];
 
   const tabPathById = tabItems.reduce((acc, item) => {
@@ -434,7 +436,9 @@ export const Profile: React.FC = () => {
         ? 'MEMBERSHIP'
         : normalizedPath.startsWith('/profile/konto')
           ? 'SETTINGS'
-          : 'OVERVIEW';
+          : normalizedPath.startsWith('/profile/progress')
+            ? 'PROGRESS'
+            : 'OVERVIEW';
 
   const activeTabMeta = tabItems.find((item) => item.id === activeTab);
 
@@ -529,8 +533,8 @@ export const Profile: React.FC = () => {
   return (
     <div className={ui.page}>
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
-          <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px] pointer-events-none"></div>
-          <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px]"></div>
+        <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px] pointer-events-none"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px]"></div>
       </div>
 
       <div className="max-w-7xl mx-auto relative z-10 animate-fade-in">
@@ -547,10 +551,9 @@ export const Profile: React.FC = () => {
                       to={item.path}
                       end={item.path === '/profile'}
                       className={({ isActive }) =>
-                        `flex items-start gap-3 rounded-2xl border px-3 py-3 transition-all ${
-                          isActive
-                            ? 'bg-white/90 border-[#a0c81d]/40 text-[#3D3D3D] shadow-md'
-                            : 'bg-white/60 border-[#E6E1D8] text-[#6B6158] hover:bg-white/90 hover:border-[#a0c81d]/20'
+                        `flex items-start gap-3 rounded-2xl border px-3 py-3 transition-all ${isActive
+                          ? 'bg-white/90 border-[#a0c81d]/40 text-[#3D3D3D] shadow-md'
+                          : 'bg-white/60 border-[#E6E1D8] text-[#6B6158] hover:bg-white/90 hover:border-[#a0c81d]/20'
                         }`
                       }
                     >
@@ -581,7 +584,7 @@ export const Profile: React.FC = () => {
                         <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D]">{sectionTitle}</h1>
                         <p className={`${ui.body} mt-2 max-w-xl`}>{sectionDescription}</p>
                       </div>
-                      <button 
+                      <button
                         onClick={async () => { await signOut(); navigate('/'); }}
                         className="flex items-center gap-2 text-red-400 hover:bg-red-500/10 px-3 py-2 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest"
                       >
@@ -669,517 +672,553 @@ export const Profile: React.FC = () => {
               </div>
             )}
 
-        <div className="min-h-[600px]">
-            {activeTab === 'OVERVIEW' && (
-              <div className="space-y-6 animate-fade-in">
-                <div className={ui.panel}>
-                  <div className="absolute top-[-20%] left-[-10%] w-[360px] h-[360px] bg-[#a0c81d]/10 rounded-full blur-[110px]"></div>
-                  <div className="relative z-10 space-y-5">
-                    <CardHeader
-                      label="Åtgärder"
-                      title="Snabbkommandon"
-                      icon={Sparkles}
-                    />
-                    <p className={ui.body}>
-                      Starta viktiga flöden direkt utan att leta i menyerna.
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <button
-                        onClick={() => navigateToTab('MEMBERSHIP')}
-                        className={`${ui.primaryBtnSm} w-full flex items-center justify-center`}
-                      >
-                        Hantera medlemskap
-                      </button>
-                      <Link to="/uppfoljning" className={`${ui.outlineBtn} w-full text-center`}>
-                        Skicka uppföljning
-                      </Link>
-                      <Link to="/recept" className={`${ui.outlineBtn} w-full text-center`}>
-                        Skapa veckomeny
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-[#E8F1D5] rounded-[2.5rem] p-6 md:p-8 border border-[#E6E1D8] shadow-2xl relative overflow-hidden">
-                    <div className="absolute -top-16 -right-10 w-[240px] h-[240px] bg-cyan-500/10 rounded-full blur-[90px]"></div>
-                    <div className="relative z-10 flex flex-col gap-6">
-                      <div className="w-full">
-                        <CardHeader
-                          label="Inlämningar"
-                          title="Senaste inskickat"
-                          icon={FileDown}
-                          action={
-                            <span className={`${ui.label} text-[#6B6158]`}>
-                              {combinedSubmissions.length === 0 ? 'Inga inlämningar' : `${combinedSubmissions.length} totalt`}
-                            </span>
-                          }
-                        />
-                        <p className={`${ui.body} mt-2`}>
-                          Startformulär och uppföljningar samlat på ett ställe.
-                        </p>
-                      </div>
-                      <div className="space-y-3">
-                        {combinedSubmissions.length === 0 ? (
-                          <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-4 py-4 text-sm text-[#8A8177]">
-                            Inga inlämningar ännu.
-                          </div>
-                        ) : (
-                          combinedSubmissions.slice(0, 3).map((submission) => {
-                            const isStart = submission.kind === 'start';
-                            const label = isStart ? 'Startformulär' : 'Uppföljning';
-                            return (
-                              <div key={`${submission.kind}-${submission.data.id}`} className={`flex items-center justify-between ${ui.cardSoft}`}>
-                                <div>
-                                  <p className="text-sm font-bold text-[#3D3D3D]">{label}</p>
-                                  <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">
-                                    {formatDateTime(submission.data.created_at)}
-                                  </p>
-                                </div>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-[#6B6158]">
-                                  {submission.data.is_done ? 'Klarmarkerad' : 'Mottagen'}
-                                </span>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3">
+            <div className="min-h-[600px]">
+              {activeTab === 'OVERVIEW' && (
+                <div className="space-y-6 animate-fade-in">
+                  <div className={ui.panel}>
+                    <div className="absolute top-[-20%] left-[-10%] w-[360px] h-[360px] bg-[#a0c81d]/10 rounded-full blur-[110px]"></div>
+                    <div className="relative z-10 space-y-5">
+                      <CardHeader
+                        label="Åtgärder"
+                        title="Snabbkommandon"
+                        icon={Sparkles}
+                      />
+                      <p className={ui.body}>
+                        Starta viktiga flöden direkt utan att leta i menyerna.
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <button
-                          onClick={() => navigateToTab('SUBMISSIONS')}
-                          className={ui.outlineBtn}
+                          onClick={() => navigateToTab('MEMBERSHIP')}
+                          className={`${ui.primaryBtnSm} w-full flex items-center justify-center`}
                         >
-                          Visa allt
+                          Hantera medlemskap
                         </button>
-                        <Link to="/uppfoljning" className={ui.primaryBtnSm}>
+                        <Link to="/uppfoljning" className={`${ui.outlineBtn} w-full text-center`}>
                           Skicka uppföljning
                         </Link>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#E8F1D5] rounded-[2.5rem] p-6 md:p-8 border border-[#E6E1D8] shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-[-20%] right-[-10%] w-[280px] h-[280px] bg-purple-500/10 rounded-full blur-[100px]"></div>
-                    <div className="relative z-10 flex flex-col gap-6 h-full">
-                      <div className="w-full">
-                        <CardHeader
-                          label="Veckomenyer"
-                          title="Senaste planer"
-                          icon={FileText}
-                          action={
-                            <span className={`${ui.label} text-[#6B6158]`}>
-                              {weeklyPlans.length === 0 ? 'Inga sparade planer' : `${weeklyPlans.length} sparade`}
-                            </span>
-                          }
-                        />
-                        <p className={`${ui.body} mt-3`}>
-                          {weeklyPlans.length === 0 ? 'Inga sparade planer ännu.' : 'Här ser du dina senaste planer.'}
-                        </p>
-                      </div>
-                      <div className="space-y-3">
-                        {weeklyPlans.slice(0, 3).map((plan: any) => (
-                          <div key={plan.id} className={`flex items-center justify-between ${ui.cardSoft}`}>
-                            <div>
-                              <p className="text-sm font-bold text-[#3D3D3D]">{plan.title || 'Namnlös Vecka'}</p>
-                              <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">
-                                {new Date(plan.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleDownloadSavedPlanPdf(plan)}
-                              disabled={isDownloadingPdf === plan.id}
-                              className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
-                            >
-                              {isDownloadingPdf === plan.id ? 'Förbereder...' : 'PDF'}
-                            </button>
-                          </div>
-                        ))}
-                        {weeklyPlans.length === 0 && (
-                          <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-4 py-4 text-sm text-[#8A8177]">
-                            Skapa en ny plan för att se den här.
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-auto flex items-center justify-between">
-                        <Link
-                          to="/recept"
-                          className={ui.primaryBtnSm}
-                        >
-                          Skapa ny plan
+                        <Link to="/recept" className={`${ui.outlineBtn} w-full text-center`}>
+                          Skapa veckomeny
                         </Link>
-                        <button
-                          onClick={() => navigateToTab('PLANS')}
-                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
-                        >
-                          Visa alla
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'PLANS' && (
-              <div className="space-y-8 animate-fade-in">
-                <div className={ui.panel}>
-                  <div className="absolute top-[-20%] right-[-10%] w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px]"></div>
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-                    <div>
-                      <h2 className="text-3xl font-black text-[#3D3D3D] uppercase tracking-tight mb-2 flex items-center gap-3">
-                        <FileText className="w-8 h-8 text-purple-400" /> Veckomeny-arkiv
-                      </h2>
-                      <p className={ui.body}>Här sparas alla dina genererade planer.</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => queryClient.invalidateQueries({ queryKey: ['weeklyPlans'] })}
-                        className="p-3 text-[#6B6158] hover:text-[#3D3D3D] hover:bg-[#ffffff]/70 rounded-xl transition-all"
-                        title="Uppdatera"
-                      >
-                        <RefreshCw className="w-5 h-5" />
-                      </button>
-                      <Link to="/recept" className="bg-[#a0c81d] text-[#F6F1E7] px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition-all flex items-center gap-2 shadow-lg shadow-[#a0c81d]/20">
-                        <Plus className="w-4 h-4" /> Ny Plan
-                      </Link>
-                    </div>
-                  </div>
-
-                  <div className="mt-12 space-y-4">
-                    {weeklyPlans.length === 0 ? (
-                      <div className="text-center py-24 bg-[#F6F1E7]/30 rounded-[2.5rem] border-2 border-dashed border-[#E6E1D8]">
-                        <Clock className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-                        <h3 className="text-lg font-bold text-[#3D3D3D] mb-2">Inga sparade planer ännu</h3>
-                        <p className="text-[#8A8177] text-sm">Om du precis skapat en plan, klicka Uppdatera.</p>
-                      </div>
-                    ) : (
-                      weeklyPlans.map((plan: any) => (
-                        <div key={plan.id} className="bg-[#F6F1E7]/80 backdrop-blur-md rounded-[2rem] border border-[#E6E1D8] p-6 hover:border-purple-500/40 transition-all group flex flex-col md:flex-row items-center justify-between gap-6">
-                          <div className="flex items-center gap-5">
-                            <div className="bg-purple-500/10 p-4 rounded-2xl text-purple-400 group-hover:scale-110 transition-transform">
-                              <FileText className="w-6 h-6" />
-                            </div>
-                            <div>
-                              <h4 className="text-lg font-black text-[#3D3D3D] group-hover:text-purple-300 transition-colors">{plan.title || 'Namnlös Vecka'}</h4>
-                              <div className="flex items-center gap-3 mt-1">
-                                <span className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest flex items-center gap-1.5">
-                                  <Clock className="w-3 h-3" /> {new Date(plan.created_at).toLocaleDateString()}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 w-full md:w-auto">
-                            <button 
-                              onClick={() => handleDownloadSavedPlanPdf(plan)}
-                              disabled={isDownloadingPdf === plan.id}
-                              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#a0c81d] text-[#F6F1E7] px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all hover:bg-[#5C7A12] active:scale-95 shadow-xl shadow-[#a0c81d]/20"
-                            >
-                              {isDownloadingPdf === plan.id ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" /> Förbereder...</>
-                              ) : (
-                                <><FileDown className="w-4 h-4" /> Ladda ner PDF</>
-                              )}
-                            </button>
-                            <button 
-                              onClick={() => { if(window.confirm('Ta bort denna plan?')) deletePlanMutation.mutate(plan.id); }}
-                              className="p-3 text-[#8A8177] hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-[#E8F1D5] rounded-[2.5rem] p-6 md:p-8 border border-[#E6E1D8] shadow-2xl relative overflow-hidden">
+                      <div className="absolute -top-16 -right-10 w-[240px] h-[240px] bg-cyan-500/10 rounded-full blur-[90px]"></div>
+                      <div className="relative z-10 flex flex-col gap-6">
+                        <div className="w-full">
+                          <CardHeader
+                            label="Inlämningar"
+                            title="Senaste inskickat"
+                            icon={FileDown}
+                            action={
+                              <span className={`${ui.label} text-[#6B6158]`}>
+                                {combinedSubmissions.length === 0 ? 'Inga inlämningar' : `${combinedSubmissions.length} totalt`}
+                              </span>
+                            }
+                          />
+                          <p className={`${ui.body} mt-2`}>
+                            Startformulär och uppföljningar samlat på ett ställe.
+                          </p>
                         </div>
-                      ))
-                    )}
+                        <div className="space-y-3">
+                          {combinedSubmissions.length === 0 ? (
+                            <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-4 py-4 text-sm text-[#8A8177]">
+                              Inga inlämningar ännu.
+                            </div>
+                          ) : (
+                            combinedSubmissions.slice(0, 3).map((submission) => {
+                              const isStart = submission.kind === 'start';
+                              const label = isStart ? 'Startformulär' : 'Uppföljning';
+                              return (
+                                <div key={`${submission.kind}-${submission.data.id}`} className={`flex items-center justify-between ${ui.cardSoft}`}>
+                                  <div>
+                                    <p className="text-sm font-bold text-[#3D3D3D]">{label}</p>
+                                    <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">
+                                      {formatDateTime(submission.data.created_at)}
+                                    </p>
+                                  </div>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-[#6B6158]">
+                                    {submission.data.is_done ? 'Klarmarkerad' : 'Mottagen'}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => navigateToTab('SUBMISSIONS')}
+                            className={ui.outlineBtn}
+                          >
+                            Visa allt
+                          </button>
+                          <Link to="/uppfoljning" className={ui.primaryBtnSm}>
+                            Skicka uppföljning
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#E8F1D5] rounded-[2.5rem] p-6 md:p-8 border border-[#E6E1D8] shadow-2xl relative overflow-hidden">
+                      <div className="absolute top-[-20%] right-[-10%] w-[280px] h-[280px] bg-purple-500/10 rounded-full blur-[100px]"></div>
+                      <div className="relative z-10 flex flex-col gap-6 h-full">
+                        <div className="w-full">
+                          <CardHeader
+                            label="Veckomenyer"
+                            title="Senaste planer"
+                            icon={FileText}
+                            action={
+                              <span className={`${ui.label} text-[#6B6158]`}>
+                                {weeklyPlans.length === 0 ? 'Inga sparade planer' : `${weeklyPlans.length} sparade`}
+                              </span>
+                            }
+                          />
+                          <p className={`${ui.body} mt-3`}>
+                            {weeklyPlans.length === 0 ? 'Inga sparade planer ännu.' : 'Här ser du dina senaste planer.'}
+                          </p>
+                        </div>
+                        <div className="space-y-3">
+                          {weeklyPlans.slice(0, 3).map((plan: any) => (
+                            <div key={plan.id} className={`flex items-center justify-between ${ui.cardSoft}`}>
+                              <div>
+                                <p className="text-sm font-bold text-[#3D3D3D]">{plan.title || 'Namnlös Vecka'}</p>
+                                <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">
+                                  {new Date(plan.created_at).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleDownloadSavedPlanPdf(plan)}
+                                disabled={isDownloadingPdf === plan.id}
+                                className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
+                              >
+                                {isDownloadingPdf === plan.id ? 'Förbereder...' : 'PDF'}
+                              </button>
+                            </div>
+                          ))}
+                          {weeklyPlans.length === 0 && (
+                            <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-4 py-4 text-sm text-[#8A8177]">
+                              Skapa en ny plan för att se den här.
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-auto flex items-center justify-between">
+                          <Link
+                            to="/recept"
+                            className={ui.primaryBtnSm}
+                          >
+                            Skapa ny plan
+                          </Link>
+                          <button
+                            onClick={() => navigateToTab('PLANS')}
+                            className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
+                          >
+                            Visa alla
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {activeTab === 'SUBMISSIONS' && (
-              <div className="space-y-8 animate-fade-in">
-                <div className={ui.panel}>
-                  <div className="absolute top-[-20%] left-[-10%] w-[360px] h-[360px] bg-cyan-500/10 rounded-full blur-[120px]"></div>
-                  <div className="relative z-10">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              {activeTab === 'PLANS' && (
+                <div className="space-y-8 animate-fade-in">
+                  <div className={ui.panel}>
+                    <div className="absolute top-[-20%] right-[-10%] w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px]"></div>
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
                       <div>
-                        <p className={ui.labelTight}>Historik</p>
                         <h2 className="text-3xl font-black text-[#3D3D3D] uppercase tracking-tight mb-2 flex items-center gap-3">
-                          <FileText className="w-8 h-8 text-[#6B6158]" /> Mina inlämningar
+                          <FileText className="w-8 h-8 text-purple-400" /> Veckomeny-arkiv
                         </h2>
-                        <p className={ui.body}>
-                          Här samlas dina inskickade startformulär och uppföljningar.
-                        </p>
+                        <p className={ui.body}>Här sparas alla dina genererade planer.</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Link to="/uppfoljning" className={ui.primaryBtnSm}>
-                          Skicka uppföljning
+                        <button
+                          onClick={() => queryClient.invalidateQueries({ queryKey: ['weeklyPlans'] })}
+                          className="p-3 text-[#6B6158] hover:text-[#3D3D3D] hover:bg-[#ffffff]/70 rounded-xl transition-all"
+                          title="Uppdatera"
+                        >
+                          <RefreshCw className="w-5 h-5" />
+                        </button>
+                        <Link to="/recept" className="bg-[#a0c81d] text-[#F6F1E7] px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition-all flex items-center gap-2 shadow-lg shadow-[#a0c81d]/20">
+                          <Plus className="w-4 h-4" /> Ny Plan
                         </Link>
                       </div>
                     </div>
 
-                    <div className="mt-10 space-y-4">
-                      {combinedSubmissions.length === 0 ? (
-                        <div className="text-center py-20 bg-[#F6F1E7]/30 rounded-[2.5rem] border-2 border-dashed border-[#E6E1D8]">
-                          <Clock className="w-14 h-14 text-slate-700 mx-auto mb-4" />
-                          <h3 className="text-lg font-bold text-[#3D3D3D] mb-2">Inga inlämningar ännu</h3>
-                          <p className="text-[#8A8177] text-sm">När du skickat in startformulär eller uppföljning visas det här.</p>
+                    <div className="mt-12 space-y-4">
+                      {weeklyPlans.length === 0 ? (
+                        <div className="text-center py-24 bg-[#F6F1E7]/30 rounded-[2.5rem] border-2 border-dashed border-[#E6E1D8]">
+                          <Clock className="w-16 h-16 text-slate-700 mx-auto mb-4" />
+                          <h3 className="text-lg font-bold text-[#3D3D3D] mb-2">Inga sparade planer ännu</h3>
+                          <p className="text-[#8A8177] text-sm">Om du precis skapat en plan, klicka Uppdatera.</p>
                         </div>
                       ) : (
-                        combinedSubmissions.map((submission) => {
-                          const isStart = submission.kind === 'start';
-                          const data = submission.data;
-                          const badge = isStart ? 'Startformulär' : 'Uppföljning';
-                          const badgeStyle = isStart
-                            ? 'bg-purple-500/15 text-purple-700 border-purple-500/30'
-                            : 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
-                          const statusStyle = data.is_done
-                            ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                            : 'bg-amber-500/15 text-amber-700 border-amber-500/30';
-                          const statusLabel = data.is_done ? 'Klarmarkerad' : 'Mottagen';
-                          const entryKey = `${submission.kind}-${data.id}`;
-                          const isExpanded = !!expandedSubmissions[entryKey];
-
-                          return (
-                            <button
-                              key={entryKey}
-                              type="button"
-                              onClick={() => toggleSubmission(entryKey)}
-                              className="text-left w-full bg-[#F6F1E7]/80 backdrop-blur-md rounded-[2rem] border border-[#E6E1D8] p-6 hover:border-[#a0c81d]/40 transition-all"
-                            >
-                              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                                <div className="flex items-start gap-4">
-                                  <div className="w-12 h-12 rounded-2xl bg-white/70 border border-[#E6E1D8] flex items-center justify-center text-[#6B6158]">
-                                    {isStart ? <FileText className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
-                                  </div>
-                                  <div className="space-y-2">
-                                    <div className="flex flex-wrap items-center gap-3">
-                                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${badgeStyle}`}>
-                                        {badge}
-                                      </span>
-                                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${statusStyle}`}>
-                                        {statusLabel}
-                                      </span>
-                                    </div>
-                                    <div className="text-sm font-bold text-[#3D3D3D]">
-                                      Inskickad {formatDateTime(data.created_at)}
-                                    </div>
-                                    {isStart ? (
-                                      <div className="text-xs text-[#8A8177] font-medium">
-                                        {submission.data.desired_start_date ? `Önskat startdatum: ${formatDate(submission.data.desired_start_date)}` : 'Önskat startdatum ej angivet'}
-                                      </div>
-                                    ) : (
-                                      <div className="text-xs text-[#8A8177] font-medium">
-                                        {submission.data.goal ? `Mål: ${submission.data.goal}` : 'Mål ej angivet'}
-                                      </div>
-                                    )}
-                                    <div className="text-[13px] text-[#6B6158] font-medium max-w-2xl">
-                                      {isStart
-                                        ? clampText(submission.data.goal_description || (submission.data.focus_areas || []).join(', '))
-                                        : clampText(submission.data.summary_feedback)}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                                  {data.is_done && data.done_at ? `Klarmarkerad ${formatDate(data.done_at)}` : 'Ej klarmarkerad'}
+                        weeklyPlans.map((plan: any) => (
+                          <div key={plan.id} className="bg-[#F6F1E7]/80 backdrop-blur-md rounded-[2rem] border border-[#E6E1D8] p-6 hover:border-purple-500/40 transition-all group flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-5">
+                              <div className="bg-purple-500/10 p-4 rounded-2xl text-purple-400 group-hover:scale-110 transition-transform">
+                                <FileText className="w-6 h-6" />
+                              </div>
+                              <div>
+                                <h4 className="text-lg font-black text-[#3D3D3D] group-hover:text-purple-300 transition-colors">{plan.title || 'Namnlös Vecka'}</h4>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <span className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest flex items-center gap-1.5">
+                                    <Clock className="w-3 h-3" /> {new Date(plan.created_at).toLocaleDateString()}
+                                  </span>
                                 </div>
                               </div>
+                            </div>
 
-                              {isExpanded && (
-                                <div className="mt-6 rounded-2xl border border-[#E6E1D8] bg-white/70 p-5 text-sm text-[#3D3D3D] space-y-3">
-                                  {isStart ? (
-                                    <>
-                                      <div>
-                                        <span className={ui.label}>Fokusområden</span>
-                                        <div className="mt-1 text-[#6B6158]">
-                                          {(submission.data.focus_areas && submission.data.focus_areas.length > 0) ? submission.data.focus_areas.join(', ') : 'Ej angivet'}
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <span className={ui.label}>Målbeskrivning</span>
-                                        <div className="mt-1 text-[#6B6158]">
-                                          {submission.data.goal_description || 'Ej angivet'}
-                                        </div>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div>
-                                        <span className={ui.label}>Sammanfattning</span>
-                                        <div className="mt-1 text-[#6B6158]">
-                                          {submission.data.summary_feedback || 'Ej angivet'}
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <span className={ui.label}>Mål</span>
-                                        <div className="mt-1 text-[#6B6158]">
-                                          {submission.data.goal || 'Ej angivet'}
-                                        </div>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })
+                            <div className="flex items-center gap-3 w-full md:w-auto">
+                              <button
+                                onClick={() => handleDownloadSavedPlanPdf(plan)}
+                                disabled={isDownloadingPdf === plan.id}
+                                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#a0c81d] text-[#F6F1E7] px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all hover:bg-[#5C7A12] active:scale-95 shadow-xl shadow-[#a0c81d]/20"
+                              >
+                                {isDownloadingPdf === plan.id ? (
+                                  <><Loader2 className="w-4 h-4 animate-spin" /> Förbereder...</>
+                                ) : (
+                                  <><FileDown className="w-4 h-4" /> Ladda ner PDF</>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => { if (window.confirm('Ta bort denna plan?')) deletePlanMutation.mutate(plan.id); }}
+                                className="p-3 text-[#8A8177] hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
                       )}
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {activeTab === 'MEMBERSHIP' && (
-              <div className="space-y-8 animate-fade-in">
-                <div className={ui.panel}>
-                  <div className="absolute top-[-15%] right-[-10%] w-[320px] h-[320px] bg-[#a0c81d]/10 rounded-full blur-[100px]"></div>
-                  <div className="relative z-10 space-y-8">
-                    <div>
-                      <p className={ui.labelTight}>Medlemskap</p>
-                      <h2 className={ui.titleLg}>Hantera din PTO‑tjänst</h2>
-                      <p className={`${ui.body} mt-2 max-w-2xl`}>
-                        Här ser du din coachingstatus, kommande händelser och tilläggstjänster.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className={`${ui.card} flex flex-col gap-4`}>
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                          <div>
-                            <p className={ui.label}>PTO Coaching</p>
-                            <h4 className="text-lg md:text-xl font-black text-[#3D3D3D]">Kundmedlemskap</h4>
-                            <p className={`${ui.body} mt-2 max-w-xl`}>
-                              Din personliga coachingperiod, uppföljningar och klientstatus.
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${coachingMeta.style}`}>
-                              {coachingMeta.label}
-                            </div>
-                            <button
-                              onClick={handleManualSyncMembership}
-                              disabled={isSyncingMembership}
-                              className="px-3 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
-                            >
-                              {isSyncingMembership ? 'Uppdaterar…' : 'Uppdatera status'}
-                            </button>
-                          </div>
+              {activeTab === 'SUBMISSIONS' && (
+                <div className="space-y-8 animate-fade-in">
+                  <div className={ui.panel}>
+                    <div className="absolute top-[-20%] left-[-10%] w-[360px] h-[360px] bg-cyan-500/10 rounded-full blur-[120px]"></div>
+                    <div className="relative z-10">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                        <div>
+                          <p className={ui.labelTight}>Historik</p>
+                          <h2 className="text-3xl font-black text-[#3D3D3D] uppercase tracking-tight mb-2 flex items-center gap-3">
+                            <FileText className="w-8 h-8 text-[#6B6158]" /> Mina inlämningar
+                          </h2>
+                          <p className={ui.body}>
+                            Här samlas dina inskickade startformulär och uppföljningar.
+                          </p>
                         </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-[#6B6158]">
-                          <div className="flex items-start gap-3">
-                            <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
-                            <span>
-                              Utgångsdatum:{' '}
-                              {coachingStatus === 'paused'
-                                ? 'Pausat'
-                                : coachingStatus === 'deactivated'
-                                  ? 'Deaktiverad'
-                                  : coachingStatus === 'expired'
-                                    ? 'På väg att avslutas'
-                                    : user.coaching_expires_at
-                                      ? formatDate(user.coaching_expires_at)
-                                      : 'Ej angivet'}
-                            </span>
-                          </div>
-                          <div className="flex items-start gap-3">
-                            <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
-                            <span>Status: {coachingMeta.label}</span>
-                          </div>
+                        <div className="flex items-center gap-3">
+                          <Link to="/uppfoljning" className={ui.primaryBtnSm}>
+                            Skicka uppföljning
+                          </Link>
                         </div>
-                        {syncStatus === 'success' && (
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-                            Status uppdaterad.
-                          </div>
-                        )}
-                        {syncStatus === 'error' && (
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-rose-700">
-                            Kunde inte uppdatera status.
-                          </div>
-                        )}
+                      </div>
 
-                        {coachingStatus === 'paused' && (
-                          <div className="flex items-start gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-700">
-                            <PauseCircle className="w-4 h-4 mt-0.5" />
-                            <span>Ditt medlemskap är pausat. Utgångsdatumet är fryst tills återaktivering.</span>
+                      <div className="mt-10 space-y-4">
+                        {combinedSubmissions.length === 0 ? (
+                          <div className="text-center py-20 bg-[#F6F1E7]/30 rounded-[2.5rem] border-2 border-dashed border-[#E6E1D8]">
+                            <Clock className="w-14 h-14 text-slate-700 mx-auto mb-4" />
+                            <h3 className="text-lg font-bold text-[#3D3D3D] mb-2">Inga inlämningar ännu</h3>
+                            <p className="text-[#8A8177] text-sm">När du skickat in startformulär eller uppföljning visas det här.</p>
                           </div>
-                        )}
-                        {coachingStatus === 'expired' && (
-                          <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-700">
-                            <AlertTriangle className="w-4 h-4 mt-0.5" />
-                            <span>Din period är på väg att avslutas. Kontakta oss om du vill fortsätta.</span>
-                          </div>
-                        )}
-                        {coachingStatus === 'deactivated' && (
-                          <div className="flex items-start gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-700">
-                            <Ban className="w-4 h-4 mt-0.5" />
-                            <span>Medlemskapet är deaktiverat och tillgången till träningsappen är borttagen.</span>
-                          </div>
-                        )}
+                        ) : (
+                          combinedSubmissions.map((submission) => {
+                            const isStart = submission.kind === 'start';
+                            const data = submission.data;
+                            const badge = isStart ? 'Startformulär' : 'Uppföljning';
+                            const badgeStyle = isStart
+                              ? 'bg-purple-500/15 text-purple-700 border-purple-500/30'
+                              : 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30';
+                            const statusStyle = data.is_done
+                              ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
+                              : 'bg-amber-500/15 text-amber-700 border-amber-500/30';
+                            const statusLabel = data.is_done ? 'Klarmarkerad' : 'Mottagen';
+                            const entryKey = `${submission.kind}-${data.id}`;
+                            const isExpanded = !!expandedSubmissions[entryKey];
 
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                            Vill du pausa? Då fryser vi din period och aktiverar när du vill igen.
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {pauseStatus === 'success' && (
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-                                Pausbegäran skickad
-                              </span>
-                            )}
-                            {pauseCooldownActive && (
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-sky-700">
-                                Pausbegäran redan registrerad. Status uppdateras inom 24 timmar.
-                              </span>
-                            )}
-                            {pauseStatus === 'error' && (
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
-                                Kunde inte skicka
-                              </span>
-                            )}
-                            {coachingActive ? (
+                            return (
                               <button
-                                onClick={handlePauseMembership}
-                                disabled={isPausing || pauseCooldownActive}
-                                className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
+                                key={entryKey}
+                                type="button"
+                                onClick={() => toggleSubmission(entryKey)}
+                                className="text-left w-full bg-[#F6F1E7]/80 backdrop-blur-md rounded-[2rem] border border-[#E6E1D8] p-6 hover:border-[#a0c81d]/40 transition-all"
                               >
-                                {isPausing
-                                  ? 'Skickar...'
-                                  : pauseCooldownActive
-                                    ? 'Paus begärd'
-                                    : 'Pausa medlemskap'}
-                              </button>
-                            ) : (
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                                Ingen aktiv period att pausa
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                                  <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-white/70 border border-[#E6E1D8] flex items-center justify-center text-[#6B6158]">
+                                      {isStart ? <FileText className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+                                    </div>
+                                    <div className="space-y-2">
+                                      <div className="flex flex-wrap items-center gap-3">
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${badgeStyle}`}>
+                                          {badge}
+                                        </span>
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${statusStyle}`}>
+                                          {statusLabel}
+                                        </span>
+                                      </div>
+                                      <div className="text-sm font-bold text-[#3D3D3D]">
+                                        Inskickad {formatDateTime(data.created_at)}
+                                      </div>
+                                      {isStart ? (
+                                        <div className="text-xs text-[#8A8177] font-medium">
+                                          {submission.data.desired_start_date ? `Önskat startdatum: ${formatDate(submission.data.desired_start_date)}` : 'Önskat startdatum ej angivet'}
+                                        </div>
+                                      ) : (
+                                        <div className="text-xs text-[#8A8177] font-medium">
+                                          {submission.data.goal ? `Mål: ${submission.data.goal}` : 'Mål ej angivet'}
+                                        </div>
+                                      )}
+                                      <div className="text-[13px] text-[#6B6158] font-medium max-w-2xl">
+                                        {isStart
+                                          ? clampText(submission.data.goal_description || (submission.data.focus_areas || []).join(', '))
+                                          : clampText(submission.data.summary_feedback)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                                    {data.is_done && data.done_at ? `Klarmarkerad ${formatDate(data.done_at)}` : 'Ej klarmarkerad'}
+                                  </div>
+                                </div>
 
-                        {(coachingStatus === 'paused' || coachingStatus === 'deactivated') && (
+                                {isExpanded && (
+                                  <div className="mt-6 rounded-2xl border border-[#E6E1D8] bg-white/70 p-5 text-sm text-[#3D3D3D] space-y-3">
+                                    {isStart ? (
+                                      <>
+                                        <div>
+                                          <span className={ui.label}>Fokusområden</span>
+                                          <div className="mt-1 text-[#6B6158]">
+                                            {(submission.data.focus_areas && submission.data.focus_areas.length > 0) ? submission.data.focus_areas.join(', ') : 'Ej angivet'}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <span className={ui.label}>Målbeskrivning</span>
+                                          <div className="mt-1 text-[#6B6158]">
+                                            {submission.data.goal_description || 'Ej angivet'}
+                                          </div>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div>
+                                          <span className={ui.label}>Sammanfattning</span>
+                                          <div className="mt-1 text-[#6B6158]">
+                                            {submission.data.summary_feedback || 'Ej angivet'}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <span className={ui.label}>Mål</span>
+                                          <div className="mt-1 text-[#6B6158]">
+                                            {submission.data.goal || 'Ej angivet'}
+                                          </div>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'MEMBERSHIP' && (
+                <div className="space-y-8 animate-fade-in">
+                  <div className={ui.panel}>
+                    <div className="absolute top-[-15%] right-[-10%] w-[320px] h-[320px] bg-[#a0c81d]/10 rounded-full blur-[100px]"></div>
+                    <div className="relative z-10 space-y-8">
+                      <div>
+                        <p className={ui.labelTight}>Medlemskap</p>
+                        <h2 className={ui.titleLg}>Hantera din PTO‑tjänst</h2>
+                        <p className={`${ui.body} mt-2 max-w-2xl`}>
+                          Här ser du din coachingstatus, kommande händelser och tilläggstjänster.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className={`${ui.card} flex flex-col gap-4`}>
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div>
+                              <p className={ui.label}>PTO Coaching</p>
+                              <h4 className="text-lg md:text-xl font-black text-[#3D3D3D]">Kundmedlemskap</h4>
+                              <p className={`${ui.body} mt-2 max-w-xl`}>
+                                Din personliga coachingperiod, uppföljningar och klientstatus.
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${coachingMeta.style}`}>
+                                {coachingMeta.label}
+                              </div>
+                              <button
+                                onClick={handleManualSyncMembership}
+                                disabled={isSyncingMembership}
+                                className="px-3 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
+                              >
+                                {isSyncingMembership ? 'Uppdaterar…' : 'Uppdatera status'}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-[#6B6158]">
+                            <div className="flex items-start gap-3">
+                              <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
+                              <span>
+                                Utgångsdatum:{' '}
+                                {coachingStatus === 'paused'
+                                  ? 'Pausat'
+                                  : coachingStatus === 'deactivated'
+                                    ? 'Deaktiverad'
+                                    : coachingStatus === 'expired'
+                                      ? 'På väg att avslutas'
+                                      : user.coaching_expires_at
+                                        ? formatDate(user.coaching_expires_at)
+                                        : 'Ej angivet'}
+                              </span>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <span className="mt-1 w-2 h-2 rounded-full bg-[#a0c81d]"></span>
+                              <span>Status: {coachingMeta.label}</span>
+                            </div>
+                          </div>
+                          {syncStatus === 'success' && (
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                              Status uppdaterad.
+                            </div>
+                          )}
+                          {syncStatus === 'error' && (
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-rose-700">
+                              Kunde inte uppdatera status.
+                            </div>
+                          )}
+
+                          {coachingStatus === 'paused' && (
+                            <div className="flex items-start gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-700">
+                              <PauseCircle className="w-4 h-4 mt-0.5" />
+                              <span>Ditt medlemskap är pausat. Utgångsdatumet är fryst tills återaktivering.</span>
+                            </div>
+                          )}
+                          {coachingStatus === 'expired' && (
+                            <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-700">
+                              <AlertTriangle className="w-4 h-4 mt-0.5" />
+                              <span>Din period är på väg att avslutas. Kontakta oss om du vill fortsätta.</span>
+                            </div>
+                          )}
+                          {coachingStatus === 'deactivated' && (
+                            <div className="flex items-start gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-700">
+                              <Ban className="w-4 h-4 mt-0.5" />
+                              <span>Medlemskapet är deaktiverat och tillgången till träningsappen är borttagen.</span>
+                            </div>
+                          )}
+
                           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
                             <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                              Vill du återaktivera? Paus avslutas och vi startar din period igen.
+                              Vill du pausa? Då fryser vi din period och aktiverar när du vill igen.
                             </div>
-                            <div className="flex items-center gap-3 flex-wrap">
-                              {reactivateStatus === 'success' && (
+                            <div className="flex items-center gap-3">
+                              {pauseStatus === 'success' && (
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-                                  Begäran skickad
+                                  Pausbegäran skickad
                                 </span>
                               )}
-                              {reactivateStatus === 'error' && (
+                              {pauseCooldownActive && (
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-sky-700">
+                                  Pausbegäran redan registrerad. Status uppdateras inom 24 timmar.
+                                </span>
+                              )}
+                              {pauseStatus === 'error' && (
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
                                   Kunde inte skicka
                                 </span>
                               )}
+                              {coachingActive ? (
+                                <button
+                                  onClick={handlePauseMembership}
+                                  disabled={isPausing || pauseCooldownActive}
+                                  className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60"
+                                >
+                                  {isPausing
+                                    ? 'Skickar...'
+                                    : pauseCooldownActive
+                                      ? 'Paus begärd'
+                                      : 'Pausa medlemskap'}
+                                </button>
+                              ) : (
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                                  Ingen aktiv period att pausa
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {(coachingStatus === 'paused' || coachingStatus === 'deactivated') && (
+                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
+                              <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                                Vill du återaktivera? Paus avslutas och vi startar din period igen.
+                              </div>
+                              <div className="flex items-center gap-3 flex-wrap">
+                                {reactivateStatus === 'success' && (
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                                    Begäran skickad
+                                  </span>
+                                )}
+                                {reactivateStatus === 'error' && (
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
+                                    Kunde inte skicka
+                                  </span>
+                                )}
+                                <button
+                                  onClick={handleReactivateMembership}
+                                  disabled={isReactivating || !canReactivateMembership}
+                                  className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                  {isReactivating ? 'Skickar...' : 'Återaktivera medlemskap'}
+                                </button>
+                                <Link
+                                  to="/support"
+                                  className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all"
+                                >
+                                  Kontakta support
+                                </Link>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                              Vill du deaktivera? Du kan alltid återaktivera senare.
+                            </div>
+                            <div className="flex items-center gap-3 flex-wrap">
+                              {cancelStatus === 'success' && (
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                                  Begäran skickad
+                                </span>
+                              )}
+                              {cancelStatus === 'error' && (
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
+                                  {cancelMessage || 'Kunde inte skicka'}
+                                </span>
+                              )}
                               <button
-                                onClick={handleReactivateMembership}
-                                disabled={isReactivating || !canReactivateMembership}
+                                onClick={handleCancelSubscription}
+                                disabled={isCancelling || !canDeactivateMembership}
                                 className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                               >
-                                {isReactivating ? 'Skickar...' : 'Återaktivera medlemskap'}
+                                {isCancelling
+                                  ? 'Skickar...'
+                                  : canDeactivateMembership
+                                    ? 'Deaktivera medlemskap'
+                                    : 'Deaktivera (kommer snart)'}
                               </button>
                               <Link
                                 to="/support"
@@ -1189,234 +1228,279 @@ export const Profile: React.FC = () => {
                               </Link>
                             </div>
                           </div>
-                        )}
-
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-2 border-t border-[#E6E1D8]">
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                            Vill du deaktivera? Du kan alltid återaktivera senare.
-                          </div>
-                          <div className="flex items-center gap-3 flex-wrap">
-                            {cancelStatus === 'success' && (
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-                                Begäran skickad
-                              </span>
-                            )}
-                            {cancelStatus === 'error' && (
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
-                                {cancelMessage || 'Kunde inte skicka'}
-                              </span>
-                            )}
-                            <button
-                              onClick={handleCancelSubscription}
-                              disabled={isCancelling || !canDeactivateMembership}
-                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                            >
-                              {isCancelling
-                                ? 'Skickar...'
-                                : canDeactivateMembership
-                                  ? 'Deaktivera medlemskap'
-                                  : 'Deaktivera (kommer snart)'}
-                            </button>
-                            <Link
-                              to="/support"
-                              className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all"
-                            >
-                              Kontakta support
-                            </Link>
-                          </div>
                         </div>
-                      </div>
 
-                      <div className={`${ui.card} flex flex-col gap-4`}>
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                          <div>
-                            <p className={ui.label}>PTO AI</p>
-                            <h4 className="text-lg md:text-xl font-black text-[#3D3D3D]">Tilläggstjänst</h4>
-                            <p className={`${ui.body} mt-2 max-w-xl`}>
-                              AI‑coachning, smarta rapporter och snabbare support. Läggs till när du vill.
-                            </p>
-                          </div>
-                          <div className="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border bg-white/80 text-[#6B6158] border-[#E6E1D8]">
-                            Ej aktiverad
-                          </div>
-                        </div>
-                        <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-4 text-xs text-[#6B6158]">
-                          Vi lanserar fler PTO‑AI funktioner löpande. Kontakta oss om du vill bli testkund.
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Link to="/support" className={ui.primaryBtnSm}>
-                            Intresseanmälan
-                          </Link>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                            Tilläggstjänst
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'SETTINGS' && (
-              <div className="space-y-8 animate-fade-in">
-                <div className={ui.panel + ' min-h-[400px]'}>
-                  <div className="border-b border-[#E6E1D8] pb-8 mb-10">
-                    <h2 className="text-3xl font-black text-[#3D3D3D] uppercase tracking-tight mb-2 flex items-center gap-3">
-                      <Settings className="w-8 h-8 text-[#6B6158]" /> Mina uppgifter
-                    </h2>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="space-y-8">
-                      <div>
-                        <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-4">Inloggad som</label>
-                        <div className="p-5 bg-[#F6F1E7]/60 backdrop-blur-md border border-[#E6E1D8] rounded-2xl text-[#3D3D3D] font-bold text-sm flex items-center gap-4 shadow-xl">
-                          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400"><User className="w-5 h-5" /></div>
-                          {user.email}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-4">Medlemskap</label>
-                        <div className="p-5 bg-[#F6F1E7]/60 backdrop-blur-md border border-[#E6E1D8] rounded-2xl text-[#3D3D3D] shadow-xl space-y-4">
-                          <div className="flex items-start justify-between gap-4">
+                        <div className={`${ui.card} flex flex-col gap-4`}>
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div>
-                              <p className="text-sm font-black text-[#3D3D3D]">
-                                {user.membership_level === 'premium' ? 'Premium aktiv' : 'Gratis'}
-                              </p>
-                              <p className="text-[11px] text-[#6B6158] font-medium">
-                                Behöver du hjälp med medlemskap? Kontakta support.
+                              <p className={ui.label}>PTO AI</p>
+                              <h4 className="text-lg md:text-xl font-black text-[#3D3D3D]">Tilläggstjänst</h4>
+                              <p className={`${ui.body} mt-2 max-w-xl`}>
+                                AI‑coachning, smarta rapporter och snabbare support. Läggs till när du vill.
                               </p>
                             </div>
-                            <Link
-                              to="/support"
-                              className={ui.outlineBtn}
-                            >
-                              Support
+                            <div className="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border bg-white/80 text-[#6B6158] border-[#E6E1D8]">
+                              Ej aktiverad
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-4 text-xs text-[#6B6158]">
+                            Vi lanserar fler PTO‑AI funktioner löpande. Kontakta oss om du vill bli testkund.
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <Link to="/support" className={ui.primaryBtnSm}>
+                              Intresseanmälan
                             </Link>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
+                              Tilläggstjänst
+                            </span>
                           </div>
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              )}
 
-                    <div className="space-y-6">
-                      <div>
-                        <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-3">Byt Lösenord</label>
-                        <input
-                          type="password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="Minst 6 tecken"
-                          className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
-                        />
+              {activeTab === 'PROGRESS' && (() => {
+                const timeline = buildProgressTimeline([
+                  ...startSubmissions.map((s: StartSubmission) => ({
+                    created_at: s.created_at,
+                    kind: 'start' as const,
+                    goal_description: s.goal_description,
+                  })),
+                  ...uppSubmissions.map((s: UppfoljningSubmission) => ({
+                    created_at: s.created_at,
+                    kind: 'uppfoljning' as const,
+                    goal: s.goal,
+                    summary_feedback: s.summary_feedback,
+                  })),
+                ]);
+
+                return (
+                  <div className="space-y-8 animate-fade-in">
+                    <div className={ui.panel}>
+                      <div className="absolute top-[-20%] left-[-10%] w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-[100px]" />
+                      <div className="relative z-10 space-y-6">
+                        <CardHeader label="Din resa" title="Progress" icon={LineChart} />
+                        <p className={ui.body}>
+                          Se hur din resa utvecklats sedan starten. Varje punkt representerar en inlämning.
+                        </p>
+
+                        {timeline.milestones.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {timeline.milestones.map((m) => (
+                              <span key={m} className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-400/40 bg-emerald-50 text-emerald-700">
+                                🎉 {m}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {timeline.points.length === 0 ? (
+                          <div className={`${ui.card} text-center py-12`}>
+                            <p className="text-sm text-[#8A8177]">Inga inlämningar ännu.</p>
+                            <Link to="/startformular" className={`${ui.primaryBtnSm} inline-block mt-4`}>
+                              Fyll i startformulär
+                            </Link>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <div className="absolute left-5 top-0 bottom-0 w-px bg-[#E6E1D8]" />
+                            <ul className="space-y-6">
+                              {timeline.points.map((point, i) => (
+                                <li key={`${point.kind}-${i}`} className="relative pl-12">
+                                  <span className={`absolute left-3 top-1.5 w-4 h-4 rounded-full border-2 ${point.kind === 'start'
+                                      ? 'bg-[#a0c81d] border-[#a0c81d]'
+                                      : 'bg-white border-[#a0c81d]'
+                                    }`} />
+                                  <div className={ui.card}>
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-sm font-bold text-[#3D3D3D]">{point.label}</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
+                                        {new Date(point.date).toLocaleDateString('sv-SE')}
+                                      </span>
+                                    </div>
+                                    {point.goal && (
+                                      <p className="text-xs text-[#6B6158]">
+                                        <span className="font-bold">Mål:</span> {point.goal}
+                                      </p>
+                                    )}
+                                    {point.feedback && (
+                                      <p className="text-xs text-[#6B6158] mt-1">
+                                        <span className="font-bold">Feedback:</span> {point.feedback.length > 200 ? `${point.feedback.slice(0, 200)}…` : point.feedback}
+                                      </p>
+                                    )}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-                      <button
-                        onClick={handleUpdatePassword}
-                        disabled={passwordStatus === 'loading' || newPassword.length < 6}
-                        className="w-full py-4 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition-all disabled:opacity-50"
-                      >
-                        {passwordStatus === 'loading' ? 'Uppdaterar...' : passwordStatus === 'success' ? 'Uppdaterat' : 'Uppdatera lösenord'}
-                      </button>
-                      {passwordStatus === 'error' && (
-                        <p className="text-xs text-red-400 font-bold">Kunde inte uppdatera lösenordet.</p>
-                      )}
                     </div>
                   </div>
+                );
+              })()}
 
-                  <div className="mt-12 pt-10 border-t border-[#E6E1D8]">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 rounded-xl bg-[#a0c81d]/10 border border-[#a0c81d]/30 flex items-center justify-center text-[#a0c81d]">
-                        <User className="w-5 h-5" />
+              {activeTab === 'SETTINGS' && (
+                <div className="space-y-8 animate-fade-in">
+                  <div className={ui.panel + ' min-h-[400px]'}>
+                    <div className="border-b border-[#E6E1D8] pb-8 mb-10">
+                      <h2 className="text-3xl font-black text-[#3D3D3D] uppercase tracking-tight mb-2 flex items-center gap-3">
+                        <Settings className="w-8 h-8 text-[#6B6158]" /> Mina uppgifter
+                      </h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                      <div className="space-y-8">
+                        <div>
+                          <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-4">Inloggad som</label>
+                          <div className="p-5 bg-[#F6F1E7]/60 backdrop-blur-md border border-[#E6E1D8] rounded-2xl text-[#3D3D3D] font-bold text-sm flex items-center gap-4 shadow-xl">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400"><User className="w-5 h-5" /></div>
+                            {user.email}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-4">Medlemskap</label>
+                          <div className="p-5 bg-[#F6F1E7]/60 backdrop-blur-md border border-[#E6E1D8] rounded-2xl text-[#3D3D3D] shadow-xl space-y-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <p className="text-sm font-black text-[#3D3D3D]">
+                                  {user.membership_level === 'premium' ? 'Premium aktiv' : 'Gratis'}
+                                </p>
+                                <p className="text-[11px] text-[#6B6158] font-medium">
+                                  Behöver du hjälp med medlemskap? Kontakta support.
+                                </p>
+                              </div>
+                              <Link
+                                to="/support"
+                                className={ui.outlineBtn}
+                              >
+                                Support
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Leverans</p>
-                        <h3 className="text-xl font-black text-[#3D3D3D]">Adress & telefon</h3>
+
+                      <div className="space-y-6">
+                        <div>
+                          <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-3">Byt Lösenord</label>
+                          <input
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Minst 6 tecken"
+                            className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                          />
+                        </div>
+                        <button
+                          onClick={handleUpdatePassword}
+                          disabled={passwordStatus === 'loading' || newPassword.length < 6}
+                          className="w-full py-4 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition-all disabled:opacity-50"
+                        >
+                          {passwordStatus === 'loading' ? 'Uppdaterar...' : passwordStatus === 'success' ? 'Uppdaterat' : 'Uppdatera lösenord'}
+                        </button>
+                        {passwordStatus === 'error' && (
+                          <p className="text-xs text-red-400 font-bold">Kunde inte uppdatera lösenordet.</p>
+                        )}
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2 md:col-span-2">
-                        <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Adressrad 1</label>
-                        <input
-                          value={addressLine1}
-                          onChange={(e) => setAddressLine1(e.target.value)}
-                          placeholder="Gatuadress"
-                          className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
-                        />
+                    <div className="mt-12 pt-10 border-t border-[#E6E1D8]">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-xl bg-[#a0c81d]/10 border border-[#a0c81d]/30 flex items-center justify-center text-[#a0c81d]">
+                          <User className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Leverans</p>
+                          <h3 className="text-xl font-black text-[#3D3D3D]">Adress & telefon</h3>
+                        </div>
                       </div>
-                      <div className="space-y-2 md:col-span-2">
-                        <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Adressrad 2 (valfritt)</label>
-                        <input
-                          value={addressLine2}
-                          onChange={(e) => setAddressLine2(e.target.value)}
-                          placeholder="Lägenhet, portkod m.m."
-                          className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Postnummer</label>
-                        <input
-                          value={postalCode}
-                          onChange={(e) => setPostalCode(e.target.value)}
-                          placeholder="123 45"
-                          className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Stad</label>
-                        <input
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
-                          placeholder="Ort"
-                          className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Land</label>
-                        <input
-                          value={country}
-                          onChange={(e) => setCountry(e.target.value)}
-                          placeholder="Sverige"
-                          className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Telefon (SMS‑avi)</label>
-                        <input
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="+46 7x xxx xx xx"
-                          className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
-                        />
-                      </div>
-                    </div>
 
-                    <div className="mt-6 flex flex-col md:flex-row items-start md:items-center gap-4">
-                      <button
-                        onClick={handleSaveAddress}
-                        disabled={addressStatus === 'loading'}
-                        className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition-all disabled:opacity-50"
-                      >
-                        {addressStatus === 'loading' ? 'Sparar...' : addressStatus === 'success' ? 'Sparat' : 'Spara uppgifter'}
-                      </button>
-                      {addressStatus === 'error' && (
-                        <span className="text-xs text-red-400 font-bold">Kunde inte spara uppgifterna.</span>
-                      )}
-                      <span className="text-xs text-[#8A8177] font-medium">
-                        Leveransuppgifter används vid Shop-beställningar.
-                      </span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Adressrad 1</label>
+                          <input
+                            value={addressLine1}
+                            onChange={(e) => setAddressLine1(e.target.value)}
+                            placeholder="Gatuadress"
+                            className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Adressrad 2 (valfritt)</label>
+                          <input
+                            value={addressLine2}
+                            onChange={(e) => setAddressLine2(e.target.value)}
+                            placeholder="Lägenhet, portkod m.m."
+                            className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Postnummer</label>
+                          <input
+                            value={postalCode}
+                            onChange={(e) => setPostalCode(e.target.value)}
+                            placeholder="123 45"
+                            className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Stad</label>
+                          <input
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                            placeholder="Ort"
+                            className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Land</label>
+                          <input
+                            value={country}
+                            onChange={(e) => setCountry(e.target.value)}
+                            placeholder="Sverige"
+                            className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block">Telefon (SMS‑avi)</label>
+                          <input
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="+46 7x xxx xx xx"
+                            className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-4 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600 font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-6 flex flex-col md:flex-row items-start md:items-center gap-4">
+                        <button
+                          onClick={handleSaveAddress}
+                          disabled={addressStatus === 'loading'}
+                          className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition-all disabled:opacity-50"
+                        >
+                          {addressStatus === 'loading' ? 'Sparar...' : addressStatus === 'success' ? 'Sparat' : 'Spara uppgifter'}
+                        </button>
+                        {addressStatus === 'error' && (
+                          <span className="text-xs text-red-400 font-bold">Kunde inte spara uppgifterna.</span>
+                        )}
+                        <span className="text-xs text-[#8A8177] font-medium">
+                          Leveransuppgifter används vid Shop-beställningar.
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
   );
 };
 

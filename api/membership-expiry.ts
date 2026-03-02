@@ -10,8 +10,6 @@ type SheetLookupResult = {
   sheetName?: string;
 };
 
-const SHEET_ID_DEFAULT = '1DHKLVUhJmaTBFooHnn_OAAlPe_kR0Fs84FibCr9zoAM';
-
 function getEnv(name: string, fallback?: string) {
   const value = process.env[name];
   if (value && value.trim().length > 0) return value.trim();
@@ -35,7 +33,10 @@ function normalizeExpiry(value: string | null): string | null {
 }
 
 async function lookupExpiry(email: string): Promise<SheetLookupResult> {
-  const sheetId = getEnv('GOOGLE_SHEET_ID') || getEnv('CLIENT_SHEET_ID', SHEET_ID_DEFAULT);
+  const sheetId = getEnv('GOOGLE_SHEET_ID') || getEnv('CLIENT_SHEET_ID');
+  if (!sheetId) {
+    throw new Error('Missing required environment variable: GOOGLE_SHEET_ID (or CLIENT_SHEET_ID)');
+  }
   const worksheetName = getEnv('CLIENT_SHEET_WORKSHEET', 'Aktiva');
   const emailColumn = getEnv('CLIENT_SHEET_EMAIL_COLUMN', 'Epost');
   const expiryColumn = getEnv('CLIENT_SHEET_EXPIRY_COLUMN', 'Utgångsdatum');
@@ -272,13 +273,13 @@ export default async function handler(req: any, res: any) {
         error: 'Supabase update failed',
         ...(debugEnabled
           ? {
-              details: {
-                message: updateError.message,
-                code: updateError.code,
-                hint: updateError.hint,
-                details: updateError.details,
-              },
-            }
+            details: {
+              message: updateError.message,
+              code: updateError.code,
+              hint: updateError.hint,
+              details: updateError.details,
+            },
+          }
           : {}),
       });
       return;

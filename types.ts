@@ -72,6 +72,7 @@ export interface UserProfile {
   is_manager?: boolean;
   subscription_status?: string;
   coaching_expires_at?: string; // DATE STRING from Google Sheets/Zapier
+  referral_code?: string;
   phone?: string;
   address_line1?: string;
   address_line2?: string;
@@ -81,7 +82,7 @@ export interface UserProfile {
   biometrics?: {
     data: UserData;
     results: CalculationResult;
-  } | any;
+  } | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -90,10 +91,10 @@ export interface SavedRecipe {
   id: string;
   user_id: string;
   title: string;
-  ingredients?: string[];  
-  instructions?: string;   
-  content?: string; 
-  macros?: {               
+  ingredients?: string[];
+  instructions?: string;
+  content?: string;
+  macros?: {
     calories?: number;
     protein?: number;
     carbs?: number;
@@ -173,18 +174,18 @@ export interface MealItem {
 }
 
 export interface DailyLog {
-  id?: string; 
+  id?: string;
   user_id: string;
   date: string; // 'YYYY-MM-DD'
-  
+
   // Summerade värden (snake_case för att matcha DB)
   total_calories: number;
   total_protein: number;
   total_carbs: number;
   total_fat: number;
-  
+
   water_intake: number;
-  
+
   items: MealItem[]; // Hela listan med mat
   created_at?: string;
 }

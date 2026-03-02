@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   ArrowRight,
   CheckCircle2,
@@ -9,9 +9,14 @@ import {
   Sparkles,
   User,
   ShoppingBasket,
-  BadgePercent
+  BadgePercent,
+  Circle
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useQuery } from '@tanstack/react-query';
+import { databaseService } from '../services/databaseService';
+import { computeOnboardingState } from '../utils/onboardingProgress';
+import { computeRenewalNudge } from '../utils/renewalNudge';
 
 const quickLinks = [
   {
@@ -60,8 +65,37 @@ const quickLinks = [
 
 export const Home: React.FC = () => {
   const { session, profile } = useAuthStore();
+  const location = useLocation();
   const firstName = profile?.full_name?.split(' ')[0];
   const isPremium = profile?.membership_level === 'premium';
+
+  // Track chat visit in localStorage
+  useEffect(() => {
+    if (location.pathname === '/support') {
+      localStorage.setItem('pto_visited_chat', '1');
+    }
+  }, [location.pathname]);
+
+  const { data: startForms = [] } = useQuery({
+    queryKey: ['onboardStartForm', profile?.id],
+    queryFn: () => profile ? databaseService.getUserStartformular(profile.id) : Promise.resolve([]),
+    enabled: !!profile,
+  });
+
+  const { data: savedPlans = [] } = useQuery({
+    queryKey: ['onboardPlans', profile?.id],
+    queryFn: () => profile ? databaseService.getSavedPlans(profile.id) : Promise.resolve([]),
+    enabled: !!profile,
+  });
+
+  const onboarding = useMemo(() => computeOnboardingState({
+    hasAccount: !!session,
+    hasStartForm: startForms.length > 0,
+    hasWeeklyPlan: savedPlans.length > 0,
+    hasVisitedChat: typeof window !== 'undefined' && localStorage.getItem('pto_visited_chat') === '1',
+  }), [session, startForms.length, savedPlans.length]);
+
+  const nudge = useMemo(() => computeRenewalNudge(profile), [profile]);
 
   return (
     <div className="min-h-screen bg-[#F6F1E7] pb-20 animate-fade-in relative font-sans overflow-x-hidden text-[#3D3D3D]">
@@ -114,14 +148,96 @@ export const Home: React.FC = () => {
                 </Link>
                 <Link
                   to="/support"
-                className="inline-flex items-center gap-2 rounded-full border border-[#E6E1D8] bg-white/80 px-6 py-3 text-xs font-black uppercase tracking-widest text-[#3D3D3D] transition-all hover:border-[#a0c81d]/40 hover:text-[#a0c81d] shadow-[0_10px_28px_rgba(61,61,61,0.12)] hover:shadow-[0_16px_36px_rgba(61,61,61,0.18)]"
-              >
+                  className="inline-flex items-center gap-2 rounded-full border border-[#E6E1D8] bg-white/80 px-6 py-3 text-xs font-black uppercase tracking-widest text-[#3D3D3D] transition-all hover:border-[#a0c81d]/40 hover:text-[#a0c81d] shadow-[0_10px_28px_rgba(61,61,61,0.12)] hover:shadow-[0_16px_36px_rgba(61,61,61,0.18)]"
+                >
                   Öppna chatt
                 </Link>
               </div>
             </div>
           </div>
         </section>
+
+        {nudge.show && (
+          <section className="mt-6">
+            <div className={`relative overflow-hidden rounded-[2rem] border p-5 md:p-6 shadow-lg ring-1 ring-black/5 ${nudge.urgency === 'critical'
+                ? 'border-rose-300/60 bg-gradient-to-r from-rose-50 to-white'
+                : nudge.urgency === 'warning'
+                  ? 'border-amber-300/60 bg-gradient-to-r from-amber-50 to-white'
+                  : 'border-sky-300/60 bg-gradient-to-r from-sky-50 to-white'
+              }`}>
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                <div className="flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#6B6158] mb-1">Förnyelse</p>
+                  <p className="text-sm font-bold text-[#3D3D3D]">{nudge.message}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  <a
+                    href={nudge.renewalUrl6}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#E6E1D8] bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-[#3D3D3D] hover:border-[#a0c81d]/40 hover:shadow-md transition-all"
+                  >
+                    6 mån · 1 995 kr
+                  </a>
+                  <a
+                    href={nudge.renewalUrl12}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#a0c81d] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-[#5C7A12] shadow-[0_12px_30px_rgba(160,200,29,0.3)] transition-all"
+                  >
+                    12 mån · 2 995 kr <ArrowRight className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {session && !onboarding.allDone && (
+          <section className="mt-8">
+            <div className="relative overflow-hidden rounded-[2.5rem] border border-[#DAD1C5] bg-white p-6 md:p-8 shadow-xl ring-1 ring-black/5">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#E8F1D5]/50 via-transparent to-transparent opacity-80" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#6B6158]">Kom igång</p>
+                    <h2 className="text-xl md:text-2xl font-black text-[#3D3D3D] mt-1">Dina första steg</h2>
+                  </div>
+                  <span className="text-sm font-bold text-[#6B6158]">{onboarding.completedCount}/{onboarding.totalCount}</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-[#E6E1D8] mb-6 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#a0c81d] transition-all duration-500"
+                    style={{ width: `${(onboarding.completedCount / onboarding.totalCount) * 100}%` }}
+                  />
+                </div>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {onboarding.steps.map((step) => (
+                    <li key={step.id}>
+                      <Link
+                        to={step.href}
+                        className={`flex items-center gap-3 rounded-2xl border p-4 transition-all ${step.completed
+                          ? 'border-[#a0c81d]/30 bg-[#a0c81d]/5 text-[#3D3D3D]'
+                          : 'border-[#E6E1D8] bg-white hover:border-[#a0c81d]/40 hover:shadow-md text-[#3D3D3D]'
+                          }`}
+                      >
+                        {step.completed ? (
+                          <CheckCircle2 className="w-5 h-5 text-[#a0c81d] shrink-0" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-[#DAD1C5] shrink-0" />
+                        )}
+                        <div>
+                          <span className={`text-sm font-bold ${step.completed ? 'line-through text-[#8A8177]' : ''}`}>{step.title}</span>
+                          <p className="text-[11px] text-[#8A8177] mt-0.5">{step.description}</p>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="mt-12">
           <div className="flex flex-wrap items-end justify-between gap-4">

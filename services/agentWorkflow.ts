@@ -9,6 +9,14 @@ const WORKFLOW_ID = 'wf_698f3221c2a481909c391387fd6efe8e0a3f823293ebb086';
 
 // Tool definitions
 const fileSearch = fileSearchTool(['vs_699b3242c3f88191b0fcdeeb1df56307']);
+
+const ZAPIER_MCP_AUTH_TOKEN = process.env.ZAPIER_MCP_AUTH_TOKEN;
+if (!ZAPIER_MCP_AUTH_TOKEN) {
+  throw new Error('Missing required environment variable: ZAPIER_MCP_AUTH_TOKEN');
+}
+
+const AGENT_MODEL = process.env.AGENT_MODEL || 'gpt-4.1';
+
 const mcp = hostedMcpTool({
   serverLabel: 'zapier',
   allowedTools: [
@@ -28,7 +36,7 @@ const mcp = hostedMcpTool({
     'google_sheets_lookup_spreadsheet_row',
     'google_sheets_api_request_beta',
   ],
-  authorization: 'MTIyN2ZhYjItOTY2YS00YzM1LTk2NWQtYTIzYTI5YmE2MDg3Om5DOHFSVExHSDBEMmxNOVl6eDBUaVZnVWpDT1V4eTN0eHVtVFl3WTVqTkk9',
+  authorization: ZAPIER_MCP_AUTH_TOKEN,
   requireApproval: 'never',
   serverUrl: 'https://mcp.zapier.com/api/mcp/mcp',
 });
@@ -278,7 +286,7 @@ function createPtoaiSupport(accessToken: string) {
   return new Agent({
     name: 'PTOAi Support',
     instructions: ptoaiSupportInstructions,
-    model: 'gpt-5.2-chat-latest',
+    model: AGENT_MODEL,
     tools: [fileSearch, mcp, createMcp1(accessToken)],
     modelSettings: {
       store: true,

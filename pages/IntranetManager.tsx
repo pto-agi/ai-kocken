@@ -14,6 +14,11 @@ import { buildHistoricalReportSummaries } from '../utils/managerHistoricalReport
 import { computeOverEstimateDays } from '../utils/managerStatus';
 import { resolveUniversalAgendaUserId } from '../utils/managerUniversalAgenda';
 import { normalizeManagerCustomTaskDraft } from '../utils/managerCustomTaskDraft';
+import { hasSubmittedExtension } from '../utils/membershipExtensionStatus';
+import { buildRenewalPipeline } from '../utils/renewalPipeline';
+import { computeNpsSummary, categorizeNps, categoryLabel, categoryColor, type NpsResponse } from '../utils/npsHelpers';
+import { computeSalesOverview, formatCurrency } from '../utils/salesOverview';
+import { computeReferralSummary, REFERRAL_STATUS_LABELS, REFERRAL_STATUS_COLORS, type Referral } from '../utils/referralHelpers';
 
 const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const;
 const getWeekdayCode = (dateKey: string) => WEEKDAY_CODES[new Date(`${dateKey}T00:00:00`).getDay()];
@@ -74,7 +79,22 @@ const ui = {
   body: 'text-sm text-[#333333]'
 };
 
-type StaffProfile = { id: string; full_name?: string | null; email?: string | null; is_staff?: boolean | null; is_manager?: boolean | null };
+type StaffProfile = {
+  id: string;
+  full_name?: string | null;
+  email?: string | null;
+  is_staff?: boolean | null;
+  is_manager?: boolean | null;
+  subscription_status?: string | null;
+};
+
+type ExtensionProfile = {
+  id: string;
+  full_name?: string | null;
+  email?: string | null;
+  subscription_status?: string | null;
+  coaching_expires_at?: string | null;
+};
 
 type AgendaTemplate = {
   id: string;
@@ -192,6 +212,10 @@ export const IntranetManager: React.FC = () => {
   const [historicalCompletionItems, setHistoricalCompletionItems] = useState<CompletionItem[]>([]);
   const [historicalCustomTasks, setHistoricalCustomTasks] = useState<ManagerCustomTask[]>([]);
   const [historicalTaskRemovals, setHistoricalTaskRemovals] = useState<ManagerTaskRemoval[]>([]);
+  const [extensionProfiles, setExtensionProfiles] = useState<ExtensionProfile[]>([]);
+  const [allClientProfiles, setAllClientProfiles] = useState<ExtensionProfile[]>([]);
+  const [npsResponses, setNpsResponses] = useState<NpsResponse[]>([]);
+  const [allReferrals, setAllReferrals] = useState<Referral[]>([]);
   const [selectedHistoricalReportKey, setSelectedHistoricalReportKey] = useState<string | null>(null);
   const [alertOverrides, setAlertOverrides] = useState<ManagerAlertOverride[]>([]);
   const [alertOverrideSupported, setAlertOverrideSupported] = useState(true);
@@ -202,11 +226,15 @@ export const IntranetManager: React.FC = () => {
   const [showManagerAddTaskForm, setShowManagerAddTaskForm] = useState(false);
   const [staffFilter, setStaffFilter] = useState('');
   const [analysisWindowDays, setAnalysisWindowDays] = useState<1 | 7 | 30>(7);
-  const [sectionOpen, setSectionOpen] = useState<Record<'overview' | 'reports' | 'projects' | 'staff', boolean>>({
+  const [sectionOpen, setSectionOpen] = useState<Record<'overview' | 'reports' | 'projects' | 'staff' | 'renewals' | 'nps' | 'sales' | 'referrals', boolean>>({
     overview: true,
     reports: true,
     projects: true,
-    staff: true
+    staff: true,
+    renewals: true,
+    nps: true,
+    sales: true,
+    referrals: true
   });
   const [expandedStaff, setExpandedStaff] = useState<Record<string, boolean>>({});
   const [historyOpen, setHistoryOpen] = useState<Record<string, boolean>>({});
@@ -239,8 +267,8 @@ export const IntranetManager: React.FC = () => {
       setError(null);
       try {
         const rangeStart = dataKeys[dataKeys.length - 1] || dateKey;
-        const [staffRes, templateRes, completionRes, reportRes, projectsRes, notesRes, weeklyCompletionRes, weeklyReportRes, historicalReportsRes] = await Promise.all([
-          supabase.from('profiles').select('id, full_name, email, is_staff, is_manager').eq('is_staff', true),
+        const [staffRes, templateRes, completionRes, reportRes, projectsRes, notesRes, weeklyCompletionRes, weeklyReportRes, historicalReportsRes, extensionRes] = await Promise.all([
+          supabase.from('profiles').select('id, full_name, email, is_staff, is_manager, subscription_status').eq('is_staff', true),
           supabase.from('agenda_templates').select('id,title,schedule_days,sort_order,estimated_minutes').eq('is_active', true),
           supabase
             .from('agenda_completion_items')
@@ -274,7 +302,11 @@ export const IntranetManager: React.FC = () => {
             .from('agenda_reports')
             .select('user_id, report_date, did, handover, start_time, end_time')
             .lte('report_date', dateKey)
-            .order('report_date', { ascending: false })
+            .order('report_date', { ascending: false }),
+          supabase
+            .from('profiles')
+            .select('id, full_name, email, subscription_status, coaching_expires_at')
+            .not('subscription_status', 'is', null)
         ]);
 
         if (staffRes.error) throw staffRes.error;
@@ -285,6 +317,7 @@ export const IntranetManager: React.FC = () => {
         if (weeklyCompletionRes.error) throw weeklyCompletionRes.error;
         if (weeklyReportRes.error) throw weeklyReportRes.error;
         if (historicalReportsRes.error) throw historicalReportsRes.error;
+        if (extensionRes.error) throw extensionRes.error;
         if (!active) return;
 
         setStaff(staffRes.data || []);
@@ -303,6 +336,31 @@ export const IntranetManager: React.FC = () => {
         setWeeklyCompletionItems((weeklyCompletionRes.data || []) as CompletionItem[]);
         setWeeklyReports((weeklyReportRes.data || []) as WeeklyReport[]);
         setHistoricalReports((historicalReportsRes.data || []) as AgendaReport[]);
+        const allProfiles = (extensionRes.data || []) as ExtensionProfile[];
+        setAllClientProfiles(allProfiles);
+        setExtensionProfiles(
+          allProfiles.filter((profile) => hasSubmittedExtension(profile.subscription_status))
+        );
+
+        // NPS responses (table may not exist yet)
+        const npsRes = await supabase
+          .from('nps_responses')
+          .select('id, user_id, score, comment, created_at')
+          .order('created_at', { ascending: false })
+          .limit(200);
+        if (!npsRes.error) {
+          setNpsResponses((npsRes.data || []) as NpsResponse[]);
+        }
+
+        // Referrals (table may not exist yet)
+        const refRes = await supabase
+          .from('referrals')
+          .select('id, referrer_id, referred_email, referred_user_id, status, created_at, converted_at')
+          .order('created_at', { ascending: false })
+          .limit(200);
+        if (!refRes.error) {
+          setAllReferrals((refRes.data || []) as Referral[]);
+        }
 
         const historicalCompletionRes = await supabase
           .from('agenda_completion_items')
@@ -545,6 +603,32 @@ export const IntranetManager: React.FC = () => {
     [projectsOrdered]
   );
 
+  const renewalPipeline = useMemo(
+    () => buildRenewalPipeline(allClientProfiles),
+    [allClientProfiles]
+  );
+
+  const npsSummary = useMemo(
+    () => computeNpsSummary(npsResponses),
+    [npsResponses]
+  );
+
+  const salesOverview = useMemo(
+    () => computeSalesOverview(renewalPipeline),
+    [renewalPipeline]
+  );
+
+  const referralSummary = useMemo(
+    () => computeReferralSummary(allReferrals),
+    [allReferrals]
+  );
+
+  const newReferrals7d = useMemo(() => {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return allReferrals.filter((r) => new Date(r.created_at) >= weekAgo);
+  }, [allReferrals]);
+
   const missedTasksWindow = Math.max(0, windowPerformance.totals.expectedTasks - windowPerformance.totals.completedTasks);
   const missedTasksRateWindow = windowPerformance.totals.expectedTasks > 0
     ? Math.round((missedTasksWindow / windowPerformance.totals.expectedTasks) * 100)
@@ -749,13 +833,13 @@ export const IntranetManager: React.FC = () => {
         const next = action.type === 'delete'
           ? withoutTask
           : [...withoutTask, {
-              user_id: userId,
-              report_date: dateKey,
-              task_id: taskId,
-              completed_at: nowIso,
-              completed_by: profile.id,
-              source: 'manager'
-            }];
+            user_id: userId,
+            report_date: dateKey,
+            task_id: taskId,
+            completed_at: nowIso,
+            completed_by: profile.id,
+            source: 'manager'
+          }];
         return { ...prev, [userId]: next };
       });
 
@@ -1268,11 +1352,10 @@ export const IntranetManager: React.FC = () => {
               key={days}
               type="button"
               onClick={() => setAnalysisWindowDays(days as 1 | 7 | 30)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-[0.2em] ${
-                analysisWindowDays === days
-                  ? 'border-[#111111] bg-[#111111] text-white'
-                  : 'border-[#9CA3AF] bg-white text-[#374151]'
-              }`}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-[0.2em] ${analysisWindowDays === days
+                ? 'border-[#111111] bg-[#111111] text-white'
+                : 'border-[#9CA3AF] bg-white text-[#374151]'
+                }`}
             >
               {days === 1 ? '1 dag' : `${days} dagar`}
             </button>
@@ -1283,736 +1366,991 @@ export const IntranetManager: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
-        <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:order-3 h-full flex flex-col">
-          <button
-            type="button"
-            onClick={() => setSectionOpen((prev) => ({ ...prev, overview: !prev.overview }))}
-            className="w-full px-5 py-4 min-h-[84px] flex items-center justify-between text-left"
-          >
-            <h2 className="text-[28px] leading-none font-black text-[#111111]">Status</h2>
-            <ChevronDown className={`w-5 h-5 text-[#111111] transition-transform ${sectionOpen.overview ? 'rotate-180' : ''}`} />
-          </button>
-          {sectionOpen.overview && (
-            <div className="border-t border-[#E5E7EB] p-5 flex-1">
-              <ul className="space-y-2 text-sm text-[#111111]">
-                <li><span className="font-semibold">Slutförandegrad:</span> {completionRateWindow}%</li>
-                <li><span className="font-semibold">Missade uppgifter:</span> {missedTasksRateWindow}%</li>
-                <li><span className="font-semibold">Dagar över estimat:</span> {overEstimateWindow.overEstimatePct}%</li>
-              </ul>
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:order-1 h-full flex flex-col">
-          <button
-            type="button"
-            onClick={() => setSectionOpen((prev) => ({ ...prev, staff: !prev.staff }))}
-            className="w-full px-5 py-4 min-h-[84px] flex items-center justify-between text-left"
-          >
-            <h2 className="text-[28px] leading-none font-black text-[#111111]">Dagsagenda</h2>
-            <ChevronDown className={`w-5 h-5 text-[#111111] transition-transform ${sectionOpen.staff ? 'rotate-180' : ''}`} />
-          </button>
-          {sectionOpen.staff && (
-            <div className="border-t border-[#E5E7EB] p-5 flex-1">
-              {universalAgendaEnabled ? (
-                <div className="space-y-4">
-                  <ul className="space-y-2 text-sm text-[#111111]">
-                    <li><span className="font-semibold">Dagsagenda:</span> {universalTaskCompleted}/{universalTaskTotal} slutförda</li>
-                    <li><span className="font-semibold">Datum:</span> {dateKey}</li>
-                  </ul>
-
-                  <ul className="space-y-1 text-[14px] text-[#111111]">
-                    {visibleRecurringTemplatesToday.map((task) => {
-                      const taskId = task.id;
-                      const completion = universalCompletionItemsToday.find((item) => item.task_id === taskId);
-                      const isCompleted = Boolean(completion);
-                      const taskMutationKey = `${universalAgendaUserId}:${dateKey}:${taskId}`;
-                      const taskMutation = taskMutationState[taskMutationKey] || 'idle';
-                      const taskRemovalKey = `remove-template:${universalAgendaUserId}:${dateKey}:${taskId}`;
-                      const taskRemovalState = taskRemovalMutationState[taskRemovalKey] || 'idle';
-                      return (
-                        <li key={task.id} className="flex items-start justify-between gap-3">
-                          <div className={`min-w-0 ${isCompleted ? 'line-through text-[#4B5563]' : 'text-[#111111]'}`}>
-                            - {task.title}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => handleSetTaskRemoved(universalAgendaUserId, taskId, true)}
-                              disabled={!universalAgendaUserId || taskRemovalState === 'saving'}
-                              className="text-[11px] font-semibold text-[#4B5563] hover:text-[#111111] disabled:opacity-50"
-                            >
-                              {taskRemovalState === 'saving' ? 'Tar bort...' : 'Ta bort'}
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={isCompleted ? `Markera ${task.title} som ej klar` : `Markera ${task.title} som klar`}
-                              onClick={() => handleManagerToggleTask(universalAgendaUserId, taskId, isCompleted)}
-                              disabled={!universalAgendaUserId || taskMutation === 'saving'}
-                              className="text-[18px] leading-none font-black text-[#111111] disabled:opacity-50"
-                            >
-                              {isCompleted ? '✓' : '○'}
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    })}
-
-                    {managerCustomTasksToday.map((task) => {
-                      const taskId = `custom:${task.id}`;
-                      const completion = universalCompletionItemsToday.find((item) => item.task_id === taskId);
-                      const isCompleted = Boolean(completion);
-                      const taskMutationKey = `${universalAgendaUserId}:${dateKey}:${taskId}`;
-                      const taskMutation = taskMutationState[taskMutationKey] || 'idle';
-                      const removeState = customTaskMutationState[`remove:${task.id}`] || 'idle';
-                      const editState = customTaskMutationState[`edit:${task.id}`] || 'idle';
-                      const isEditing = !!customTaskEditorOpen[task.id];
-                      const editDraft = customTaskEditDrafts[task.id] || {
-                        title: task.title,
-                        estimated_minutes: task.estimated_minutes ? `${task.estimated_minutes}` : '',
-                        details: task.details || ''
-                      };
-                      const detailsExpanded = !!expandedTaskDetails[taskId];
-                      return (
-                        <li key={task.id}>
-                          <div className="flex items-start justify-between gap-3">
-                            <div className={`min-w-0 ${isCompleted ? 'line-through text-[#4B5563]' : 'text-[#111111]'}`}>- {task.title}</div>
-                            <div className="flex items-center gap-3">
-                              <button
-                                type="button"
-                                aria-label={`Redigera ${task.title}`}
-                                onClick={() => handleOpenCustomTaskEditor(task)}
-                                disabled={editState === 'saving'}
-                                className="text-[11px] font-semibold text-[#4B5563] hover:text-[#111111] disabled:opacity-50 inline-flex items-center gap-1"
-                              >
-                                <Pencil className="w-3 h-3" />
-                                Redigera
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveCustomTask(task)}
-                                disabled={removeState === 'saving'}
-                                className="text-[11px] font-semibold text-[#4B5563] hover:text-[#111111] disabled:opacity-50"
-                              >
-                                {removeState === 'saving' ? 'Tar bort...' : 'Ta bort'}
-                              </button>
-                              <button
-                              type="button"
-                              aria-label={isCompleted ? `Markera ${task.title} som ej klar` : `Markera ${task.title} som klar`}
-                              onClick={() => handleManagerToggleTask(universalAgendaUserId, taskId, isCompleted)}
-                              disabled={!universalAgendaUserId || taskMutation === 'saving'}
-                              className="text-[18px] leading-none font-black text-[#111111] disabled:opacity-50"
-                            >
-                              {isCompleted ? '✓' : '○'}
-                              </button>
-                            </div>
-                          </div>
-                          {task.details && (
-                            <div className="mt-1 ml-3 text-[11px] text-[#4B5563]">
-                              {detailsExpanded ? task.details : truncateText(task.details, 120)}
-                              {task.details.length > 120 && (
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedTaskDetails((prev) => ({ ...prev, [taskId]: !prev[taskId] }))}
-                                  className="ml-2 font-semibold text-[#111111] hover:underline"
-                                >
-                                  {detailsExpanded ? 'Visa mindre' : 'Läs mer'}
-                                </button>
-                              )}
-                            </div>
-                          )}
-                          {isEditing && (
-                            <div className="mt-2 ml-3 rounded-lg border border-[#D1D5DB] bg-white/90 p-3 space-y-2">
-                              <input
-                                value={editDraft.title}
-                                onChange={(event) => setCustomTaskEditDrafts((prev) => ({
-                                  ...prev,
-                                  [task.id]: { ...editDraft, title: event.target.value }
-                                }))}
-                                placeholder="Uppgiftstitel"
-                                className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
-                              />
-                              <input
-                                value={editDraft.estimated_minutes}
-                                onChange={(event) => setCustomTaskEditDrafts((prev) => ({
-                                  ...prev,
-                                  [task.id]: { ...editDraft, estimated_minutes: event.target.value }
-                                }))}
-                                placeholder="Estimerad tid (minuter)"
-                                className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
-                              />
-                              <textarea
-                                value={editDraft.details}
-                                onChange={(event) => setCustomTaskEditDrafts((prev) => ({
-                                  ...prev,
-                                  [task.id]: { ...editDraft, details: event.target.value }
-                                }))}
-                                placeholder="Beskrivning"
-                                className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px] min-h-[56px]"
-                              />
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveCustomTaskEdit(task)}
-                                  disabled={editState === 'saving'}
-                                  className="px-3 py-1.5 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em] disabled:opacity-50"
-                                >
-                                  {editState === 'saving' ? 'Sparar...' : 'Spara'}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCloseCustomTaskEditor(task.id)}
-                                  disabled={editState === 'saving'}
-                                  className="px-3 py-1.5 rounded-md border border-[#9CA3AF] bg-white text-[#374151] text-[10px] font-black uppercase tracking-[0.15em] disabled:opacity-50"
-                                >
-                                  Avbryt
-                                </button>
-                              </div>
-                              {editState === 'error' && (
-                                <div className="text-[11px] text-rose-600 font-bold">
-                                  Kunde inte uppdatera uppgift.
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-
-                    {(visibleRecurringTemplatesToday.length + managerCustomTasksToday.length) === 0 && (
-                      <li className="text-sm text-[#4B5563]">Inga schemalagda uppgifter idag.</li>
-                    )}
-                  </ul>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowManagerAddTaskForm((prev) => !prev)}
-                    className="text-sm font-semibold text-[#111111] hover:underline"
-                  >
-                    {showManagerAddTaskForm ? 'Stäng ny uppgift' : 'Lägg till ny uppgift'}
-                  </button>
-
-                  {showManagerAddTaskForm && (
-                    <div className="rounded-xl border border-[#D1D5DB] bg-white/80 p-3 space-y-2">
-                      <input
-                        value={managerDraft.title}
-                        onChange={(event) => setCustomTaskDrafts((prev) => ({
-                          ...prev,
-                          [managerUserId]: { ...managerDraft, title: event.target.value }
-                        }))}
-                        placeholder="Uppgiftstitel"
-                        className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
-                      />
-                      <input
-                        value={managerDraft.estimated_minutes}
-                        onChange={(event) => setCustomTaskDrafts((prev) => ({
-                          ...prev,
-                          [managerUserId]: { ...managerDraft, estimated_minutes: event.target.value }
-                        }))}
-                        placeholder="Estimerad tid (minuter)"
-                        className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
-                      />
-                      <textarea
-                        value={managerDraft.details}
-                        onChange={(event) => setCustomTaskDrafts((prev) => ({
-                          ...prev,
-                          [managerUserId]: { ...managerDraft, details: event.target.value }
-                        }))}
-                        placeholder="Kort kontext (valfritt)"
-                        className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px] min-h-[56px]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleAddCustomTask(managerUserId)}
-                        disabled={!managerUserId || managerAddState === 'saving'}
-                        className="text-sm font-semibold text-[#111111] hover:underline disabled:opacity-50"
-                      >
-                        {managerAddState === 'saving' ? 'Sparar...' : 'Spara uppgift'}
-                      </button>
+          <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:order-3 h-full flex flex-col">
+            <button
+              type="button"
+              onClick={() => setSectionOpen((prev) => ({ ...prev, overview: !prev.overview }))}
+              className="w-full px-5 py-4 min-h-[84px] flex items-center justify-between text-left"
+            >
+              <h2 className="text-[28px] leading-none font-black text-[#111111]">Status</h2>
+              <ChevronDown className={`w-5 h-5 text-[#111111] transition-transform ${sectionOpen.overview ? 'rotate-180' : ''}`} />
+            </button>
+            {sectionOpen.overview && (
+              <div className="border-t border-[#E5E7EB] p-5 flex-1">
+                <ul className="space-y-2 text-sm text-[#111111]">
+                  <li><span className="font-semibold">Slutförandegrad:</span> {completionRateWindow}%</li>
+                  <li><span className="font-semibold">Missade uppgifter:</span> {missedTasksRateWindow}%</li>
+                  <li><span className="font-semibold">Dagar över estimat:</span> {overEstimateWindow.overEstimatePct}%</li>
+                  <li><span className="font-semibold">Förlängning:</span> {extensionProfiles.length}</li>
+                </ul>
+                {extensionProfiles.length > 0 && (
+                  <div className="mt-4 rounded-xl border border-cyan-300/50 bg-cyan-50 p-3">
+                    <div className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-900 mb-2">Inskickade förlängningar</div>
+                    <div className="space-y-1 text-xs text-cyan-900">
+                      {extensionProfiles.slice(0, 6).map((entry) => (
+                        <div key={entry.id}>{entry.full_name || entry.email || entry.id}</div>
+                      ))}
+                      {extensionProfiles.length > 6 && (
+                        <div className="font-semibold">+{extensionProfiles.length - 6} till</div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ) : (
-                <>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-[#374151] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    value={staffFilter}
-                    onChange={(event) => setStaffFilter(event.target.value)}
-                    placeholder="Filtrera personal..."
-                    className="w-full pl-9 pr-3 py-3 rounded-2xl border border-[#9CA3AF] bg-white text-sm text-[#111111]"
-                  />
-                </div>
-                <div className="text-xs font-black uppercase tracking-[0.25em] text-[#374151]">{filteredStaff.length} personal</div>
+                  </div>
+                )}
               </div>
+            )}
+          </div>
 
-              <div className="space-y-4">
-          {filteredStaff.length === 0 && (
-            <div className={ui.card}>Ingen personal matchar filtret.</div>
-          )}
-
-          {filteredStaff.map((member) => {
-            const summary = dailySummary.byUser[member.id];
-            const report = reportsByUser[member.id];
-            const isExpanded = !!expandedStaff[member.id];
-            const userNotes = notesByUserDate[member.id]?.[dateKey] || [];
-            const generalUserNotes = userNotes.filter((note) => !note.task_id);
-            const noteValue = noteDrafts[member.id] || '';
-            const noteState = noteStatus[member.id] || 'idle';
-            const performance = weeklyPerformance.byUser[member.id];
-            const memberCustomTasks = customTasks.filter((task) => task.user_id === member.id && task.report_date === dateKey && task.is_active);
-            const memberCustomCompleted = memberCustomTasks.filter((task) => completionItems.some((item) => (
-              item.user_id === member.id && item.report_date === dateKey && item.task_id === `custom:${task.id}`
-            ))).length;
-            const baseTasks = summary?.tasks || [];
-            const visibleBaseTasks = baseTasks.filter((task) => !isTaskRemoved(removedTaskSet, member.id, dateKey, task.task_id));
-            const removedBaseTasks = baseTasks.filter((task) => isTaskRemoved(removedTaskSet, member.id, dateKey, task.task_id));
-            const totalTaskCount = visibleBaseTasks.length + memberCustomTasks.length;
-            const completedTaskCount = visibleBaseTasks.filter((task) => task.is_completed).length + memberCustomCompleted;
-            const customDraft = customTaskDrafts[member.id] || { title: '', estimated_minutes: '', details: '' };
-            const addState = customTaskMutationState[`add:${member.id}`] || 'idle';
-
-            return (
-              <div key={member.id} className="rounded-2xl border border-[#9CA3AF] bg-white">
-                <button
-                  type="button"
-                  onClick={() => setExpandedStaff((prev) => ({ ...prev, [member.id]: !prev[member.id] }))}
-                  className="w-full text-left px-5 py-4 flex items-center justify-between"
-                >
-                  <div>
-                    <div className="text-sm font-black text-[#111111]">{member.full_name || member.email}</div>
-                    <div className="text-xs text-[#374151]">{member.email}</div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-xs font-black uppercase tracking-[0.2em] text-[#374151]">
-                      {completedTaskCount}/{totalTaskCount} uppgifter
-                    </div>
-                    <div className="text-xs font-black uppercase tracking-[0.2em] text-[#4B5563]">
-                      Vecka {performance?.adherencePct ?? 0}%
-                    </div>
-                    <div className="text-xs font-black uppercase tracking-[0.2em] text-[#4B5563]">
-                      Rapport {performance?.reportCoveragePct ?? 0}%
-                    </div>
-                    {(performance?.slowTasks || 0) > 0 && (
-                      <div className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border border-rose-400/40 text-rose-700 bg-rose-50">
-                        Långsam {performance?.slowTasks}
+          <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:col-span-3 flex flex-col">
+            <button
+              type="button"
+              onClick={() => setSectionOpen((prev) => ({ ...prev, renewals: !prev.renewals }))}
+              className="w-full px-5 py-4 min-h-[84px] flex items-center justify-between text-left"
+            >
+              <div className="flex items-center gap-3">
+                <h2 className="text-[28px] leading-none font-black text-[#111111]">Förnyelsepipeline</h2>
+                <span className="px-2.5 py-1 rounded-full text-xs font-black bg-[#111111] text-white">{renewalPipeline.total}</span>
+              </div>
+              <ChevronDown className={`w-5 h-5 text-[#111111] transition-transform ${sectionOpen.renewals ? 'rotate-180' : ''}`} />
+            </button>
+            {sectionOpen.renewals && (
+              <div className="border-t border-[#E5E7EB] p-5 flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {([
+                    { zone: renewalPipeline.critical, label: 'Kritisk (≤7 dagar)', dot: 'bg-rose-500', card: 'border-rose-300/50 bg-rose-50/50' },
+                    { zone: renewalPipeline.warning, label: 'Varning (8–14 dagar)', dot: 'bg-amber-500', card: 'border-amber-300/50 bg-amber-50/50' },
+                    { zone: renewalPipeline.upcoming, label: 'Kommande (15–30 dagar)', dot: 'bg-sky-500', card: 'border-sky-300/50 bg-sky-50/50' },
+                  ] as const).map(({ zone, label, dot, card }) => (
+                    <div key={label} className={`rounded-xl border p-4 ${card}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className={`w-2.5 h-2.5 rounded-full ${dot}`} />
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#111111]">{label}</span>
+                        <span className="ml-auto text-xs font-bold text-[#374151]">{zone.length}</span>
                       </div>
-                    )}
-                    <div className="text-xs text-[#4B5563]">Senast: {formatTime(summary?.last_completed_at ?? null)}</div>
-                    <div className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border ${report ? 'border-emerald-400/40 text-emerald-700 bg-emerald-50' : 'border-amber-400/40 text-amber-700 bg-amber-50'}`}>
-                      {report ? 'Rapport' : 'Ingen rapport'}
-                    </div>
-                    <ChevronDown className={`w-5 h-5 text-[#374151] transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                  </div>
-                </button>
-
-                {isExpanded && summary && (
-                  <div className="border-t border-[#E5E7EB] px-5 py-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <div className={ui.label}>Uppgifter idag</div>
-                        <div className="mt-3 space-y-2">
-                          {visibleBaseTasks.map((task) => {
-                            const taskMutationKey = `${member.id}:${dateKey}:${task.task_id}`;
-                            const taskMutation = taskMutationState[taskMutationKey] || 'idle';
-                            const taskRemovalKey = `remove-template:${member.id}:${dateKey}:${task.task_id}`;
-                            const taskRemovalState = taskRemovalMutationState[taskRemovalKey] || 'idle';
-                            const taskAnalytics = analyticsByTask[`${member.id}:${dateKey}:${task.task_id}`];
-                            const overrideKey = `${member.id}:${dateKey}:${task.task_id}`;
-                            const alertState = alertMutationState[overrideKey] || 'idle';
-                            const taskNotes = userNotes.filter((note) => note.task_id === task.task_id);
-                            const taskNoteKey = `${member.id}:${task.task_id}`;
-                            const taskNoteValue = taskNoteDrafts[taskNoteKey] || '';
-                            const taskNoteMutation = taskNoteStatus[taskNoteKey] || 'idle';
-                            return (
-                              <div key={task.task_id} className="space-y-2">
-                                <div className="flex items-center justify-between rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/70 px-3 py-2">
-                                  <div>
-                                    <div className="text-sm font-bold text-[#111111]">{task.title}</div>
-                                    <div className="text-[11px] text-[#374151]">
-                                      {task.is_completed ? `Klarmarkerad ${formatTime(task.completed_at)}` : 'Ej klarmarkerad'}
-                                    </div>
-                                    <div className="text-[11px] text-[#374151]">
-                                      Delta: {taskAnalytics?.delta_minutes === null || taskAnalytics?.delta_minutes === undefined ? '—' : `${taskAnalytics.delta_minutes} min`} · Förväntad {taskAnalytics ? formatTime(taskAnalytics.expected_completed_at) : '—'}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {task.requires_quality_check && (
-                                      <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border ${task.is_completed ? 'border-emerald-400/40 text-emerald-700 bg-emerald-50' : 'border-slate-300 text-slate-500 bg-slate-50'}`}>
-                                        Kvalitetscheck {task.is_completed ? 'klar' : 'saknas'}
-                                      </span>
-                                    )}
-                                    {task.is_completed && task.completion_source === 'manager' && (
-                                      <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border border-cyan-400/40 text-cyan-700 bg-cyan-50">
-                                        Manager
-                                      </span>
-                                    )}
-                                    {task.is_slow && (
-                                      <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border border-rose-400/40 text-rose-700 bg-rose-50">
-                                        Lång tid
-                                      </span>
-                                    )}
-                                    {taskAnalytics && (
-                                      <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border ${
-                                        taskAnalytics.final_level === 'critical'
-                                          ? 'border-rose-400/40 text-rose-700 bg-rose-50'
-                                          : taskAnalytics.final_level === 'warning'
-                                            ? 'border-amber-400/40 text-amber-700 bg-amber-50'
-                                            : taskAnalytics.final_level === 'missing'
-                                              ? 'border-slate-400/40 text-slate-700 bg-slate-100'
-                                              : 'border-emerald-400/40 text-emerald-700 bg-emerald-50'
-                                      }`}>
-                                        {taskAnalytics.final_level}
-                                      </span>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleManagerToggleTask(member.id, task.task_id, task.is_completed)}
-                                      disabled={taskMutation === 'saving'}
-                                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border transition disabled:opacity-60 ${task.is_completed ? 'border-rose-400/40 text-rose-700 bg-rose-50 hover:border-rose-500/60' : 'border-emerald-400/40 text-emerald-700 bg-emerald-50 hover:border-emerald-500/60'}`}
-                                    >
-                                      {taskMutation === 'saving' ? 'Sparar...' : task.is_completed ? 'Ångra' : 'Klarmarkera'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSetTaskRemoved(member.id, task.task_id, true)}
-                                      disabled={taskRemovalState === 'saving'}
-                                      className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-slate-400/40 text-slate-700 bg-slate-100"
-                                    >
-                                      {taskRemovalState === 'saving' ? 'Tar bort...' : 'Ta bort'}
-                                    </button>
-                                    {taskAnalytics && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleSetTaskAlarm(taskAnalytics, true)}
-                                          disabled={alertState === 'saving'}
-                                          className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-rose-400/40 text-rose-700 bg-rose-50"
-                                        >
-                                          Alarm
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleSetTaskAlarm(taskAnalytics, false)}
-                                          disabled={alertState === 'saving'}
-                                          className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-emerald-400/40 text-emerald-700 bg-emerald-50"
-                                        >
-                                          Ej alarm
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                                {taskAnalytics && (
-                                  <input
-                                    value={alertReasonDrafts[overrideKey] ?? taskAnalytics.manager_reason ?? ''}
-                                    onChange={(event) => setAlertReasonDrafts((prev) => ({ ...prev, [overrideKey]: event.target.value }))}
-                                    placeholder="Managerkommentar till alarmbeslut..."
-                                    className="w-full rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-[11px] text-[#111111]"
-                                  />
-                                )}
-                                <div className="rounded-lg border border-[#D1D5DB] bg-white/80 p-2 space-y-2">
-                                  {taskNotes.slice(0, 2).map((note) => (
-                                    <div key={note.id} className="text-[11px] text-[#4B5563]">
-                                      {note.note}
-                                    </div>
-                                  ))}
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      value={taskNoteValue}
-                                      onChange={(event) => setTaskNoteDrafts((prev) => ({ ...prev, [taskNoteKey]: event.target.value }))}
-                                      placeholder="Kommentar till uppgift..."
-                                      className="flex-1 rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAddTaskNote(member.id, task.task_id)}
-                                      disabled={taskNoteMutation === 'saving'}
-                                      className="px-2 py-1 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em]"
-                                    >
-                                      {taskNoteMutation === 'saving' ? 'Sparar' : 'Spara'}
-                                    </button>
-                                  </div>
-                                </div>
-                                {taskMutation === 'error' && (
-                                  <div className="text-[11px] text-rose-600 font-bold px-1">
-                                    Kunde inte uppdatera uppgiften. Försök igen.
-                                  </div>
-                                )}
-                                {alertState === 'error' && (
-                                  <div className="text-[11px] text-rose-600 font-bold px-1">
-                                    Kunde inte spara alarmbeslut. Försök igen.
-                                  </div>
-                                )}
-                                {taskNoteMutation === 'error' && (
-                                  <div className="text-[11px] text-rose-600 font-bold px-1">
-                                    Kunde inte spara uppgiftskommentar.
-                                  </div>
-                                )}
-                                {taskRemovalState === 'error' && (
-                                  <div className="text-[11px] text-rose-600 font-bold px-1">
-                                    Kunde inte ta bort uppgift.
-                                  </div>
-                                )}
+                      {zone.length === 0 ? (
+                        <p className="text-xs text-[#6B7280]">Inga klienter</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {zone.map((client) => (
+                            <li key={client.id} className="flex items-center justify-between gap-2 text-sm">
+                              <div className="min-w-0">
+                                <div className="font-semibold text-[#111111] truncate">{client.full_name || client.email || client.id}</div>
+                                <div className="text-[11px] text-[#6B7280]">{client.daysLeft} dagar kvar</div>
                               </div>
-                            );
-                          })}
-                          {removedBaseTasks.length > 0 && (
-                            <div className="rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/60 p-3 space-y-2">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#374151]">Borttagna idag</div>
-                              {removedBaseTasks.map((task) => {
-                                const taskRemovalKey = `remove-template:${member.id}:${dateKey}:${task.task_id}`;
-                                const taskRemovalState = taskRemovalMutationState[taskRemovalKey] || 'idle';
-                                return (
-                                  <div key={`removed-${task.task_id}`} className="flex items-center justify-between rounded-lg border border-[#9CA3AF] bg-white px-3 py-2">
-                                    <div className="text-[11px] text-[#4B5563]">{task.title}</div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSetTaskRemoved(member.id, task.task_id, false)}
-                                      disabled={taskRemovalState === 'saving'}
-                                      className="px-2 py-1 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em]"
-                                    >
-                                      {taskRemovalState === 'saving' ? 'Sparar...' : 'Återställ'}
-                                    </button>
-                                  </div>
-                                );
-                              })}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const link = `https://betalning.privatetrainingonline.se/b/14A6oG7nZ0P56aycZ9cfK0y?locale=sv&prefilled_email=${encodeURIComponent(client.email || '')}`;
+                                  navigator.clipboard.writeText(link).catch(() => undefined);
+                                }}
+                                className="shrink-0 px-2 py-1 rounded-lg border border-[#9CA3AF] bg-white text-[10px] font-black uppercase tracking-widest text-[#374151] hover:bg-[#F3F4F6] transition-colors"
+                                title="Kopiera förlängningslänk"
+                              >
+                                Länk
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:col-span-3 flex flex-col">
+            <button
+              type="button"
+              onClick={() => setSectionOpen((prev) => ({ ...prev, nps: !prev.nps }))}
+              className="w-full px-5 py-4 min-h-[84px] flex items-center justify-between text-left"
+            >
+              <div className="flex items-center gap-3">
+                <h2 className="text-[28px] leading-none font-black text-[#111111]">NPS</h2>
+                {npsSummary.total > 0 && (
+                  <span className={`text-2xl font-black ${npsSummary.npsScore >= 50 ? 'text-emerald-600' : npsSummary.npsScore >= 0 ? 'text-amber-600' : 'text-rose-600'}`}>
+                    {npsSummary.npsScore > 0 ? '+' : ''}{npsSummary.npsScore}
+                  </span>
+                )}
+              </div>
+              <ChevronDown className={`w-5 h-5 text-[#111111] transition-transform ${sectionOpen.nps ? 'rotate-180' : ''}`} />
+            </button>
+            {sectionOpen.nps && (
+              <div className="border-t border-[#E5E7EB] p-5 flex-1">
+                {npsSummary.total === 0 ? (
+                  <p className="text-sm text-[#6B7280]">Inga NPS-svar ännu. Dela <a href="/nps" className="underline font-bold">/nps</a> med klienter.</p>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
+                        <div className="text-2xl font-black text-emerald-600">{npsSummary.promoters}</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Ambassadörer</div>
+                      </div>
+                      <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+                        <div className="text-2xl font-black text-amber-600">{npsSummary.passives}</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-amber-700">Passiva</div>
+                      </div>
+                      <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3">
+                        <div className="text-2xl font-black text-rose-600">{npsSummary.detractors}</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-rose-700">Kritiker</div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-[#374151]">
+                      <span className="font-semibold">Totalt:</span> {npsSummary.total} svar
+                    </div>
+                    {npsSummary.recentComments.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#111111]">Senaste kommentarer</div>
+                        {npsSummary.recentComments.slice(0, 5).map((c, i) => (
+                          <div key={i} className="rounded-xl border border-[#E5E7EB] bg-[#FAFAFA] p-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-bold text-[#111111]">{c.name}</span>
+                              <span className={`text-xs font-black ${categoryColor(categorizeNps(c.score))}`}>
+                                {c.score}/10 · {categoryLabel(categorizeNps(c.score))}
+                              </span>
                             </div>
-                          )}
-                          {memberCustomTasks.map((task) => {
-                            const taskId = `custom:${task.id}`;
-                            const completion = completionItems.find((item) => (
-                              item.user_id === member.id &&
-                              item.report_date === dateKey &&
-                              item.task_id === taskId
-                            ));
-                            const isCompleted = Boolean(completion);
-                            const taskMutationKey = `${member.id}:${dateKey}:${taskId}`;
-                            const taskMutation = taskMutationState[taskMutationKey] || 'idle';
-                            const taskNotes = userNotes.filter((note) => note.task_id === taskId);
-                            const taskNoteKey = `${member.id}:${taskId}`;
-                            const taskNoteValue = taskNoteDrafts[taskNoteKey] || '';
-                            const taskNoteMutation = taskNoteStatus[taskNoteKey] || 'idle';
-                            const detailsExpanded = !!expandedTaskDetails[taskId];
-                            const removeState = customTaskMutationState[`remove:${task.id}`] || 'idle';
-                            return (
-                              <div key={task.id} className="space-y-2">
-                                <div className="flex items-center justify-between rounded-xl border border-[#D8E7BE] bg-[#F0F7DF] px-3 py-2">
-                                  <div>
-                                    <div className="text-sm font-bold text-[#111111]">{task.title}</div>
-                                    <div className="text-[11px] text-[#374151]">
-                                      Extra uppgift {task.estimated_minutes ? `· Est ${task.estimated_minutes} min` : ''} · {isCompleted ? `Klarmarkerad ${formatTime(completion?.completed_at)}` : 'Ej klarmarkerad'}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border border-[#111111]/40 text-[#111111] bg-[#111111]/10">
-                                      Extra
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleManagerToggleTask(member.id, taskId, isCompleted)}
-                                      disabled={taskMutation === 'saving'}
-                                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border transition disabled:opacity-60 ${isCompleted ? 'border-rose-400/40 text-rose-700 bg-rose-50 hover:border-rose-500/60' : 'border-emerald-400/40 text-emerald-700 bg-emerald-50 hover:border-emerald-500/60'}`}
-                                    >
-                                      {taskMutation === 'saving' ? 'Sparar...' : isCompleted ? 'Ångra' : 'Klarmarkera'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveCustomTask(task)}
-                                      disabled={removeState === 'saving'}
-                                      className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-slate-400/40 text-slate-700 bg-slate-100"
-                                    >
-                                      {removeState === 'saving' ? 'Tar bort...' : 'Ta bort'}
-                                    </button>
-                                  </div>
-                                </div>
-                                {task.details && (
-                                  <div className="rounded-lg border border-[#D1D5DB] bg-white/80 p-2 text-[11px] text-[#4B5563]">
-                                    {detailsExpanded ? task.details : truncateText(task.details, 110)}
-                                    {task.details.length > 110 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => setExpandedTaskDetails((prev) => ({ ...prev, [taskId]: !prev[taskId] }))}
-                                        className="ml-2 text-[#111111] font-black uppercase tracking-[0.12em]"
-                                      >
-                                        {detailsExpanded ? 'Visa mindre' : 'Läs mer'}
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                                <div className="rounded-lg border border-[#D1D5DB] bg-white/80 p-2 space-y-2">
-                                  {taskNotes.slice(0, 2).map((note) => (
-                                    <div key={note.id} className="text-[11px] text-[#4B5563]">
-                                      {note.note}
-                                    </div>
-                                  ))}
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      value={taskNoteValue}
-                                      onChange={(event) => setTaskNoteDrafts((prev) => ({ ...prev, [taskNoteKey]: event.target.value }))}
-                                      placeholder="Kommentar till extra uppgift..."
-                                      className="flex-1 rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAddTaskNote(member.id, taskId)}
-                                      disabled={taskNoteMutation === 'saving'}
-                                      className="px-2 py-1 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em]"
-                                    >
-                                      {taskNoteMutation === 'saving' ? 'Sparar' : 'Spara'}
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {(visibleBaseTasks.length + memberCustomTasks.length) === 0 && (
-                            <div className="text-sm text-[#374151]">Inga schemalagda uppgifter idag.</div>
-                          )}
-                          <div className="rounded-xl border border-[#D1D5DB] bg-white/80 p-3 space-y-2">
-                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#374151]">Lägg till uppgift (manager)</div>
-                            {!customTasksSupported && (
-                              <div className="text-[11px] text-amber-700">Databas-tabell saknas. Extra uppgifter sparas bara lokalt tills SQL körs.</div>
-                            )}
-                            {!taskRemovalsSupported && (
-                              <div className="text-[11px] text-amber-700">Databas-tabell för borttagna uppgifter saknas. Ta bort/återställ sparas bara lokalt tills SQL körs.</div>
-                            )}
-                            <input
-                              value={customDraft.title}
-                              onChange={(event) => setCustomTaskDrafts((prev) => ({
-                                ...prev,
-                                [member.id]: { ...customDraft, title: event.target.value }
-                              }))}
-                              placeholder="Uppgiftstitel"
-                              className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
-                            />
-                            <input
-                              value={customDraft.estimated_minutes}
-                              onChange={(event) => setCustomTaskDrafts((prev) => ({
-                                ...prev,
-                                [member.id]: { ...customDraft, estimated_minutes: event.target.value }
-                              }))}
-                              placeholder="Estimerad tid i minuter (valfritt)"
-                              className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
-                            />
-                            <textarea
-                              value={customDraft.details}
-                              onChange={(event) => setCustomTaskDrafts((prev) => ({
-                                ...prev,
-                                [member.id]: { ...customDraft, details: event.target.value }
-                              }))}
-                              placeholder="Kontext / instruktion (visas i Läs mer)"
-                              className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px] min-h-[64px]"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleAddCustomTask(member.id)}
-                              disabled={addState === 'saving'}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-[#111111]/40 text-[#111111] bg-[#111111]/10"
-                            >
-                              {addState === 'saving' ? 'Sparar...' : 'Lägg till'}
-                            </button>
-                            {addState === 'error' && (
-                              <div className="text-[11px] text-rose-600 font-bold">Kunde inte lägga till uppgift.</div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className={ui.label}>Rapport</div>
-                        <div className="mt-3 rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/70 p-3 text-sm text-[#4B5563] space-y-2">
-                          {report ? (
-                            <>
-                              <div><strong>Start:</strong> {report.start_time || '—'} &nbsp; <strong>Slut:</strong> {report.end_time || '—'}</div>
-                              <div><strong>Gjort:</strong> {report.did || '—'}</div>
-                              <div><strong>Handover:</strong> {report.handover || '—'}</div>
-                            </>
-                          ) : (
-                            <div>Ingen rapport inskickad idag.</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className={ui.label}>Noteringar</div>
-                      <div className="mt-3 space-y-2">
-                        {generalUserNotes.length === 0 && (
-                          <div className="text-sm text-[#374151]">Inga noteringar idag.</div>
-                        )}
-                        {generalUserNotes.map((note) => (
-                          <div key={note.id} className="rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/70 p-3 text-sm text-[#4B5563]">
-                            <div>{note.note}</div>
-                            <div className="text-[11px] text-[#374151] mt-1">{formatTime(note.created_at)}</div>
+                            <p className="text-xs text-[#374151]">{c.comment}</p>
                           </div>
                         ))}
-                      </div>
-                      <div className="mt-3 flex flex-col gap-2">
-                        <textarea
-                          value={noteValue}
-                          onChange={(event) => setNoteDrafts((prev) => ({ ...prev, [member.id]: event.target.value }))}
-                          placeholder="Lägg till notering..."
-                          className="w-full rounded-xl border border-[#D1D5DB] bg-white/80 px-3 py-2 text-sm text-[#111111] min-h-[80px]"
-                        />
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => handleAddNote(member.id)}
-                            disabled={noteState === 'saving'}
-                            className="px-4 py-2 rounded-xl bg-[#111111] text-[#F9FAFB] text-xs font-black uppercase tracking-widest disabled:opacity-60"
-                          >
-                            {noteState === 'saving' ? 'Sparar...' : 'Spara notering'}
-                          </button>
-                          {noteState === 'error' && (
-                            <span className="text-xs text-rose-600 font-bold">Kunde inte spara.</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className={ui.label}>Historik</div>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleHistory(member.id)}
-                        className="text-[10px] font-black uppercase tracking-[0.3em] text-[#4B5563]"
-                      >
-                        {historyOpen[member.id] ? 'Dölj historik' : 'Visa historik'}
-                      </button>
-                    </div>
-
-                    {historyOpen[member.id] && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {historyKeys.map((key) => {
-                          const history = getHistorySummary(member.id, key);
-                          return (
-                            <div key={key} className="rounded-xl border border-[#D1D5DB] bg-white/70 p-3">
-                              <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#374151]">{key}</div>
-                              <div className="mt-2 text-sm text-[#111111]">
-                                {history.completed}/{history.total} klara
-                              </div>
-                              <div className={`mt-2 text-[10px] font-black uppercase tracking-[0.2em] ${history.hasReport ? 'text-emerald-700' : 'text-amber-700'}`}>
-                                {history.hasReport ? 'Rapport' : 'Ingen rapport'}
-                              </div>
-                            </div>
-                          );
-                        })}
                       </div>
                     )}
                   </div>
                 )}
               </div>
-            );
-          })}
-              </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:order-2 h-full flex flex-col">
+          <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:col-span-3 flex flex-col">
+            <button
+              type="button"
+              onClick={() => setSectionOpen((prev) => ({ ...prev, sales: !prev.sales }))}
+              className="w-full px-5 py-4 min-h-[84px] flex items-center justify-between text-left"
+            >
+              <div className="flex items-center gap-3">
+                <h2 className="text-[28px] leading-none font-black text-[#111111]">Försäljningsprognos</h2>
+              </div>
+              <ChevronDown className={`w-5 h-5 text-[#111111] transition-transform ${sectionOpen.sales ? 'rotate-180' : ''}`} />
+            </button>
+            {sectionOpen.sales && (
+              <div className="border-t border-[#E5E7EB] p-5 flex-1">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                  <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFAFA] p-4">
+                    <div className="text-2xl font-black text-[#111111]">{salesOverview.expectedRenewals30d}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-[#6B7280]">Förväntade förnyelser</div>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                    <div className="text-2xl font-black text-emerald-600">{formatCurrency(salesOverview.expectedRevenue30d)}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Prognostiserad intäkt</div>
+                  </div>
+                  <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-4">
+                    <div className="text-2xl font-black text-rose-600">{salesOverview.criticalCount}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-rose-700">Kritisk (≤7d)</div>
+                  </div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+                    <div className="text-2xl font-black text-amber-600">{salesOverview.warningCount}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-amber-700">Varning (8–14d)</div>
+                  </div>
+                </div>
+                <p className="text-[11px] text-[#6B7280] mt-4">
+                  Baserat på snittintäkt {formatCurrency(salesOverview.avgRevenuePerClient)} per klient × {salesOverview.expectedRenewals30d} förnyelser inom 30 dagar.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:col-span-3 flex flex-col">
+            <button
+              type="button"
+              onClick={() => setSectionOpen((prev) => ({ ...prev, referrals: !prev.referrals }))}
+              className="w-full px-5 py-4 min-h-[84px] flex items-center justify-between text-left"
+            >
+              <div className="flex items-center gap-3">
+                <h2 className="text-[28px] leading-none font-black text-[#111111]">Referrals</h2>
+                {newReferrals7d.length > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-black animate-pulse">
+                    +{newReferrals7d.length} ny{newReferrals7d.length === 1 ? '' : 'a'}
+                  </span>
+                )}
+              </div>
+              <ChevronDown className={`w-5 h-5 text-[#111111] transition-transform ${sectionOpen.referrals ? 'rotate-180' : ''}`} />
+            </button>
+            {sectionOpen.referrals && (
+              <div className="border-t border-[#E5E7EB] p-5 flex-1">
+                {referralSummary.total === 0 ? (
+                  <p className="text-sm text-[#6B7280]">Inga referrals ännu. Klienter kan dela sin länk via <span className="font-bold">/referral</span>.</p>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-4 gap-3 text-center">
+                      <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFAFA] p-3">
+                        <div className="text-2xl font-black text-[#111111]">{referralSummary.total}</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-[#6B7280]">Totalt</div>
+                      </div>
+                      <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-3">
+                        <div className="text-2xl font-black text-sky-600">{referralSummary.registered}</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-sky-700">Registrerade</div>
+                      </div>
+                      <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+                        <div className="text-2xl font-black text-amber-600">{referralSummary.converted}</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-amber-700">Köpt</div>
+                      </div>
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
+                        <div className="text-2xl font-black text-emerald-600">{referralSummary.rewarded}</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Belönade</div>
+                      </div>
+                    </div>
+
+                    {referralSummary.topReferrers.length > 0 && (
+                      <div>
+                        <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#111111] mb-2">Top-tipsare</div>
+                        <div className="space-y-1">
+                          {referralSummary.topReferrers.map((tr, i) => (
+                            <div key={i} className="flex items-center justify-between rounded-lg bg-[#FAFAFA] px-3 py-2">
+                              <span className="text-xs font-bold text-[#3D3D3D]">
+                                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`} {tr.name}
+                              </span>
+                              <span className="text-xs font-black text-[#a0c81d]">{tr.count} tips</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#111111] mb-2">Senaste referrals</div>
+                      <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                        {allReferrals.slice(0, 15).map((r) => (
+                          <div key={r.id} className="flex items-center justify-between rounded-lg border border-[#E5E7EB] px-3 py-2">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs text-[#3D3D3D] truncate block">{r.referred_email}</span>
+                              <span className="text-[10px] text-[#8A8177]">{new Date(r.created_at).toLocaleDateString('sv-SE')}</span>
+                            </div>
+                            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full shrink-0 ${REFERRAL_STATUS_COLORS[r.status]}`}>
+                              {REFERRAL_STATUS_LABELS[r.status]}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:order-1 h-full flex flex-col">
+            <button
+              type="button"
+              onClick={() => setSectionOpen((prev) => ({ ...prev, staff: !prev.staff }))}
+              className="w-full px-5 py-4 min-h-[84px] flex items-center justify-between text-left"
+            >
+              <h2 className="text-[28px] leading-none font-black text-[#111111]">Dagsagenda</h2>
+              <ChevronDown className={`w-5 h-5 text-[#111111] transition-transform ${sectionOpen.staff ? 'rotate-180' : ''}`} />
+            </button>
+            {sectionOpen.staff && (
+              <div className="border-t border-[#E5E7EB] p-5 flex-1">
+                {universalAgendaEnabled ? (
+                  <div className="space-y-4">
+                    <ul className="space-y-2 text-sm text-[#111111]">
+                      <li><span className="font-semibold">Dagsagenda:</span> {universalTaskCompleted}/{universalTaskTotal} slutförda</li>
+                      <li><span className="font-semibold">Datum:</span> {dateKey}</li>
+                    </ul>
+
+                    <ul className="space-y-1 text-[14px] text-[#111111]">
+                      {visibleRecurringTemplatesToday.map((task) => {
+                        const taskId = task.id;
+                        const completion = universalCompletionItemsToday.find((item) => item.task_id === taskId);
+                        const isCompleted = Boolean(completion);
+                        const taskMutationKey = `${universalAgendaUserId}:${dateKey}:${taskId}`;
+                        const taskMutation = taskMutationState[taskMutationKey] || 'idle';
+                        const taskRemovalKey = `remove-template:${universalAgendaUserId}:${dateKey}:${taskId}`;
+                        const taskRemovalState = taskRemovalMutationState[taskRemovalKey] || 'idle';
+                        return (
+                          <li key={task.id} className="flex items-start justify-between gap-3">
+                            <div className={`min-w-0 ${isCompleted ? 'line-through text-[#4B5563]' : 'text-[#111111]'}`}>
+                              - {task.title}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleSetTaskRemoved(universalAgendaUserId, taskId, true)}
+                                disabled={!universalAgendaUserId || taskRemovalState === 'saving'}
+                                className="text-[11px] font-semibold text-[#4B5563] hover:text-[#111111] disabled:opacity-50"
+                              >
+                                {taskRemovalState === 'saving' ? 'Tar bort...' : 'Ta bort'}
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={isCompleted ? `Markera ${task.title} som ej klar` : `Markera ${task.title} som klar`}
+                                onClick={() => handleManagerToggleTask(universalAgendaUserId, taskId, isCompleted)}
+                                disabled={!universalAgendaUserId || taskMutation === 'saving'}
+                                className="text-[18px] leading-none font-black text-[#111111] disabled:opacity-50"
+                              >
+                                {isCompleted ? '✓' : '○'}
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+
+                      {managerCustomTasksToday.map((task) => {
+                        const taskId = `custom:${task.id}`;
+                        const completion = universalCompletionItemsToday.find((item) => item.task_id === taskId);
+                        const isCompleted = Boolean(completion);
+                        const taskMutationKey = `${universalAgendaUserId}:${dateKey}:${taskId}`;
+                        const taskMutation = taskMutationState[taskMutationKey] || 'idle';
+                        const removeState = customTaskMutationState[`remove:${task.id}`] || 'idle';
+                        const editState = customTaskMutationState[`edit:${task.id}`] || 'idle';
+                        const isEditing = !!customTaskEditorOpen[task.id];
+                        const editDraft = customTaskEditDrafts[task.id] || {
+                          title: task.title,
+                          estimated_minutes: task.estimated_minutes ? `${task.estimated_minutes}` : '',
+                          details: task.details || ''
+                        };
+                        const detailsExpanded = !!expandedTaskDetails[taskId];
+                        return (
+                          <li key={task.id}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className={`min-w-0 ${isCompleted ? 'line-through text-[#4B5563]' : 'text-[#111111]'}`}>- {task.title}</div>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  aria-label={`Redigera ${task.title}`}
+                                  onClick={() => handleOpenCustomTaskEditor(task)}
+                                  disabled={editState === 'saving'}
+                                  className="text-[11px] font-semibold text-[#4B5563] hover:text-[#111111] disabled:opacity-50 inline-flex items-center gap-1"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                  Redigera
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveCustomTask(task)}
+                                  disabled={removeState === 'saving'}
+                                  className="text-[11px] font-semibold text-[#4B5563] hover:text-[#111111] disabled:opacity-50"
+                                >
+                                  {removeState === 'saving' ? 'Tar bort...' : 'Ta bort'}
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label={isCompleted ? `Markera ${task.title} som ej klar` : `Markera ${task.title} som klar`}
+                                  onClick={() => handleManagerToggleTask(universalAgendaUserId, taskId, isCompleted)}
+                                  disabled={!universalAgendaUserId || taskMutation === 'saving'}
+                                  className="text-[18px] leading-none font-black text-[#111111] disabled:opacity-50"
+                                >
+                                  {isCompleted ? '✓' : '○'}
+                                </button>
+                              </div>
+                            </div>
+                            {task.details && (
+                              <div className="mt-1 ml-3 text-[11px] text-[#4B5563]">
+                                {detailsExpanded ? task.details : truncateText(task.details, 120)}
+                                {task.details.length > 120 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedTaskDetails((prev) => ({ ...prev, [taskId]: !prev[taskId] }))}
+                                    className="ml-2 font-semibold text-[#111111] hover:underline"
+                                  >
+                                    {detailsExpanded ? 'Visa mindre' : 'Läs mer'}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            {isEditing && (
+                              <div className="mt-2 ml-3 rounded-lg border border-[#D1D5DB] bg-white/90 p-3 space-y-2">
+                                <input
+                                  value={editDraft.title}
+                                  onChange={(event) => setCustomTaskEditDrafts((prev) => ({
+                                    ...prev,
+                                    [task.id]: { ...editDraft, title: event.target.value }
+                                  }))}
+                                  placeholder="Uppgiftstitel"
+                                  className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
+                                />
+                                <input
+                                  value={editDraft.estimated_minutes}
+                                  onChange={(event) => setCustomTaskEditDrafts((prev) => ({
+                                    ...prev,
+                                    [task.id]: { ...editDraft, estimated_minutes: event.target.value }
+                                  }))}
+                                  placeholder="Estimerad tid (minuter)"
+                                  className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
+                                />
+                                <textarea
+                                  value={editDraft.details}
+                                  onChange={(event) => setCustomTaskEditDrafts((prev) => ({
+                                    ...prev,
+                                    [task.id]: { ...editDraft, details: event.target.value }
+                                  }))}
+                                  placeholder="Beskrivning"
+                                  className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px] min-h-[56px]"
+                                />
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveCustomTaskEdit(task)}
+                                    disabled={editState === 'saving'}
+                                    className="px-3 py-1.5 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em] disabled:opacity-50"
+                                  >
+                                    {editState === 'saving' ? 'Sparar...' : 'Spara'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCloseCustomTaskEditor(task.id)}
+                                    disabled={editState === 'saving'}
+                                    className="px-3 py-1.5 rounded-md border border-[#9CA3AF] bg-white text-[#374151] text-[10px] font-black uppercase tracking-[0.15em] disabled:opacity-50"
+                                  >
+                                    Avbryt
+                                  </button>
+                                </div>
+                                {editState === 'error' && (
+                                  <div className="text-[11px] text-rose-600 font-bold">
+                                    Kunde inte uppdatera uppgift.
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+
+                      {(visibleRecurringTemplatesToday.length + managerCustomTasksToday.length) === 0 && (
+                        <li className="text-sm text-[#4B5563]">Inga schemalagda uppgifter idag.</li>
+                      )}
+                    </ul>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowManagerAddTaskForm((prev) => !prev)}
+                      className="text-sm font-semibold text-[#111111] hover:underline"
+                    >
+                      {showManagerAddTaskForm ? 'Stäng ny uppgift' : 'Lägg till ny uppgift'}
+                    </button>
+
+                    {showManagerAddTaskForm && (
+                      <div className="rounded-xl border border-[#D1D5DB] bg-white/80 p-3 space-y-2">
+                        <input
+                          value={managerDraft.title}
+                          onChange={(event) => setCustomTaskDrafts((prev) => ({
+                            ...prev,
+                            [managerUserId]: { ...managerDraft, title: event.target.value }
+                          }))}
+                          placeholder="Uppgiftstitel"
+                          className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
+                        />
+                        <input
+                          value={managerDraft.estimated_minutes}
+                          onChange={(event) => setCustomTaskDrafts((prev) => ({
+                            ...prev,
+                            [managerUserId]: { ...managerDraft, estimated_minutes: event.target.value }
+                          }))}
+                          placeholder="Estimerad tid (minuter)"
+                          className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
+                        />
+                        <textarea
+                          value={managerDraft.details}
+                          onChange={(event) => setCustomTaskDrafts((prev) => ({
+                            ...prev,
+                            [managerUserId]: { ...managerDraft, details: event.target.value }
+                          }))}
+                          placeholder="Kort kontext (valfritt)"
+                          className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px] min-h-[56px]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddCustomTask(managerUserId)}
+                          disabled={!managerUserId || managerAddState === 'saving'}
+                          className="text-sm font-semibold text-[#111111] hover:underline disabled:opacity-50"
+                        >
+                          {managerAddState === 'saving' ? 'Sparar...' : 'Spara uppgift'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="relative flex-1">
+                        <Search className="w-4 h-4 text-[#374151] absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          value={staffFilter}
+                          onChange={(event) => setStaffFilter(event.target.value)}
+                          placeholder="Filtrera personal..."
+                          className="w-full pl-9 pr-3 py-3 rounded-2xl border border-[#9CA3AF] bg-white text-sm text-[#111111]"
+                        />
+                      </div>
+                      <div className="text-xs font-black uppercase tracking-[0.25em] text-[#374151]">{filteredStaff.length} personal</div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {filteredStaff.length === 0 && (
+                        <div className={ui.card}>Ingen personal matchar filtret.</div>
+                      )}
+
+                      {filteredStaff.map((member) => {
+                        const summary = dailySummary.byUser[member.id];
+                        const report = reportsByUser[member.id];
+                        const hasExtension = hasSubmittedExtension(member.subscription_status);
+                        const isExpanded = !!expandedStaff[member.id];
+                        const userNotes = notesByUserDate[member.id]?.[dateKey] || [];
+                        const generalUserNotes = userNotes.filter((note) => !note.task_id);
+                        const noteValue = noteDrafts[member.id] || '';
+                        const noteState = noteStatus[member.id] || 'idle';
+                        const performance = weeklyPerformance.byUser[member.id];
+                        const memberCustomTasks = customTasks.filter((task) => task.user_id === member.id && task.report_date === dateKey && task.is_active);
+                        const memberCustomCompleted = memberCustomTasks.filter((task) => completionItems.some((item) => (
+                          item.user_id === member.id && item.report_date === dateKey && item.task_id === `custom:${task.id}`
+                        ))).length;
+                        const baseTasks = summary?.tasks || [];
+                        const visibleBaseTasks = baseTasks.filter((task) => !isTaskRemoved(removedTaskSet, member.id, dateKey, task.task_id));
+                        const removedBaseTasks = baseTasks.filter((task) => isTaskRemoved(removedTaskSet, member.id, dateKey, task.task_id));
+                        const totalTaskCount = visibleBaseTasks.length + memberCustomTasks.length;
+                        const completedTaskCount = visibleBaseTasks.filter((task) => task.is_completed).length + memberCustomCompleted;
+                        const customDraft = customTaskDrafts[member.id] || { title: '', estimated_minutes: '', details: '' };
+                        const addState = customTaskMutationState[`add:${member.id}`] || 'idle';
+
+                        return (
+                          <div key={member.id} className="rounded-2xl border border-[#9CA3AF] bg-white">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedStaff((prev) => ({ ...prev, [member.id]: !prev[member.id] }))}
+                              className="w-full text-left px-5 py-4 flex items-center justify-between"
+                            >
+                              <div>
+                                <div className="text-sm font-black text-[#111111]">{member.full_name || member.email}</div>
+                                <div className="text-xs text-[#374151]">{member.email}</div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="text-xs font-black uppercase tracking-[0.2em] text-[#374151]">
+                                  {completedTaskCount}/{totalTaskCount} uppgifter
+                                </div>
+                                <div className="text-xs font-black uppercase tracking-[0.2em] text-[#4B5563]">
+                                  Vecka {performance?.adherencePct ?? 0}%
+                                </div>
+                                <div className="text-xs font-black uppercase tracking-[0.2em] text-[#4B5563]">
+                                  Rapport {performance?.reportCoveragePct ?? 0}%
+                                </div>
+                                {(performance?.slowTasks || 0) > 0 && (
+                                  <div className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border border-rose-400/40 text-rose-700 bg-rose-50">
+                                    Långsam {performance?.slowTasks}
+                                  </div>
+                                )}
+                                <div className="text-xs text-[#4B5563]">Senast: {formatTime(summary?.last_completed_at ?? null)}</div>
+                                {hasExtension && (
+                                  <div className="text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border border-cyan-400/50 text-cyan-800 bg-cyan-50">
+                                    Förlängning
+                                  </div>
+                                )}
+                                <div className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border ${report ? 'border-emerald-400/40 text-emerald-700 bg-emerald-50' : 'border-amber-400/40 text-amber-700 bg-amber-50'}`}>
+                                  {report ? 'Rapport' : 'Ingen rapport'}
+                                </div>
+                                <ChevronDown className={`w-5 h-5 text-[#374151] transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </div>
+                            </button>
+
+                            {isExpanded && summary && (
+                              <div className="border-t border-[#E5E7EB] px-5 py-4 space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <div className={ui.label}>Uppgifter idag</div>
+                                    <div className="mt-3 space-y-2">
+                                      {visibleBaseTasks.map((task) => {
+                                        const taskMutationKey = `${member.id}:${dateKey}:${task.task_id}`;
+                                        const taskMutation = taskMutationState[taskMutationKey] || 'idle';
+                                        const taskRemovalKey = `remove-template:${member.id}:${dateKey}:${task.task_id}`;
+                                        const taskRemovalState = taskRemovalMutationState[taskRemovalKey] || 'idle';
+                                        const taskAnalytics = analyticsByTask[`${member.id}:${dateKey}:${task.task_id}`];
+                                        const overrideKey = `${member.id}:${dateKey}:${task.task_id}`;
+                                        const alertState = alertMutationState[overrideKey] || 'idle';
+                                        const taskNotes = userNotes.filter((note) => note.task_id === task.task_id);
+                                        const taskNoteKey = `${member.id}:${task.task_id}`;
+                                        const taskNoteValue = taskNoteDrafts[taskNoteKey] || '';
+                                        const taskNoteMutation = taskNoteStatus[taskNoteKey] || 'idle';
+                                        return (
+                                          <div key={task.task_id} className="space-y-2">
+                                            <div className="flex items-center justify-between rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/70 px-3 py-2">
+                                              <div>
+                                                <div className="text-sm font-bold text-[#111111]">{task.title}</div>
+                                                <div className="text-[11px] text-[#374151]">
+                                                  {task.is_completed ? `Klarmarkerad ${formatTime(task.completed_at)}` : 'Ej klarmarkerad'}
+                                                </div>
+                                                <div className="text-[11px] text-[#374151]">
+                                                  Delta: {taskAnalytics?.delta_minutes === null || taskAnalytics?.delta_minutes === undefined ? '—' : `${taskAnalytics.delta_minutes} min`} · Förväntad {taskAnalytics ? formatTime(taskAnalytics.expected_completed_at) : '—'}
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                {task.requires_quality_check && (
+                                                  <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border ${task.is_completed ? 'border-emerald-400/40 text-emerald-700 bg-emerald-50' : 'border-slate-300 text-slate-500 bg-slate-50'}`}>
+                                                    Kvalitetscheck {task.is_completed ? 'klar' : 'saknas'}
+                                                  </span>
+                                                )}
+                                                {task.is_completed && task.completion_source === 'manager' && (
+                                                  <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border border-cyan-400/40 text-cyan-700 bg-cyan-50">
+                                                    Manager
+                                                  </span>
+                                                )}
+                                                {task.is_slow && (
+                                                  <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border border-rose-400/40 text-rose-700 bg-rose-50">
+                                                    Lång tid
+                                                  </span>
+                                                )}
+                                                {taskAnalytics && (
+                                                  <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border ${taskAnalytics.final_level === 'critical'
+                                                    ? 'border-rose-400/40 text-rose-700 bg-rose-50'
+                                                    : taskAnalytics.final_level === 'warning'
+                                                      ? 'border-amber-400/40 text-amber-700 bg-amber-50'
+                                                      : taskAnalytics.final_level === 'missing'
+                                                        ? 'border-slate-400/40 text-slate-700 bg-slate-100'
+                                                        : 'border-emerald-400/40 text-emerald-700 bg-emerald-50'
+                                                    }`}>
+                                                    {taskAnalytics.final_level}
+                                                  </span>
+                                                )}
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleManagerToggleTask(member.id, task.task_id, task.is_completed)}
+                                                  disabled={taskMutation === 'saving'}
+                                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border transition disabled:opacity-60 ${task.is_completed ? 'border-rose-400/40 text-rose-700 bg-rose-50 hover:border-rose-500/60' : 'border-emerald-400/40 text-emerald-700 bg-emerald-50 hover:border-emerald-500/60'}`}
+                                                >
+                                                  {taskMutation === 'saving' ? 'Sparar...' : task.is_completed ? 'Ångra' : 'Klarmarkera'}
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleSetTaskRemoved(member.id, task.task_id, true)}
+                                                  disabled={taskRemovalState === 'saving'}
+                                                  className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-slate-400/40 text-slate-700 bg-slate-100"
+                                                >
+                                                  {taskRemovalState === 'saving' ? 'Tar bort...' : 'Ta bort'}
+                                                </button>
+                                                {taskAnalytics && (
+                                                  <>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => handleSetTaskAlarm(taskAnalytics, true)}
+                                                      disabled={alertState === 'saving'}
+                                                      className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-rose-400/40 text-rose-700 bg-rose-50"
+                                                    >
+                                                      Alarm
+                                                    </button>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => handleSetTaskAlarm(taskAnalytics, false)}
+                                                      disabled={alertState === 'saving'}
+                                                      className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-emerald-400/40 text-emerald-700 bg-emerald-50"
+                                                    >
+                                                      Ej alarm
+                                                    </button>
+                                                  </>
+                                                )}
+                                              </div>
+                                            </div>
+                                            {taskAnalytics && (
+                                              <input
+                                                value={alertReasonDrafts[overrideKey] ?? taskAnalytics.manager_reason ?? ''}
+                                                onChange={(event) => setAlertReasonDrafts((prev) => ({ ...prev, [overrideKey]: event.target.value }))}
+                                                placeholder="Managerkommentar till alarmbeslut..."
+                                                className="w-full rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-[11px] text-[#111111]"
+                                              />
+                                            )}
+                                            <div className="rounded-lg border border-[#D1D5DB] bg-white/80 p-2 space-y-2">
+                                              {taskNotes.slice(0, 2).map((note) => (
+                                                <div key={note.id} className="text-[11px] text-[#4B5563]">
+                                                  {note.note}
+                                                </div>
+                                              ))}
+                                              <div className="flex items-center gap-2">
+                                                <input
+                                                  value={taskNoteValue}
+                                                  onChange={(event) => setTaskNoteDrafts((prev) => ({ ...prev, [taskNoteKey]: event.target.value }))}
+                                                  placeholder="Kommentar till uppgift..."
+                                                  className="flex-1 rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleAddTaskNote(member.id, task.task_id)}
+                                                  disabled={taskNoteMutation === 'saving'}
+                                                  className="px-2 py-1 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em]"
+                                                >
+                                                  {taskNoteMutation === 'saving' ? 'Sparar' : 'Spara'}
+                                                </button>
+                                              </div>
+                                            </div>
+                                            {taskMutation === 'error' && (
+                                              <div className="text-[11px] text-rose-600 font-bold px-1">
+                                                Kunde inte uppdatera uppgiften. Försök igen.
+                                              </div>
+                                            )}
+                                            {alertState === 'error' && (
+                                              <div className="text-[11px] text-rose-600 font-bold px-1">
+                                                Kunde inte spara alarmbeslut. Försök igen.
+                                              </div>
+                                            )}
+                                            {taskNoteMutation === 'error' && (
+                                              <div className="text-[11px] text-rose-600 font-bold px-1">
+                                                Kunde inte spara uppgiftskommentar.
+                                              </div>
+                                            )}
+                                            {taskRemovalState === 'error' && (
+                                              <div className="text-[11px] text-rose-600 font-bold px-1">
+                                                Kunde inte ta bort uppgift.
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                      {removedBaseTasks.length > 0 && (
+                                        <div className="rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/60 p-3 space-y-2">
+                                          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#374151]">Borttagna idag</div>
+                                          {removedBaseTasks.map((task) => {
+                                            const taskRemovalKey = `remove-template:${member.id}:${dateKey}:${task.task_id}`;
+                                            const taskRemovalState = taskRemovalMutationState[taskRemovalKey] || 'idle';
+                                            return (
+                                              <div key={`removed-${task.task_id}`} className="flex items-center justify-between rounded-lg border border-[#9CA3AF] bg-white px-3 py-2">
+                                                <div className="text-[11px] text-[#4B5563]">{task.title}</div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleSetTaskRemoved(member.id, task.task_id, false)}
+                                                  disabled={taskRemovalState === 'saving'}
+                                                  className="px-2 py-1 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em]"
+                                                >
+                                                  {taskRemovalState === 'saving' ? 'Sparar...' : 'Återställ'}
+                                                </button>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                      {memberCustomTasks.map((task) => {
+                                        const taskId = `custom:${task.id}`;
+                                        const completion = completionItems.find((item) => (
+                                          item.user_id === member.id &&
+                                          item.report_date === dateKey &&
+                                          item.task_id === taskId
+                                        ));
+                                        const isCompleted = Boolean(completion);
+                                        const taskMutationKey = `${member.id}:${dateKey}:${taskId}`;
+                                        const taskMutation = taskMutationState[taskMutationKey] || 'idle';
+                                        const taskNotes = userNotes.filter((note) => note.task_id === taskId);
+                                        const taskNoteKey = `${member.id}:${taskId}`;
+                                        const taskNoteValue = taskNoteDrafts[taskNoteKey] || '';
+                                        const taskNoteMutation = taskNoteStatus[taskNoteKey] || 'idle';
+                                        const detailsExpanded = !!expandedTaskDetails[taskId];
+                                        const removeState = customTaskMutationState[`remove:${task.id}`] || 'idle';
+                                        return (
+                                          <div key={task.id} className="space-y-2">
+                                            <div className="flex items-center justify-between rounded-xl border border-[#D8E7BE] bg-[#F0F7DF] px-3 py-2">
+                                              <div>
+                                                <div className="text-sm font-bold text-[#111111]">{task.title}</div>
+                                                <div className="text-[11px] text-[#374151]">
+                                                  Extra uppgift {task.estimated_minutes ? `· Est ${task.estimated_minutes} min` : ''} · {isCompleted ? `Klarmarkerad ${formatTime(completion?.completed_at)}` : 'Ej klarmarkerad'}
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full border border-[#111111]/40 text-[#111111] bg-[#111111]/10">
+                                                  Extra
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleManagerToggleTask(member.id, taskId, isCompleted)}
+                                                  disabled={taskMutation === 'saving'}
+                                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border transition disabled:opacity-60 ${isCompleted ? 'border-rose-400/40 text-rose-700 bg-rose-50 hover:border-rose-500/60' : 'border-emerald-400/40 text-emerald-700 bg-emerald-50 hover:border-emerald-500/60'}`}
+                                                >
+                                                  {taskMutation === 'saving' ? 'Sparar...' : isCompleted ? 'Ångra' : 'Klarmarkera'}
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleRemoveCustomTask(task)}
+                                                  disabled={removeState === 'saving'}
+                                                  className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-slate-400/40 text-slate-700 bg-slate-100"
+                                                >
+                                                  {removeState === 'saving' ? 'Tar bort...' : 'Ta bort'}
+                                                </button>
+                                              </div>
+                                            </div>
+                                            {task.details && (
+                                              <div className="rounded-lg border border-[#D1D5DB] bg-white/80 p-2 text-[11px] text-[#4B5563]">
+                                                {detailsExpanded ? task.details : truncateText(task.details, 110)}
+                                                {task.details.length > 110 && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setExpandedTaskDetails((prev) => ({ ...prev, [taskId]: !prev[taskId] }))}
+                                                    className="ml-2 text-[#111111] font-black uppercase tracking-[0.12em]"
+                                                  >
+                                                    {detailsExpanded ? 'Visa mindre' : 'Läs mer'}
+                                                  </button>
+                                                )}
+                                              </div>
+                                            )}
+                                            <div className="rounded-lg border border-[#D1D5DB] bg-white/80 p-2 space-y-2">
+                                              {taskNotes.slice(0, 2).map((note) => (
+                                                <div key={note.id} className="text-[11px] text-[#4B5563]">
+                                                  {note.note}
+                                                </div>
+                                              ))}
+                                              <div className="flex items-center gap-2">
+                                                <input
+                                                  value={taskNoteValue}
+                                                  onChange={(event) => setTaskNoteDrafts((prev) => ({ ...prev, [taskNoteKey]: event.target.value }))}
+                                                  placeholder="Kommentar till extra uppgift..."
+                                                  className="flex-1 rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleAddTaskNote(member.id, taskId)}
+                                                  disabled={taskNoteMutation === 'saving'}
+                                                  className="px-2 py-1 rounded-md border border-[#111111]/40 bg-[#111111]/10 text-[#111111] text-[10px] font-black uppercase tracking-[0.15em]"
+                                                >
+                                                  {taskNoteMutation === 'saving' ? 'Sparar' : 'Spara'}
+                                                </button>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                      {(visibleBaseTasks.length + memberCustomTasks.length) === 0 && (
+                                        <div className="text-sm text-[#374151]">Inga schemalagda uppgifter idag.</div>
+                                      )}
+                                      <div className="rounded-xl border border-[#D1D5DB] bg-white/80 p-3 space-y-2">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#374151]">Lägg till uppgift (manager)</div>
+                                        {!customTasksSupported && (
+                                          <div className="text-[11px] text-amber-700">Databas-tabell saknas. Extra uppgifter sparas bara lokalt tills SQL körs.</div>
+                                        )}
+                                        {!taskRemovalsSupported && (
+                                          <div className="text-[11px] text-amber-700">Databas-tabell för borttagna uppgifter saknas. Ta bort/återställ sparas bara lokalt tills SQL körs.</div>
+                                        )}
+                                        <input
+                                          value={customDraft.title}
+                                          onChange={(event) => setCustomTaskDrafts((prev) => ({
+                                            ...prev,
+                                            [member.id]: { ...customDraft, title: event.target.value }
+                                          }))}
+                                          placeholder="Uppgiftstitel"
+                                          className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
+                                        />
+                                        <input
+                                          value={customDraft.estimated_minutes}
+                                          onChange={(event) => setCustomTaskDrafts((prev) => ({
+                                            ...prev,
+                                            [member.id]: { ...customDraft, estimated_minutes: event.target.value }
+                                          }))}
+                                          placeholder="Estimerad tid i minuter (valfritt)"
+                                          className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px]"
+                                        />
+                                        <textarea
+                                          value={customDraft.details}
+                                          onChange={(event) => setCustomTaskDrafts((prev) => ({
+                                            ...prev,
+                                            [member.id]: { ...customDraft, details: event.target.value }
+                                          }))}
+                                          placeholder="Kontext / instruktion (visas i Läs mer)"
+                                          className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[11px] min-h-[64px]"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAddCustomTask(member.id)}
+                                          disabled={addState === 'saving'}
+                                          className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-[#111111]/40 text-[#111111] bg-[#111111]/10"
+                                        >
+                                          {addState === 'saving' ? 'Sparar...' : 'Lägg till'}
+                                        </button>
+                                        {addState === 'error' && (
+                                          <div className="text-[11px] text-rose-600 font-bold">Kunde inte lägga till uppgift.</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className={ui.label}>Rapport</div>
+                                    <div className="mt-3 rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/70 p-3 text-sm text-[#4B5563] space-y-2">
+                                      {report ? (
+                                        <>
+                                          <div><strong>Start:</strong> {report.start_time || '—'} &nbsp; <strong>Slut:</strong> {report.end_time || '—'}</div>
+                                          <div><strong>Gjort:</strong> {report.did || '—'}</div>
+                                          <div><strong>Handover:</strong> {report.handover || '—'}</div>
+                                        </>
+                                      ) : (
+                                        <div>Ingen rapport inskickad idag.</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <div className={ui.label}>Noteringar</div>
+                                  <div className="mt-3 space-y-2">
+                                    {generalUserNotes.length === 0 && (
+                                      <div className="text-sm text-[#374151]">Inga noteringar idag.</div>
+                                    )}
+                                    {generalUserNotes.map((note) => (
+                                      <div key={note.id} className="rounded-xl border border-[#D1D5DB] bg-[#F9FAFB]/70 p-3 text-sm text-[#4B5563]">
+                                        <div>{note.note}</div>
+                                        <div className="text-[11px] text-[#374151] mt-1">{formatTime(note.created_at)}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="mt-3 flex flex-col gap-2">
+                                    <textarea
+                                      value={noteValue}
+                                      onChange={(event) => setNoteDrafts((prev) => ({ ...prev, [member.id]: event.target.value }))}
+                                      placeholder="Lägg till notering..."
+                                      className="w-full rounded-xl border border-[#D1D5DB] bg-white/80 px-3 py-2 text-sm text-[#111111] min-h-[80px]"
+                                    />
+                                    <div className="flex items-center gap-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddNote(member.id)}
+                                        disabled={noteState === 'saving'}
+                                        className="px-4 py-2 rounded-xl bg-[#111111] text-[#F9FAFB] text-xs font-black uppercase tracking-widest disabled:opacity-60"
+                                      >
+                                        {noteState === 'saving' ? 'Sparar...' : 'Spara notering'}
+                                      </button>
+                                      {noteState === 'error' && (
+                                        <span className="text-xs text-rose-600 font-bold">Kunde inte spara.</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                  <div className={ui.label}>Historik</div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleHistory(member.id)}
+                                    className="text-[10px] font-black uppercase tracking-[0.3em] text-[#4B5563]"
+                                  >
+                                    {historyOpen[member.id] ? 'Dölj historik' : 'Visa historik'}
+                                  </button>
+                                </div>
+
+                                {historyOpen[member.id] && (
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    {historyKeys.map((key) => {
+                                      const history = getHistorySummary(member.id, key);
+                                      return (
+                                        <div key={key} className="rounded-xl border border-[#D1D5DB] bg-white/70 p-3">
+                                          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#374151]">{key}</div>
+                                          <div className="mt-2 text-sm text-[#111111]">
+                                            {history.completed}/{history.total} klara
+                                          </div>
+                                          <div className={`mt-2 text-[10px] font-black uppercase tracking-[0.2em] ${history.hasReport ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                            {history.hasReport ? 'Rapport' : 'Ingen rapport'}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-[#9CA3AF] bg-white xl:order-2 h-full flex flex-col">
             <button
               type="button"
               onClick={() => setSectionOpen((prev) => ({ ...prev, projects: !prev.projects }))}
@@ -2047,118 +2385,118 @@ export const IntranetManager: React.FC = () => {
 
                   {activeProjectsExpanded && (
                     <ul className="space-y-2 text-sm text-[#111111]">
-                    {activeProjects.map((project) => {
-                      const isEditing = !!projectEditorOpen[project.id];
-                      const isDetailsOpen = !!projectDetailsOpen[project.id];
-                      const draft = projectDrafts[project.id] || {
-                        title: project.title,
-                        description: project.description || ''
-                      };
-                      const toggleState = projectMutationState[`toggle:${project.id}`] || 'idle';
-                      const saveState = projectMutationState[`save:${project.id}`] || 'idle';
-                      const removeState = projectMutationState[`remove:${project.id}`] || 'idle';
+                      {activeProjects.map((project) => {
+                        const isEditing = !!projectEditorOpen[project.id];
+                        const isDetailsOpen = !!projectDetailsOpen[project.id];
+                        const draft = projectDrafts[project.id] || {
+                          title: project.title,
+                          description: project.description || ''
+                        };
+                        const toggleState = projectMutationState[`toggle:${project.id}`] || 'idle';
+                        const saveState = projectMutationState[`save:${project.id}`] || 'idle';
+                        const removeState = projectMutationState[`remove:${project.id}`] || 'idle';
 
-                      return (
-                        <li key={project.id} className="pb-2 border-b border-[#D1D5DB] last:border-b-0">
-                          {isEditing ? (
-                            <div className="space-y-2">
-                              <input
-                                value={draft.title}
-                                onChange={(event) => setProjectDrafts((prev) => ({
-                                  ...prev,
-                                  [project.id]: { ...draft, title: event.target.value }
-                                }))}
-                                placeholder="Projekttitel"
-                                className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
-                              />
-                              <textarea
-                                value={draft.description}
-                                onChange={(event) => setProjectDrafts((prev) => ({
-                                  ...prev,
-                                  [project.id]: { ...draft, description: event.target.value }
-                                }))}
-                                placeholder="Kommentar / kontext"
-                                className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px] min-h-[56px]"
-                              />
-                              <div className="flex items-center gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveProject(project)}
-                                  disabled={saveState === 'saving'}
-                                  className="text-[11px] font-semibold text-[#111111] hover:underline disabled:opacity-50"
-                                >
-                                  {saveState === 'saving' ? 'Sparar...' : 'Spara'}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setProjectEditorOpen((prev) => ({ ...prev, [project.id]: false }))}
-                                  className="text-[11px] font-semibold text-[#4B5563] hover:underline"
-                                >
-                                  Avbryt
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div>
-                              <div className="flex items-start justify-between gap-3">
-                                <div className={`font-semibold ${project.is_done ? 'line-through text-[#374151]' : 'text-[#111111]'}`}>
-                                  <span className="text-[13px]">{project.title}</span>
-                                </div>
+                        return (
+                          <li key={project.id} className="pb-2 border-b border-[#D1D5DB] last:border-b-0">
+                            {isEditing ? (
+                              <div className="space-y-2">
                                 <input
-                                  type="checkbox"
-                                  checked={project.is_done}
-                                  onChange={() => handleToggleProjectDone(project)}
-                                  disabled={toggleState === 'saving'}
-                                  className="h-4 w-4 mt-0.5 accent-[#111111]"
+                                  value={draft.title}
+                                  onChange={(event) => setProjectDrafts((prev) => ({
+                                    ...prev,
+                                    [project.id]: { ...draft, title: event.target.value }
+                                  }))}
+                                  placeholder="Projekttitel"
+                                  className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px]"
                                 />
+                                <textarea
+                                  value={draft.description}
+                                  onChange={(event) => setProjectDrafts((prev) => ({
+                                    ...prev,
+                                    [project.id]: { ...draft, description: event.target.value }
+                                  }))}
+                                  placeholder="Kommentar / kontext"
+                                  className="w-full rounded-md border border-[#9CA3AF] bg-white px-2 py-1 text-[12px] min-h-[56px]"
+                                />
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveProject(project)}
+                                    disabled={saveState === 'saving'}
+                                    className="text-[11px] font-semibold text-[#111111] hover:underline disabled:opacity-50"
+                                  >
+                                    {saveState === 'saving' ? 'Sparar...' : 'Spara'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setProjectEditorOpen((prev) => ({ ...prev, [project.id]: false }))}
+                                    className="text-[11px] font-semibold text-[#4B5563] hover:underline"
+                                  >
+                                    Avbryt
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-3 mt-1 text-[11px]">
-                                <button
-                                  type="button"
-                                  onClick={() => setProjectDetailsOpen((prev) => ({ ...prev, [project.id]: !prev[project.id] }))}
-                                  className="font-semibold text-[#111111] hover:underline"
-                                >
-                                  {isDetailsOpen ? 'Dölj kommentar' : 'Visa kommentar'}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setProjectDrafts((prev) => ({
-                                      ...prev,
-                                      [project.id]: {
-                                        title: project.title,
-                                        description: project.description || ''
-                                      }
-                                    }));
-                                    setProjectEditorOpen((prev) => ({ ...prev, [project.id]: true }));
-                                  }}
-                                  className="font-semibold text-[#111111] hover:underline"
-                                >
-                                  Redigera
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveProject(project)}
-                                  disabled={removeState === 'saving'}
-                                  className="font-semibold text-[#4B5563] hover:text-[#111111] hover:underline disabled:opacity-50"
+                            ) : (
+                              <div>
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className={`font-semibold ${project.is_done ? 'line-through text-[#374151]' : 'text-[#111111]'}`}>
+                                    <span className="text-[13px]">{project.title}</span>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={project.is_done}
+                                    onChange={() => handleToggleProjectDone(project)}
+                                    disabled={toggleState === 'saving'}
+                                    className="h-4 w-4 mt-0.5 accent-[#111111]"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-3 mt-1 text-[11px]">
+                                  <button
+                                    type="button"
+                                    onClick={() => setProjectDetailsOpen((prev) => ({ ...prev, [project.id]: !prev[project.id] }))}
+                                    className="font-semibold text-[#111111] hover:underline"
+                                  >
+                                    {isDetailsOpen ? 'Dölj kommentar' : 'Visa kommentar'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setProjectDrafts((prev) => ({
+                                        ...prev,
+                                        [project.id]: {
+                                          title: project.title,
+                                          description: project.description || ''
+                                        }
+                                      }));
+                                      setProjectEditorOpen((prev) => ({ ...prev, [project.id]: true }));
+                                    }}
+                                    className="font-semibold text-[#111111] hover:underline"
+                                  >
+                                    Redigera
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveProject(project)}
+                                    disabled={removeState === 'saving'}
+                                    className="font-semibold text-[#4B5563] hover:text-[#111111] hover:underline disabled:opacity-50"
                                   >
                                     {removeState === 'saving' ? 'Tar bort...' : 'Ta bort'}
                                   </button>
-                              </div>
-                              {isDetailsOpen && (
-                                <div className="mt-1 text-[13px] text-[#4B5563] whitespace-pre-wrap">
-                                  {project.description?.trim() || 'Ingen kommentar registrerad.'}
                                 </div>
-                              )}
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                    {activeProjects.length === 0 && (
-                      <li className="text-sm text-[#374151]">Inga aktiva projekt.</li>
-                    )}
-                  </ul>
+                                {isDetailsOpen && (
+                                  <div className="mt-1 text-[13px] text-[#4B5563] whitespace-pre-wrap">
+                                    {project.description?.trim() || 'Ingen kommentar registrerad.'}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                      {activeProjects.length === 0 && (
+                        <li className="text-sm text-[#374151]">Inga aktiva projekt.</li>
+                      )}
+                    </ul>
                   )}
 
                   <button

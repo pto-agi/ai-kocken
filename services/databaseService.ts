@@ -10,7 +10,7 @@ export const databaseService = {
       .select('*')
       .eq('id', userId)
       .single();
-    
+
     if (error) {
       console.error('Error fetching profile:', error);
       return null;
@@ -21,7 +21,7 @@ export const databaseService = {
   async updateUserBiometrics(userId: string, data: UserData, results: CalculationResult): Promise<UserProfile | null> {
     const { data: updated, error } = await supabase
       .from('profiles')
-      .update({ 
+      .update({
         biometrics: { data, results },
         updated_at: new Date().toISOString()
       })
@@ -177,7 +177,7 @@ export const databaseService = {
       amount: '1 st',
       is_checked: false
     }));
-    
+
     const { error } = await supabase.from('shopping_list').insert(payload);
     return !error;
   },
@@ -222,7 +222,7 @@ export const databaseService = {
       .insert([{ user_id: userId, item_name: itemName, category, quantity }])
       .select()
       .single();
-    
+
     if (error) return null;
     return data;
   },
@@ -246,58 +246,59 @@ export const databaseService = {
       console.error("Error getting log:", error);
       return null;
     }
-    
+
     if (!data) {
-        // Return an empty log structure if none exists (frontend handles creation or we can create here)
-        return {
-            user_id: userId,
-            date,
-            total_calories: 0,
-            total_protein: 0,
-            total_carbs: 0,
-            total_fat: 0,
-            water_intake: 0,
-            items: []
-        };
+      // Return an empty log structure if none exists (frontend handles creation or we can create here)
+      return {
+        user_id: userId,
+        date,
+        total_calories: 0,
+        total_protein: 0,
+        total_carbs: 0,
+        total_fat: 0,
+        water_intake: 0,
+        items: []
+      };
     }
-    
+
     return data;
   },
 
   async logMeal(userId: string, mealItem: MealItem): Promise<boolean> {
     const date = mealItem.timestamp.split('T')[0];
-    
+
     // 1. Get current log
     let currentLog = await this.getDailyLog(userId, date);
-    
+
     if (!currentLog) return false;
 
     // 2. Update values
     const newItems = [...(currentLog.items || []), mealItem];
     const newStats = {
-        total_calories: (currentLog.total_calories || 0) + mealItem.calories,
-        total_protein: (currentLog.total_protein || 0) + mealItem.protein,
-        total_carbs: (currentLog.total_carbs || 0) + mealItem.carbs,
-        total_fat: (currentLog.total_fat || 0) + mealItem.fat,
+      total_calories: (currentLog.total_calories || 0) + mealItem.calories,
+      total_protein: (currentLog.total_protein || 0) + mealItem.protein,
+      total_carbs: (currentLog.total_carbs || 0) + mealItem.carbs,
+      total_fat: (currentLog.total_fat || 0) + mealItem.fat,
     };
 
     // 3. Upsert
     const { error } = await supabase
-        .from('daily_logs')
-        .upsert({
-            user_id: userId,
-            date: date,
-            items: newItems,
-            ...newStats
-        }, { onConflict: 'user_id, date' });
+      .from('daily_logs')
+      .upsert({
+        user_id: userId,
+        date: date,
+        items: newItems,
+        ...newStats
+      }, { onConflict: 'user_id, date' });
 
     return !error;
   },
 
+  // TODO: Implementera mot en extern livsmedelsdatabas (t.ex. Open Food Facts)
+  // eller en Supabase-tabell med livsmedelsposter.
   async searchFoodDatabase(_query: string, _page: number): Promise<MealItem[]> {
-    // Placeholder: In a real app, this would query a dedicated table or external API
-    // We mock empty for now as fallback
-    return []; 
+    console.warn('searchFoodDatabase: ej implementerad – returnerar tom lista');
+    return [];
   },
 
   // --- SUPPORT ---
@@ -306,11 +307,11 @@ export const databaseService = {
     if (userId) {
       payload.user_id = userId;
     }
-    
+
     const { error } = await supabase
       .from('support_tickets')
       .insert([payload]);
-    
+
     if (error) console.error("Create Ticket Error:", error);
     return !error;
   },

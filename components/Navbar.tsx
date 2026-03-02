@@ -15,7 +15,8 @@ import {
   ClipboardCheck,
   ShoppingBasket,
   TrendingUp,
-  LayoutDashboard
+  LayoutDashboard,
+  ListChecks
 } from 'lucide-react';
 
 const Navbar: React.FC = () => {
@@ -51,6 +52,7 @@ const Navbar: React.FC = () => {
     ? [
         { path: '/intranet', label: 'INTRANÄT', icon: ShieldCheck },
         ...(isManager ? [{ path: '/intranet/manager', label: 'MANAGER', icon: LayoutDashboard }] : []),
+        ...(isManager ? [{ path: '/intranet/todoist', label: 'TODOIST', icon: ListChecks }] : []),
         { path: '/sales-capital', label: 'SÄLJ & KAPITAL', icon: TrendingUp }
       ]
     : [

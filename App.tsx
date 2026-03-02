@@ -17,8 +17,12 @@ import { Uppfoljning } from './pages/Uppfoljning';
 import { UppfoljningTack } from './pages/UppfoljningTack';
 import { Intranet } from './pages/Intranet';
 import { IntranetManager } from './pages/IntranetManager';
+import { IntranetTodoist } from './pages/IntranetTodoist';
 import { SalesCapital } from './pages/SalesCapital';
 import { Support } from './pages/Support';
+import { NpsSurvey } from './pages/NpsSurvey';
+import { ReferralPage } from './pages/Referral';
+import { ReferralRegister } from './pages/ReferralRegister';
 import { Forlangning } from './pages/Forlangning';
 import { ForlangningFriskvardTack } from './pages/ForlangningFriskvardTack';
 import { ForlangningTack } from './pages/ForlangningTack';
@@ -61,6 +65,22 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/profile/konto': {
     title: 'Konto',
     description: 'Uppdatera kontaktuppgifter, leveransadress och säkerhet.'
+  },
+  '/profile/progress': {
+    title: 'Progress',
+    description: 'Följ din resa och se hur din utveckling ser ut över tid. Milstolpar, mål och feedback samlat på ett ställe.'
+  },
+  '/nps': {
+    title: 'Feedback',
+    description: 'Ge oss feedback och hjälp oss bli bättre. Snabb NPS-enkät som tar 15 sekunder.'
+  },
+  '/referral': {
+    title: 'Tipsa en vän',
+    description: 'Dela din referenslänk och få belöning när vänner blir medlemmar. Referral-program för PTO.'
+  },
+  '/register': {
+    title: 'Bli medlem',
+    description: 'Skapa konto hos PTO. Personlig coaching, veckomeny och träning – kom igång på 30 sekunder.'
   },
   '/start': {
     title: 'Startformulär',
@@ -113,6 +133,10 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/intranet': {
     title: 'Intranät',
     description: 'Personalens intranät för administration och uppföljning. Hantera ärenden, kundstatus och interna uppgifter i ett samlat gränssnitt för teamet.'
+  },
+  '/intranet/todoist': {
+    title: 'Intranät Todoist',
+    description: 'Spegling av Todoist-projektet Ärenden för personal och manager. Hantera uppgifter, sektioner och status direkt i intranätet.'
   },
   '/sales-capital': {
     title: 'Sälj & Kapital',
@@ -197,45 +221,67 @@ function App() {
       <ScrollToTop />
       <StaffRedirect />
       <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans selection:bg-[#a0c81d] selection:text-[#F6F1E7] flex flex-col">
-        
+
         <Navbar />
 
         <main className="pt-20 flex-grow flex flex-col">
           <Routes>
-            <Route 
-              path="/" 
+            <Route
+              path="/"
               element={
                 <Home />
-              } 
+              }
             />
 
-            <Route 
-              path="/recept" 
+            <Route
+              path="/recept"
               element={
                 <AuthGuard requirePremium={false}>
                   <Recipes />
                 </AuthGuard>
-              } 
+              }
             />
 
-            <Route 
-              path="/support" 
+            <Route
+              path="/nps"
+              element={
+                <PageContainer>
+                  <AuthGuard requirePremium={false}>
+                    <NpsSurvey />
+                  </AuthGuard>
+                </PageContainer>
+              }
+            />
+
+            <Route
+              path="/referral"
+              element={
+                <PageContainer>
+                  <AuthGuard requirePremium={false}>
+                    <ReferralPage />
+                  </AuthGuard>
+                </PageContainer>
+              }
+            />
+
+            <Route
+              path="/support"
               element={
                 <AuthGuard requirePremium={false}>
                   <Support />
                 </AuthGuard>
-              } 
+              }
             />
 
-            <Route 
-              path="/profile/*" 
+            <Route
+              path="/profile/*"
               element={
                 <PageContainer>
                   <AuthGuard requirePremium={false}>
                     <Profile />
                   </AuthGuard>
                 </PageContainer>
-              } 
+              }
             />
 
             <Route
@@ -331,6 +377,14 @@ function App() {
               }
             />
             <Route
+              path="/intranet/todoist"
+              element={
+                <AuthGuard requireStaff requireManager>
+                  <IntranetTodoist />
+                </AuthGuard>
+              }
+            />
+            <Route
               path="/sales-capital"
               element={
                 <AuthGuard requireStaff>
@@ -349,8 +403,9 @@ function App() {
             />
 
             <Route path="/auth" element={<AuthScreen />} />
+            <Route path="/register" element={<ReferralRegister />} />
             <Route path="/auth-required" element={<AuthRequired />} />
-            
+
             <Route
               path="/premium"
               element={
@@ -359,12 +414,12 @@ function App() {
                 </AuthGuard>
               }
             />
-            
+
           </Routes>
         </main>
 
         <Footer />
-        
+
       </div>
     </Router>
   );
