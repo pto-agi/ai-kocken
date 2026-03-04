@@ -12,6 +12,9 @@ interface AuthScreenProps {
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) => {
     const [isLogin, setIsLogin] = useState(true);
+    const [isForgotPassword, setIsForgotPassword] = useState(false);
+    const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+    const [recoveryReady, setRecoveryReady] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -21,6 +24,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
     const [name, setName] = useState('');
 
     const [error, setError] = useState<string | null>(null);
@@ -42,6 +46,44 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
             if (stored) setRefCode(stored);
         }
     }, []);
+
+    useEffect(() => {
+        if (!isConfigured) return;
+
+        const hasResetQuery = new URLSearchParams(window.location.search).get('reset') === '1';
+        const hasRecoveryHash = window.location.hash.includes('type=recovery');
+        if (!hasResetQuery && !hasRecoveryHash) return;
+
+        setIsLogin(true);
+        setIsForgotPassword(false);
+        setIsRecoveryMode(true);
+        setError(null);
+        setSuccessMsg(null);
+
+        supabase.auth.getSession().then(({ data, error }) => {
+            if (error || !data.session) {
+                setRecoveryReady(false);
+                setError('Återställningslänken är ogiltig eller har löpt ut.');
+                return;
+            }
+            setRecoveryReady(true);
+        });
+
+        const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'PASSWORD_RECOVERY') {
+                setIsLogin(true);
+                setIsForgotPassword(false);
+                setIsRecoveryMode(true);
+                setRecoveryReady(true);
+                setError(null);
+                setSuccessMsg(null);
+            }
+        });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
+    }, [isConfigured]);
 
     const handleGoogleLogin = async () => {
         if (!isConfigured) { setError("Databas ej kopplad."); return; }
@@ -124,6 +166,57 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
         }
     };
 
+    const handlePasswordResetRequest = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setSuccessMsg(null);
+        setLoading(true);
+
+        if (!isConfigured) {
+            setError("Databas ej kopplad.");
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/auth?reset=1`,
+            });
+            if (error) throw error;
+            setSuccessMsg('Vi har skickat en återställningslänk till din e-post.');
+        } catch (err: any) {
+            setError(err.message || 'Kunde inte skicka återställningslänk.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePasswordUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setSuccessMsg(null);
+        setLoading(true);
+
+        if (!newPassword || newPassword.length < 6) {
+            setError('Lösenordet måste vara minst 6 tecken.');
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            setSuccessMsg('Lösenordet är uppdaterat. Du kan nu logga in.');
+            setIsRecoveryMode(false);
+            setRecoveryReady(false);
+            setNewPassword('');
+        } catch (err: any) {
+            setError(err.message || 'Kunde inte uppdatera lösenord.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className={`relative flex flex-col items-center justify-center overflow-hidden ${embedded
             ? 'w-full py-10 min-h-[600px]'
@@ -147,9 +240,15 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                         <span className="text-3xl font-black text-[#3D3D3D] tracking-tight font-heading">PTO</span>
                     </div>
                     <p className="text-[#6B6158] text-sm font-medium">
-                        {isLogin ? 'Logga in för att komma åt din profil' : 'Skapa ett konto för att börja din resa'}
+                        {isRecoveryMode
+                            ? 'Välj ett nytt lösenord'
+                            : isForgotPassword
+                                ? 'Ange din e-post för att återställa lösenordet'
+                                : isLogin
+                                    ? 'Logga in för att komma åt din profil'
+                                    : 'Skapa ett konto för att börja din resa'}
                     </p>
-                    {refCode && !isLogin && (
+                    {refCode && !isLogin && !isForgotPassword && !isRecoveryMode && (
                         <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-widest animate-fade-in">
                             🎁 Du är tipsad av en vän!
                         </div>
@@ -165,16 +264,17 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                     <div className="p-8 md:p-10">
 
                         {/* Toggle */}
+                        {!isForgotPassword && !isRecoveryMode && (
                         <div className="flex bg-slate-100 p-1 rounded-xl mb-8 relative">
                             <button
-                                onClick={() => { setIsLogin(true); setError(null); }}
+                                onClick={() => { setIsLogin(true); setError(null); setSuccessMsg(null); }}
                                 className={`flex-1 py-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-all z-10 ${isLogin ? 'text-[#3D3D3D] shadow-sm' : 'text-[#6B6158] hover:text-[#8A8177]'
                                     }`}
                             >
                                 Logga in
                             </button>
                             <button
-                                onClick={() => { setIsLogin(false); setError(null); }}
+                                onClick={() => { setIsLogin(false); setError(null); setSuccessMsg(null); }}
                                 className={`flex-1 py-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-all z-10 ${!isLogin ? 'text-[#3D3D3D] shadow-sm' : 'text-[#6B6158] hover:text-[#8A8177]'
                                     }`}
                             >
@@ -183,19 +283,33 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                             {/* Animated Background Pill */}
                             <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-lg shadow transition-all duration-300 ${isLogin ? 'left-1' : 'left-[calc(50%+2px)]'}`}></div>
                         </div>
+                        )}
 
                         {successMsg ? (
                             <div className="bg-emerald-50 text-emerald-800 p-6 rounded-2xl text-center border border-emerald-100 flex flex-col items-center animate-fade-in">
                                 <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-3">
                                     <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                                 </div>
-                                <h3 className="font-bold text-lg mb-1">Konto skapat!</h3>
+                                <h3 className="font-bold text-lg mb-1">Klart!</h3>
                                 <p className="text-sm">{successMsg}</p>
                             </div>
                         ) : (
-                            <form onSubmit={handleAuth} className="space-y-5">
+                            <form
+                                onSubmit={(e) => {
+                                    if (isRecoveryMode) {
+                                        handlePasswordUpdate(e);
+                                        return;
+                                    }
+                                    if (isForgotPassword) {
+                                        handlePasswordResetRequest(e);
+                                        return;
+                                    }
+                                    handleAuth(e);
+                                }}
+                                className="space-y-5"
+                            >
 
-                                {!isLogin && (
+                                {!isLogin && !isForgotPassword && !isRecoveryMode && (
                                     <div className="space-y-2 animate-fade-in">
                                         <label className="text-[10px] font-bold text-[#6B6158] uppercase tracking-widest ml-1">Ditt Namn</label>
                                         <div className="relative group">
@@ -222,11 +336,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                                             onChange={(e) => setEmail(e.target.value)}
                                             className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:ring-0 focus:border-[#a0c81d] outline-none font-bold text-slate-800 placeholder:text-[#6B6158] transition-all text-sm"
                                             placeholder="namn@exempel.se"
-                                            required
+                                            required={!isRecoveryMode}
+                                            disabled={isRecoveryMode}
                                         />
                                     </div>
                                 </div>
 
+                                {!isForgotPassword && !isRecoveryMode && (
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-bold text-[#6B6158] uppercase tracking-widest ml-1">Lösenord</label>
                                     <div className="relative group">
@@ -242,6 +358,44 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                                         />
                                     </div>
                                 </div>
+                                )}
+
+                                {isRecoveryMode && (
+                                    <div className="space-y-2 animate-fade-in">
+                                        <label className="text-[10px] font-bold text-[#6B6158] uppercase tracking-widest ml-1">Nytt Lösenord</label>
+                                        <div className="relative group">
+                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6B6158] group-focus-within:text-[#a0c81d] transition-colors" />
+                                            <input
+                                                type="password"
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
+                                                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:ring-0 focus:border-[#a0c81d] outline-none font-bold text-slate-800 placeholder:text-[#6B6158] transition-all text-sm"
+                                                placeholder="Minst 6 tecken"
+                                                minLength={6}
+                                                required
+                                                disabled={!recoveryReady}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isLogin && !isForgotPassword && !isRecoveryMode && (
+                                    <div className="text-right">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsForgotPassword(true);
+                                                setIsLogin(true);
+                                                setError(null);
+                                                setSuccessMsg(null);
+                                                setPassword('');
+                                            }}
+                                            className="text-xs font-bold text-[#6B6158] hover:text-[#3D3D3D] underline underline-offset-2"
+                                        >
+                                            Glömt lösenord?
+                                        </button>
+                                    </div>
+                                )}
 
                                 {error && (
                                     <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold flex items-start gap-3 border border-red-100 animate-fade-in">
@@ -259,27 +413,52 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
 
                                 <button
                                     type="submit"
-                                    disabled={loading || !isConfigured}
+                                    disabled={loading || !isConfigured || (isRecoveryMode && !recoveryReady)}
                                     className="w-full bg-[#F6F1E7] hover:bg-[#E6E1D8] text-[#3D3D3D] font-black py-4 rounded-xl shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2 mt-4 text-sm uppercase tracking-wider"
                                 >
                                     {loading ? (
                                         <Loader2 className="w-5 h-5 animate-spin" />
                                     ) : (
                                         <>
-                                            {isLogin ? 'Logga in' : 'Registrera Konto'}
+                                            {isRecoveryMode
+                                                ? 'Spara nytt lösenord'
+                                                : isForgotPassword
+                                                    ? 'Skicka återställningslänk'
+                                                    : isLogin
+                                                        ? 'Logga in'
+                                                        : 'Registrera Konto'}
                                             <ArrowRight className="w-4 h-4" />
                                         </>
                                     )}
                                 </button>
+
+                                {(isForgotPassword || isRecoveryMode) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsForgotPassword(false);
+                                            setIsRecoveryMode(false);
+                                            setRecoveryReady(false);
+                                            setError(null);
+                                            setSuccessMsg(null);
+                                        }}
+                                        className="w-full text-sm font-bold text-[#6B6158] hover:text-[#3D3D3D] transition-colors"
+                                    >
+                                        Tillbaka till inloggning
+                                    </button>
+                                )}
                             </form>
                         )}
 
+                        {!isForgotPassword && !isRecoveryMode && (
                         <div className="relative flex py-6 items-center">
                             <div className="flex-grow border-t border-slate-100"></div>
                             <span className="flex-shrink-0 mx-4 text-[10px] font-bold text-[#6B6158] uppercase tracking-widest">Eller</span>
                             <div className="flex-grow border-t border-slate-100"></div>
                         </div>
+                        )}
 
+                        {!isForgotPassword && !isRecoveryMode && (
                         <button
                             onClick={handleGoogleLogin}
                             disabled={googleLoading || !isConfigured}
@@ -292,6 +471,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                             )}
                             <span>{isLogin ? 'Logga in med Google' : 'Registrera med Google'}</span>
                         </button>
+                        )}
 
                     </div>
                 </div>
