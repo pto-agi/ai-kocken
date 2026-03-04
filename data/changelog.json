@@ -1,6 +1,33 @@
 {
-  "last_commit": "9af78e3a17691b077214f4df866abac2bb0ee559",
+  "last_commit": "dc4c53139c32f7807a81f974e3874e8d77664549",
   "entries": [
+    {
+      "id": "2026-03-04T12:36:16.149Z-dc4c531",
+      "date": "2026-03-04T12:36:16.149Z",
+      "range": "9af78e3a17691b077214f4df866abac2bb0ee559..dc4c53139c32f7807a81f974e3874e8d77664549",
+      "head": "dc4c53139c32f7807a81f974e3874e8d77664549",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "dc4c531",
+          "subject": "Add Supabase forgot-password flow on auth screen"
+        },
+        {
+          "hash": "ceefed6",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "components/AuthScreen.tsx",
+        "data/changelog.json",
+        "tests/authPasswordRecovery.test.ts"
+      ],
+      "stats": {
+        "files": 3,
+        "insertions": 302,
+        "deletions": 11
+      }
+    },
     {
       "id": "2026-03-02T20:26:27.421Z-9af78e3",
       "date": "2026-03-02T20:26:27.421Z",
