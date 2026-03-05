@@ -186,6 +186,21 @@ const Navbar: React.FC = () => {
             </div>
         </div>
 
+        {!session && (
+          <div className="px-3 pt-3 pb-2 border-b border-[#6B6158]/60 bg-[#3D3D3D]">
+            <Link
+              to="/auth"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a0c81d] px-4 py-3 text-sm font-black uppercase tracking-[0.12em] text-[#2A241F] shadow-lg shadow-[#a0c81d]/25 transition-all hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/70"
+            >
+              <User className="w-4 h-4" />
+              Logga in
+            </Link>
+            <p className="mt-2 px-1 text-xs text-white/70">
+              Få direkt tillgång till Mina sidor, inlämningar och uppföljning.
+            </p>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1.5">
           {navLinks.map((link) => (
             <Link
@@ -221,9 +236,9 @@ const Navbar: React.FC = () => {
                     <User className="w-4 h-4" />
                     <span className="font-medium text-sm">Mina sidor</span>
                  </Link>
-                 <Link to="/profile/konto" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
+                 <Link to="/profile/adminpanel" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
                     <Settings className="w-4 h-4" />
-                    <span className="font-medium text-sm">Inställningar</span>
+                    <span className="font-medium text-sm">Adminpanel</span>
                  </Link>
                  <button 
                    onClick={handleSignOut}
@@ -239,9 +254,9 @@ const Navbar: React.FC = () => {
                     <User className="w-4 h-4" />
                     <span className="font-medium text-sm">Mina sidor</span>
                  </Link>
-                 <Link to="/profile/konto" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
+                 <Link to="/profile/adminpanel" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
                     <Settings className="w-4 h-4" />
-                    <span className="font-medium text-sm">Inställningar</span>
+                    <span className="font-medium text-sm">Adminpanel</span>
                  </Link>
                  <Link to="/auth" className="flex items-center gap-3 p-2.5 text-white hover:text-[#a0c81d] transition-colors">
                     <User className="w-4 h-4" />

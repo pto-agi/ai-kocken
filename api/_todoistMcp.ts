@@ -13,6 +13,9 @@ const DEFAULT_ZAPIER_MCP_URL = 'https://mcp.zapier.com/api/mcp/mcp';
 const DEFAULT_ZAPIER_MCP_AUTH =
   'MTIyN2ZhYjItOTY2YS00YzM1LTk2NWQtYTIzYTI5YmE2MDg3Om5DOHFSVExHSDBEMmxNOVl6eDBUaVZnVWpDT1V4eTN0eHVtVFl3WTVqTkk9';
 
+const TODOIST_REST_V2 = 'https://api.todoist.com/rest/v2';
+const TODOIST_API_V1 = 'https://api.todoist.com/api/v1';
+
 type CallToolParsedResponse = {
   isError?: boolean;
   error?: string;
@@ -31,6 +34,76 @@ type TodoistSection = {
   id: string;
   name: string;
 };
+
+function asString(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return '';
+}
+
+function asNullableString(value: unknown): string | null {
+  const str = asString(value).trim();
+  return str.length > 0 ? str : null;
+}
+
+function asNullableNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function toArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function computeCompletionWindow() {
+  const until = new Date();
+  const since = new Date(until);
+  since.setDate(until.getDate() - 89);
+  return {
+    since: since.toISOString(),
+    until: until.toISOString(),
+  };
+}
+
+function normalizeOpenTasks(results: unknown): TodoistOpenTask[] {
+  return toArray<Record<string, unknown>>(results).map((task) => ({
+    task_id: asString(task.task_id),
+    content: asString(task.content),
+    project_id: asString(task.project_id),
+    section_id: asNullableString(task.section_id),
+    is_completed: Boolean(task.is_completed),
+    description: asNullableString(task.description),
+    priority: asNullableNumber(task.priority),
+    due: asNullableString(task.due),
+    created_at: asNullableString(task.created_at),
+    url: asNullableString(task.url),
+  }));
+}
+
+function normalizeCompletedTasks(results: unknown): TodoistCompletedTask[] {
+  return toArray<Record<string, unknown>>(results)
+    .map((task) => ({
+      task_id: asString(task.task_id),
+      content: asString(task.content),
+      project_id: asString(task.project_id),
+      section_id: asNullableString(task.section_id),
+      completed_at: asString(task.completed_at),
+    }))
+    .filter((task) => task.task_id && task.completed_at);
+}
+
+function normalizeSections(results: unknown): TodoistSection[] {
+  return toArray<Record<string, unknown>>(results)
+    .map((section) => ({
+      id: asString(section.id),
+      name: asString(section.name),
+    }))
+    .filter((section) => section.id && section.name);
+}
 
 function normalizeMcpAuthorization(rawValue: string): string {
   const token = String(rawValue || '').trim();
@@ -88,28 +161,6 @@ function parseCallPayload(payloadText: string): CallToolParsedResponse {
   return parsed;
 }
 
-function toArray<T>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
-}
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function asNullableString(value: unknown): string | null {
-  const str = asString(value).trim();
-  return str.length > 0 ? str : null;
-}
-
-function asNullableNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return null;
-}
-
 async function callTodoistTool(
   client: Client,
   toolName: string,
@@ -130,35 +181,71 @@ async function callTodoistTool(
   return parseCallPayload(payloadText);
 }
 
-function computeCompletionWindow() {
-  const until = new Date();
-  const since = new Date(until);
-  since.setDate(until.getDate() - 89);
-  return {
-    since: since.toISOString(),
-    until: until.toISOString(),
-  };
+function getDirectTodoistToken() {
+  return String(process.env.TODOIST_API_KEY || '').trim();
 }
 
-function normalizeOpenTasks(results: unknown): TodoistOpenTask[] {
-  return toArray<Record<string, unknown>>(results).map((task) => ({
-    task_id: asString(task.task_id),
-    content: asString(task.content),
-    project_id: asString(task.project_id),
-    section_id: asNullableString(task.section_id),
-    is_completed: Boolean(task.is_completed),
-    description: asNullableString(task.description),
-    priority: asNullableNumber(task.priority),
-    due: asNullableString(task.due),
-    created_at: asNullableString(task.created_at),
-    url: asNullableString(task.url),
-  }));
+function canUseDirectTodoistApi() {
+  return getDirectTodoistToken().length > 0;
 }
 
-function normalizeCompletedTasks(results: unknown): TodoistCompletedTask[] {
-  return toArray<Record<string, unknown>>(results)
+async function directTodoistRequest<T = any>(input: {
+  url: string;
+  method?: 'GET' | 'POST';
+  body?: Record<string, unknown>;
+  expectNoContent?: boolean;
+}): Promise<T> {
+  const token = getDirectTodoistToken();
+  if (!token) throw new Error('Missing TODOIST_API_KEY');
+
+  const response = await fetch(input.url, {
+    method: input.method || 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(input.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: input.body ? JSON.stringify(input.body) : undefined,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`Todoist REST error (${response.status}): ${text || response.statusText}`);
+  }
+
+  if (input.expectNoContent || response.status === 204) {
+    return {} as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+function normalizeDirectOpenTasks(results: unknown): TodoistOpenTask[] {
+  return toArray<Record<string, unknown>>(results).map((task) => {
+    const dueRaw = task.due as Record<string, unknown> | null;
+    const due = asNullableString(dueRaw?.datetime) || asNullableString(dueRaw?.date);
+    return {
+      task_id: asString(task.id),
+      content: asString(task.content),
+      project_id: asString(task.project_id),
+      section_id: asNullableString(task.section_id),
+      is_completed: false,
+      description: asNullableString(task.description),
+      priority: asNullableNumber(task.priority),
+      due,
+      created_at: asNullableString(task.created_at),
+      url: asNullableString(task.url),
+    };
+  });
+}
+
+function normalizeDirectCompletedTasks(results: unknown): TodoistCompletedTask[] {
+  const items = Array.isArray((results as any)?.items)
+    ? ((results as any).items as Array<Record<string, unknown>>)
+    : toArray<Record<string, unknown>>(results);
+
+  return items
     .map((task) => ({
-      task_id: asString(task.task_id),
+      task_id: asString(task.id || task.task_id),
       content: asString(task.content),
       project_id: asString(task.project_id),
       section_id: asNullableString(task.section_id),
@@ -167,7 +254,7 @@ function normalizeCompletedTasks(results: unknown): TodoistCompletedTask[] {
     .filter((task) => task.task_id && task.completed_at);
 }
 
-function normalizeSections(results: unknown): TodoistSection[] {
+function normalizeDirectSections(results: unknown): TodoistSection[] {
   return toArray<Record<string, unknown>>(results)
     .map((section) => ({
       id: asString(section.id),
@@ -176,7 +263,73 @@ function normalizeSections(results: unknown): TodoistSection[] {
     .filter((section) => section.id && section.name);
 }
 
-export async function fetchTodoistSnapshot() {
+async function resolveDirectProject(): Promise<TodoistProject> {
+  const configuredId = extractCanonicalProjectId(
+    process.env.TODOIST_AERENDEN_PROJECT_ID || ARENDEN_PROJECT_FALLBACK
+  );
+
+  const projects = await directTodoistRequest<Array<Record<string, unknown>>>({
+    method: 'GET',
+    url: `${TODOIST_REST_V2}/projects`,
+  });
+
+  const byName = projects.find(
+    (project) => asString(project.name).trim().toLowerCase() === 'ärenden'
+  );
+  const byId = configuredId
+    ? projects.find((project) => asString(project.id) === configuredId)
+    : null;
+
+  const selected = byName || byId || null;
+  if (selected) {
+    return {
+      id: asString(selected.id),
+      name: asString(selected.name) || 'Ärenden',
+      color: asNullableString(selected.color),
+      is_favorite: Boolean(selected.is_favorite),
+    };
+  }
+
+  if (configuredId) {
+    return {
+      id: configuredId,
+      name: 'Ärenden',
+      color: null,
+      is_favorite: false,
+    };
+  }
+
+  throw new Error('Missing Todoist project id for Ärenden');
+}
+
+async function fetchTodoistSnapshotDirect() {
+  const project = await resolveDirectProject();
+  const { since, until } = computeCompletionWindow();
+
+  const [sections, openTasks, completedResponse] = await Promise.all([
+    directTodoistRequest<Array<Record<string, unknown>>>({
+      method: 'GET',
+      url: `${TODOIST_REST_V2}/sections?project_id=${encodeURIComponent(project.id)}`,
+    }),
+    directTodoistRequest<Array<Record<string, unknown>>>({
+      method: 'GET',
+      url: `${TODOIST_REST_V2}/tasks?project_id=${encodeURIComponent(project.id)}`,
+    }),
+    directTodoistRequest<Record<string, unknown>>({
+      method: 'GET',
+      url: `${TODOIST_API_V1}/tasks/completed/by_completion_date?project_id=${encodeURIComponent(project.id)}&since=${encodeURIComponent(since)}&until=${encodeURIComponent(until)}`,
+    }),
+  ]);
+
+  return {
+    project,
+    sections: normalizeDirectSections(sections),
+    openTasks: normalizeDirectOpenTasks(openTasks),
+    completedTasks: normalizeDirectCompletedTasks(completedResponse),
+  };
+}
+
+async function fetchTodoistSnapshotViaMcp() {
   return withTodoistClient(async (client) => {
     const projectResponse = await callTodoistTool(client, 'todoist_find_project', {
       instructions: 'Fetch Todoist project metadata for staff intranet sync.',
@@ -235,11 +388,31 @@ export async function fetchTodoistSnapshot() {
   });
 }
 
+export async function fetchTodoistSnapshot() {
+  if (canUseDirectTodoistApi()) {
+    return fetchTodoistSnapshotDirect();
+  }
+  return fetchTodoistSnapshotViaMcp();
+}
+
 export async function createTodoistTask(input: {
   projectId: string;
   content: string;
   sectionId?: string | null;
 }) {
+  if (canUseDirectTodoistApi()) {
+    const created = await directTodoistRequest<Record<string, unknown>>({
+      method: 'POST',
+      url: `${TODOIST_REST_V2}/tasks`,
+      body: {
+        project_id: input.projectId,
+        content: input.content,
+        ...(input.sectionId ? { section_id: input.sectionId } : {}),
+      },
+    });
+    return { results: created };
+  }
+
   return withTodoistClient(async (client) => {
     return callTodoistTool(client, 'todoist_create_task', {
       instructions: 'Create a Todoist task from staff intranet dashboard.',
@@ -255,6 +428,18 @@ export async function updateTodoistTask(input: {
   id: string;
   content?: string;
 }) {
+  if (canUseDirectTodoistApi()) {
+    await directTodoistRequest({
+      method: 'POST',
+      url: `${TODOIST_REST_V2}/tasks/${encodeURIComponent(input.id)}`,
+      body: {
+        ...(input.content ? { content: input.content } : {}),
+      },
+      expectNoContent: true,
+    });
+    return { results: { id: input.id, content: input.content || null } };
+  }
+
   return withTodoistClient(async (client) => {
     return callTodoistTool(client, 'todoist_update_task', {
       instructions: 'Update a Todoist task from staff intranet dashboard.',
@@ -269,6 +454,18 @@ export async function moveTodoistTaskToSection(input: {
   id: string;
   sectionId: string;
 }) {
+  if (canUseDirectTodoistApi()) {
+    await directTodoistRequest({
+      method: 'POST',
+      url: `${TODOIST_REST_V2}/tasks/${encodeURIComponent(input.id)}`,
+      body: {
+        section_id: input.sectionId,
+      },
+      expectNoContent: true,
+    });
+    return { results: { id: input.id, section_id: input.sectionId } };
+  }
+
   return withTodoistClient(async (client) => {
     return callTodoistTool(client, 'todoist_move_task_to_section', {
       instructions: 'Move task to another Todoist section from staff intranet dashboard.',
@@ -283,6 +480,24 @@ export async function toggleTodoistTaskCompletion(input: {
   id: string;
   completed: boolean;
 }) {
+  if (canUseDirectTodoistApi()) {
+    if (input.completed) {
+      await directTodoistRequest({
+        method: 'POST',
+        url: `${TODOIST_REST_V2}/tasks/${encodeURIComponent(input.id)}/close`,
+        expectNoContent: true,
+      });
+      return { results: { id: input.id, completed: true } };
+    }
+
+    await directTodoistRequest({
+      method: 'POST',
+      url: `${TODOIST_REST_V2}/tasks/${encodeURIComponent(input.id)}/reopen`,
+      expectNoContent: true,
+    });
+    return { results: { id: input.id, completed: false } };
+  }
+
   return withTodoistClient(async (client) => {
     if (input.completed) {
       return callTodoistTool(client, 'todoist_mark_task_as_completed', {

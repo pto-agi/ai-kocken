@@ -106,7 +106,6 @@ const emptyState: StartFormState = {
 
 const inputClass = 'w-full p-3 rounded-xl bg-[#F6F1E7]/70 border border-[#E6E1D8] text-[#3D3D3D] placeholder:text-[#8A8177] focus:border-[#a0c81d] focus:ring-0 outline-none transition';
 const textareaClass = `${inputClass} min-h-[120px]`;
-const WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uctkcj5/';
 
 const parseNumber = (value: string) => {
   const cleaned = value.replace(',', '.').trim();
@@ -125,15 +124,6 @@ const parseIntSafe = (value: string) => {
 const toggleArrayValue = (list: string[], value: string) => (
   list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
 );
-
-const toWebhookBody = (data: Record<string, any>) => new URLSearchParams(
-  Object.entries(data).map(([key, value]) => {
-    if (value === undefined || value === null) return [key, ''];
-    if (typeof value === 'string') return [key, value];
-    if (typeof value === 'number' || typeof value === 'boolean') return [key, String(value)];
-    return [key, JSON.stringify(value)];
-  })
-).toString();
 
 const Start: React.FC = () => {
   const { session, profile } = useAuthStore();
@@ -254,34 +244,20 @@ const Start: React.FC = () => {
     }
 
     try {
-      const webhookPayload = {
-        ...payload,
-        source: 'startform',
-        submitted_at: new Date().toISOString()
-      };
-      const body = toWebhookBody(webhookPayload);
-      let res: Response | null = null;
-      try {
-        res = await fetch(WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body
-        });
-      } catch (err) {
-        console.warn('Startform webhook primary failed, retrying no-cors:', err);
-        await fetch(WEBHOOK_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body
-        });
-        res = null;
-      }
-      if (res && !res.ok) {
-        console.warn('Startform webhook non-200:', res.status);
+      const response = await fetch('/api/form-notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...payload,
+          source: 'startform',
+          submitted_at: new Date().toISOString()
+        })
+      });
+      if (!response.ok) {
+        console.warn('Startform notification non-200:', response.status);
       }
     } catch (err) {
-      console.warn('Startform webhook error:', err);
+      console.warn('Startform notification error:', err);
     }
 
     setStatus('success');
