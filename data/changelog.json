@@ -1,6 +1,67 @@
 {
-  "last_commit": "dc4c53139c32f7807a81f974e3874e8d77664549",
+  "last_commit": "d99bdd25482be57b5b33dd1da93422d6c27c2866",
   "entries": [
+    {
+      "id": "2026-03-05T13:05:50.207Z-d99bdd2",
+      "date": "2026-03-05T13:05:50.207Z",
+      "range": "dc4c53139c32f7807a81f974e3874e8d77664549..d99bdd25482be57b5b33dd1da93422d6c27c2866",
+      "head": "d99bdd25482be57b5b33dd1da93422d6c27c2866",
+      "commit_count": 3,
+      "commits": [
+        {
+          "hash": "d99bdd2",
+          "subject": "feat: include remaining profile, intranet, and mobile nav updates"
+        },
+        {
+          "hash": "cfa6d97",
+          "subject": "feat: improve forlangning flow and add resend admin notifications"
+        },
+        {
+          "hash": "e0943d1",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "AGENTS.md",
+        "App.tsx",
+        "README.md",
+        "api/_todoistMcp.ts",
+        "api/form-notifications.ts",
+        "components/Navbar.tsx",
+        "data/changelog.json",
+        "package.json",
+        "pages/Forlangning.tsx",
+        "pages/ForlangningTack.tsx",
+        "pages/Intranet.tsx",
+        "pages/IntranetManager.tsx",
+        "pages/IntranetTodoist.tsx",
+        "pages/Profile.tsx",
+        "pages/Refill.tsx",
+        "pages/Start.tsx",
+        "pages/Uppfoljning.tsx",
+        "supabase/staff_faq.sql",
+        "supabase/staff_faq_seed_missing_from_lathund.sql",
+        "supabase/staff_faq_seed_pto.sql",
+        "tests/agendaCompletionState.test.ts",
+        "tests/extensionOffer.test.ts",
+        "tests/formNotificationsApi.live.test.ts",
+        "tests/formNotificationsApi.test.ts",
+        "tests/managerAutomations.test.ts",
+        "tests/progressTracker.test.ts",
+        "tests/staffFaq.test.ts",
+        "utils/agendaCompletionState.ts",
+        "utils/extensionOffer.ts",
+        "utils/managerAutomations.ts",
+        "utils/progressTracker.ts",
+        "utils/staffFaq.ts",
+        "vercel.json"
+      ],
+      "stats": {
+        "files": 33,
+        "insertions": 4150,
+        "deletions": 933
+      }
+    },
     {
       "id": "2026-03-04T12:36:16.149Z-dc4c531",
       "date": "2026-03-04T12:36:16.149Z",
