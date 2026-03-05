@@ -157,6 +157,15 @@ const FORLANGNING_SECTIONS: SectionConfig[] = [
   },
 ];
 
+type ResendPayload = {
+  from: string;
+  to: string[];
+  subject: string;
+  text: string;
+  html: string;
+  reply_to?: string;
+};
+
 async function readBody(req: any): Promise<Record<string, unknown>> {
   if (req?.body && typeof req.body === 'object') {
     return req.body as Record<string, unknown>;
@@ -262,8 +271,31 @@ function parseRecipientList(raw: string | undefined, fallback: string): string[]
   return [fallback];
 }
 
+async function sendResendEmail(apiKey: string, payload: ResendPayload): Promise<{ id?: string | null }> {
+  const upstream = await fetch(RESEND_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!upstream.ok) {
+    const details = await upstream.text().catch(() => '');
+    const err: any = new Error('Resend request failed');
+    err.status = upstream.status;
+    err.details = details;
+    throw err;
+  }
+
+  return await upstream.json().catch(() => ({}));
+}
+
 function buildRows(keys: string[], payload: Record<string, unknown>): EmailRow[] {
-  return keys.map((key) => {
+  return keys
+    .filter((key) => !isEmptyValue(payload[key]))
+    .map((key) => {
     const textValue = formatValue(payload[key]);
     return {
       key,
@@ -280,11 +312,12 @@ function buildSections(source: FormSource, payload: Record<string, unknown>): Em
 
   const knownSections: EmailSection[] = sections.map((section) => {
     section.keys.forEach((key) => seen.add(key));
+    const rows = buildRows(section.keys, payload);
     return {
       title: section.title,
-      rows: buildRows(section.keys, payload),
+      rows,
     };
-  });
+  }).filter((section) => section.rows.length > 0);
 
   const extraKeys = Object.keys(payload).filter((key) => key !== 'source' && !seen.has(key) && !isEmptyValue(payload[key]));
   if (extraKeys.length > 0) {
@@ -391,6 +424,63 @@ function buildEmailHtml(source: FormSource, sections: EmailSection[], fullName: 
 </html>`;
 }
 
+function buildUppfoljningConfirmationText(fullName: string): string {
+  const displayName = fullName || 'hej';
+  return [
+    `Tack ${displayName}!`,
+    '',
+    'Vi har mottagit din uppföljning.',
+    'Vårt team går igenom ditt underlag och använder det i planeringen av ditt nästa upplägg.',
+    '',
+    'Vänliga hälsningar,',
+    'Private Training Online',
+  ].join('\n');
+}
+
+function buildUppfoljningConfirmationHtml(fullName: string): string {
+  const displayName = escapeHtml(fullName || 'hej');
+  return `<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vi har mottagit din uppföljning</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#ffffff;">
+                <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.9;">Privatetrainingonline</div>
+                <h1 style="margin:8px 0 0;font-size:24px;line-height:1.2;">Vi har mottagit din uppföljning</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px;">
+                <p style="margin:0 0 12px;font-size:16px;color:#0f172a;"><strong>Tack ${displayName}!</strong></p>
+                <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#334155;">
+                  Din uppföljning är nu registrerad hos oss.
+                </p>
+                <p style="margin:0;font-size:14px;line-height:1.6;color:#334155;">
+                  Vårt team går igenom ditt underlag och använder det i planeringen av ditt nästa upplägg.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e5e7eb;color:#64748b;font-size:12px;">
+                Vänliga hälsningar,<br/>Private Training Online
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
 export default async function handler(req: any, res: any) {
   const origin = req.headers?.origin as string | undefined;
 
@@ -447,7 +537,7 @@ export default async function handler(req: any, res: any) {
   const text = buildEmailText(source, sections, fullName);
   const html = buildEmailHtml(source, sections, fullName, submittedAt);
 
-  const resendPayload = {
+  const resendPayload: ResendPayload = {
     from,
     to,
     reply_to: getReplyToForSource(source, body),
@@ -457,28 +547,33 @@ export default async function handler(req: any, res: any) {
   };
 
   try {
-    const upstream = await fetch(RESEND_API_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(resendPayload),
-    });
+    const adminData = await sendResendEmail(apiKey, resendPayload);
+    let confirmationId: string | null = null;
 
-    if (!upstream.ok) {
-      const details = await upstream.text().catch(() => '');
-      setCors(res, origin);
-      res.status(502).json({ error: 'Resend request failed', status: upstream.status, details });
-      return;
+    if (source === 'uppfoljning') {
+      const userEmail = typeof body.email === 'string' ? body.email.trim() : '';
+      if (userEmail) {
+        const confirmationPayload: ResendPayload = {
+          from,
+          to: [userEmail],
+          subject: 'Vi har mottagit din uppföljning',
+          text: buildUppfoljningConfirmationText(fullName),
+          html: buildUppfoljningConfirmationHtml(fullName),
+        };
+        const confirmationData = await sendResendEmail(apiKey, confirmationPayload);
+        confirmationId = confirmationData?.id || null;
+      }
     }
 
-    const data = await upstream.json().catch(() => ({}));
     setCors(res, origin);
-    res.status(200).json({ ok: true, id: data?.id || null, channel: 'resend' });
+    res.status(200).json({ ok: true, id: adminData?.id || null, channel: 'resend', confirmation_id: confirmationId });
   } catch (error: any) {
     console.error('Form notification error', error);
     setCors(res, origin);
+    if (error?.status) {
+      res.status(502).json({ error: 'Resend request failed', status: error.status, details: error.details || '' });
+      return;
+    }
     res.status(502).json({ error: 'Resend request failed' });
   }
 }

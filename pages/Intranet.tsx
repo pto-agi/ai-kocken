@@ -305,6 +305,19 @@ type InfoRowProps = {
   onCopy?: (copyKey: string, value: React.ReactNode) => void;
 };
 
+const isMissingDisplayValue = (value: React.ReactNode): boolean => {
+  if (value === null || value === undefined) return true;
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+    return normalized === '' || normalized === '—' || normalized === '-';
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return true;
+    return value.every((item) => isMissingDisplayValue(item));
+  }
+  return false;
+};
+
 const formatTimestamp = (value?: string | null) => {
   if (!value) return 'Okänt datum';
   const date = new Date(value);
@@ -2136,7 +2149,9 @@ const Intranet: React.FC = () => {
 
   const renderSubmissionDetails = (submission: CombinedSubmission, options?: { compact?: boolean }) => {
     const wrapperClass = options?.compact ? 'mt-4 space-y-6' : 'mt-6 space-y-6';
-    const row = (label: string, value: React.ReactNode) => (
+    const row = (label: string, value: React.ReactNode, config?: { hideIfEmpty?: boolean }) => {
+      if (config?.hideIfEmpty && isMissingDisplayValue(value)) return null;
+      return (
       <InfoRow
         label={label}
         value={value}
@@ -2144,7 +2159,20 @@ const Intranet: React.FC = () => {
         copiedKey={copiedFieldKey}
         onCopy={handleCopyField}
       />
-    );
+      );
+    };
+    const renderSection = (title: string, rows: Array<React.ReactNode | null>) => {
+      const visibleRows = rows.filter((item) => item !== null);
+      if (visibleRows.length === 0) return null;
+      return (
+        <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
+          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">{title}</h4>
+          <div className="space-y-3">
+            {visibleRows}
+          </div>
+        </section>
+      );
+    };
 
     if (submission.kind === 'start') {
       return (
@@ -2201,40 +2229,28 @@ const Intranet: React.FC = () => {
 
     return (
       <div className={wrapperClass}>
-        <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Översikt</h4>
-          <div className="space-y-3">
-            {row('Mål', submission.data.goal || '—')}
-            {row('Pass per vecka', formatNumber(submission.data.sessions_per_week))}
-            {row('Behåll upplägg', formatBoolean(submission.data.quick_keep_plan))}
-          </div>
-        </section>
+        {renderSection('Översikt', [
+          row('Mål', submission.data.goal || '—', { hideIfEmpty: true }),
+          row('Pass per vecka', formatNumber(submission.data.sessions_per_week), { hideIfEmpty: true }),
+          row('Behåll upplägg', formatBoolean(submission.data.quick_keep_plan), { hideIfEmpty: true })
+        ])}
 
-        <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Summering & feedback</h4>
-          <div className="space-y-3">
-            {row('Sammanfattning', submission.data.summary_feedback || '—')}
-          </div>
-        </section>
+        {renderSection('Summering & feedback', [
+          row('Sammanfattning', submission.data.summary_feedback || '—', { hideIfEmpty: true })
+        ])}
 
-        <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träning</h4>
-          <div className="space-y-3">
-            {row('Övrig aktivitet', formatList(submission.data.other_activity))}
-            {row('Träningsplatser', formatList(submission.data.training_places))}
-            {row('Träningsplatser annat', submission.data.training_places_other || '—')}
-            {row('Utrustning hemma', formatList(submission.data.home_equipment))}
-            {row('Utrustning annat', submission.data.home_equipment_other || '—')}
-          </div>
-        </section>
+        {renderSection('Träning', [
+          row('Övrig aktivitet', formatList(submission.data.other_activity), { hideIfEmpty: true }),
+          row('Träningsplatser', formatList(submission.data.training_places), { hideIfEmpty: true }),
+          row('Träningsplatser annat', submission.data.training_places_other || '—', { hideIfEmpty: true }),
+          row('Utrustning hemma', formatList(submission.data.home_equipment), { hideIfEmpty: true }),
+          row('Utrustning annat', submission.data.home_equipment_other || '—', { hideIfEmpty: true })
+        ])}
 
-        <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Produkter & fortsättning</h4>
-          <div className="space-y-3">
-            {row('Påfyllnad', formatList(submission.data.refill_products))}
-            {row('Auto fortsätt', submission.data.auto_continue || '—')}
-          </div>
-        </section>
+        {renderSection('Produkter & fortsättning', [
+          row('Påfyllnad', formatList(submission.data.refill_products), { hideIfEmpty: true }),
+          row('Auto fortsätt', submission.data.auto_continue || '—', { hideIfEmpty: true })
+        ])}
       </div>
     );
   };

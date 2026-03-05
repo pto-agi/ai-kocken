@@ -126,28 +126,35 @@ describe('form notifications api', () => {
     expect(parsedBody.subject).toContain('Startformulär');
     expect(parsedBody.text).toContain('Ada Lovelace');
     expect(parsedBody.text).toContain('[Kontaktuppgifter]');
-    expect(parsedBody.text).toContain('[Kroppsmått]');
+    expect(parsedBody.text).not.toContain('[Kroppsmått]');
     expect(parsedBody.html).toContain('Startformulär inkommet');
     expect(parsedBody.html).toContain('Inskickade uppgifter');
     expect(parsedBody.html).toContain('Pass per vecka');
     expect(parsedBody.html).toContain('Kontaktuppgifter');
-    expect(parsedBody.html).toContain('Kroppsmått');
-    expect(parsedBody.html).toContain('Mått midja');
-    expect(parsedBody.html).toContain('>—<');
+    expect(parsedBody.html).not.toContain('Kroppsmått');
+    expect(parsedBody.html).not.toContain('Mått midja');
+    expect(parsedBody.html).not.toContain('>—<');
     expect(parsedBody.to).toEqual(['admin1@example.com', 'admin2@example.com']);
 
     expect(res.statusCode).toBe(200);
-    expect(res.jsonBody).toEqual({ ok: true, id: 'email_123', channel: 'resend' });
+    expect(res.jsonBody).toEqual({ ok: true, id: 'email_123', channel: 'resend', confirmation_id: null });
   });
 
   it('posts email to Resend for uppfoljning payload', async () => {
     process.env.RESEND_API_KEY = 'test_key';
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({ id: 'email_upp_123' }),
-      text: async () => '',
-    }));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_upp_123' }),
+        text: async () => '',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_upp_confirm_123' }),
+        text: async () => '',
+      });
     vi.stubGlobal('fetch', fetchMock);
 
     const req: MockReq = {
@@ -167,21 +174,30 @@ describe('form notifications api', () => {
 
     await handler(req, res);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    const parsedBody = JSON.parse(String(init.body));
-    expect(parsedBody.subject).toContain('Uppföljning');
-    expect(parsedBody.text).toContain('[Snabbval]');
-    expect(parsedBody.text).toContain('Behåll nuvarande upplägg: Ja');
-    expect(parsedBody.html).toContain('Uppföljning inkommet');
-    expect(parsedBody.html).toContain('Behåll nuvarande upplägg');
-    expect(parsedBody.html).toContain('Mål');
-    expect(parsedBody.html).toContain('>—<');
-    expect(parsedBody.reply_to).toBe('alex@example.com');
-    expect(parsedBody.to).toEqual(['info@privatetrainingonline.se']);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [, adminInit] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const adminBody = JSON.parse(String(adminInit.body));
+    expect(adminBody.subject).toContain('Uppföljning');
+    expect(adminBody.text).toContain('[Snabbval]');
+    expect(adminBody.text).toContain('Behåll nuvarande upplägg: Ja');
+    expect(adminBody.html).toContain('Uppföljning inkommet');
+    expect(adminBody.html).toContain('Behåll nuvarande upplägg');
+    expect(adminBody.html).not.toContain('Mål');
+    expect(adminBody.text).not.toContain('Pass per vecka (annat):');
+    expect(adminBody.html).not.toContain('Pass per vecka (annat)');
+    expect(adminBody.reply_to).toBe('alex@example.com');
+    expect(adminBody.to).toEqual(['info@privatetrainingonline.se']);
+
+    const [, confirmationInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+    const confirmationBody = JSON.parse(String(confirmationInit.body));
+    expect(confirmationBody.to).toEqual(['alex@example.com']);
+    expect(confirmationBody.subject).toBe('Vi har mottagit din uppföljning');
+    expect(confirmationBody.text).toContain('Vi har mottagit din uppföljning.');
+    expect(confirmationBody.html).toContain('Vi har mottagit din uppföljning');
+    expect(confirmationBody.reply_to).toBeUndefined();
 
     expect(res.statusCode).toBe(200);
-    expect(res.jsonBody).toEqual({ ok: true, id: 'email_upp_123', channel: 'resend' });
+    expect(res.jsonBody).toEqual({ ok: true, id: 'email_upp_123', channel: 'resend', confirmation_id: 'email_upp_confirm_123' });
   });
 
   it('posts extension confirmation email to fixed admin inbox', async () => {
@@ -228,6 +244,6 @@ describe('form notifications api', () => {
     expect(parsedBody.reply_to).toBe('info@privatetrainingonline.se');
 
     expect(res.statusCode).toBe(200);
-    expect(res.jsonBody).toEqual({ ok: true, id: 'email_ext_123', channel: 'resend' });
+    expect(res.jsonBody).toEqual({ ok: true, id: 'email_ext_123', channel: 'resend', confirmation_id: null });
   });
 });
