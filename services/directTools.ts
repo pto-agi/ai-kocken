@@ -1,7 +1,7 @@
 /**
  * Direct API tools for the PTO Agent.
  * Replaces Zapier MCP and custom Render MCP with direct calls to:
- *  - Todoist REST API v2
+ *  - Todoist API v1 (unified, replaced REST v2)
  *  - Google Sheets API v4 (service account)
  *  - Supabase (user profile)
  */
@@ -11,7 +11,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // ─── Todoist Direct API ──────────────────────────────────────────
 
-const TODOIST_REST_V2 = 'https://api.todoist.com/rest/v2';
+const TODOIST_API_V1 = 'https://api.todoist.com/api/v1';
 
 function getTodoistToken(): string {
     const token = (process.env.TODOIST_API_KEY || '').trim();
@@ -37,7 +37,7 @@ async function todoistRequest<T = any>(input: {
 
     if (!response.ok) {
         const text = await response.text().catch(() => '');
-        throw new Error(`Todoist API error (${response.status}): ${text || response.statusText}`);
+        throw new Error(`Todoist REST error (${response.status}): ${text || response.statusText}`);
     }
 
     if (input.expectNoContent || response.status === 204) return {} as T;
@@ -53,7 +53,7 @@ export async function todoistCreateTask(input: {
 }): Promise<string> {
     const result = await todoistRequest<Record<string, unknown>>({
         method: 'POST',
-        url: `${TODOIST_REST_V2}/tasks`,
+        url: `${TODOIST_API_V1}/tasks`,
         body: {
             project_id: input.projectId,
             content: input.content,
@@ -73,7 +73,7 @@ export async function todoistCreateTask(input: {
 /** Find a project by name */
 export async function todoistFindProject(name: string): Promise<string> {
     const projects = await todoistRequest<Array<Record<string, unknown>>>({
-        url: `${TODOIST_REST_V2}/projects`,
+        url: `${TODOIST_API_V1}/projects`,
     });
     const match = projects.find(
         (p) => (p.name as string || '').toLowerCase().trim() === name.toLowerCase().trim(),
@@ -87,7 +87,7 @@ export async function todoistFindTask(input: {
     projectId?: string;
     query?: string;
 }): Promise<string> {
-    let url = `${TODOIST_REST_V2}/tasks`;
+    let url = `${TODOIST_API_V1}/tasks`;
     if (input.projectId) url += `?project_id=${encodeURIComponent(input.projectId)}`;
     const tasks = await todoistRequest<Array<Record<string, unknown>>>({ url });
     let filtered = tasks;
@@ -109,7 +109,7 @@ export async function todoistFindTask(input: {
 export async function todoistAddComment(taskId: string, content: string): Promise<string> {
     const result = await todoistRequest<Record<string, unknown>>({
         method: 'POST',
-        url: `${TODOIST_REST_V2}/comments`,
+        url: `${TODOIST_API_V1}/comments`,
         body: { task_id: taskId, content },
     });
     return JSON.stringify({ ok: true, comment_id: result.id });
