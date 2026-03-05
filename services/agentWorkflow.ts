@@ -17,7 +17,7 @@ import {
 // Tool definitions
 const fileSearch = fileSearchTool(['vs_699b3242c3f88191b0fcdeeb1df56307']);
 
-const AGENT_MODEL = process.env.AGENT_MODEL || 'gpt-4.1';
+const AGENT_MODEL = process.env.AGENT_MODEL || 'gpt-5-mini';
 
 // Default Google Sheet ID for client data
 const CLIENT_SHEET_ID = process.env.GOOGLE_SHEET_ID || '1DHKLVUhJmaTBFooHnn_OAAlPe_kR0Fs84FibCr9zoAM';
