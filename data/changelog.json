@@ -1,6 +1,39 @@
 {
-  "last_commit": "5a7069954ef103ebc523aba5d537b79fd56a2873",
+  "last_commit": "bf902aa7733689d10d6284ad857efc066fbb26b7",
   "entries": [
+    {
+      "id": "2026-03-05T22:34:10.442Z-bf902aa",
+      "date": "2026-03-05T22:34:10.442Z",
+      "range": "5a7069954ef103ebc523aba5d537b79fd56a2873..bf902aa7733689d10d6284ad857efc066fbb26b7",
+      "head": "bf902aa7733689d10d6284ad857efc066fbb26b7",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "bf902aa",
+          "subject": "feat: PTO Chat Fas 1 – streaming, persistens, direkta API:er"
+        },
+        {
+          "hash": "997d23d",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/chat-conversations.ts",
+        "api/chat.ts",
+        "components/SupportChat.tsx",
+        "data/changelog.json",
+        "pages/Support.tsx",
+        "services/agentWorkflow.ts",
+        "services/directTools.ts",
+        "supabase/chat_migration.sql",
+        "types.ts"
+      ],
+      "stats": {
+        "files": 9,
+        "insertions": 1278,
+        "deletions": 209
+      }
+    },
     {
       "id": "2026-03-05T18:20:03.978Z-5a70699",
       "date": "2026-03-05T18:20:03.978Z",
