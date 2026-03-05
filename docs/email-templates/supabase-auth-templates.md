@@ -9,9 +9,16 @@ These account emails are sent by Supabase Auth (not by `api/form-notifications.t
 3. For each template type below, paste the matching HTML.
 4. Keep Supabase placeholders (`{{ ... }}`) exactly as written.
 
-Use logo URL:
+## Logo URL (recommended for Supabase preview)
 
-- `https://my.privatetrainingonline.se/pto-logotyp-2026.png`
+Use a public Supabase Storage URL for logo assets (more reliable in Supabase template preview).
+
+1. Create a public bucket, for example: `email-assets`
+2. Upload: `pto-logotyp-2026.png`
+3. Use URL format:
+   `https://<project-ref>.supabase.co/storage/v1/object/public/email-assets/pto-logotyp-2026.png`
+
+In templates below, replace `{{LOGO_URL}}` with your final public Storage URL.
 
 ---
 
@@ -34,7 +41,7 @@ Use logo URL:
               <td style="padding:18px 24px;background:#3D3D3D;border-bottom:3px solid #a0c81d;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
-                    <td><img src="https://my.privatetrainingonline.se/pto-logotyp-2026.png" alt="PTO" width="34" height="34" style="display:block;border:0;" /></td>
+                    <td><img src="{{LOGO_URL}}" alt="PTO" width="34" height="34" style="display:block;border:0;" /></td>
                     <td style="padding-left:10px;color:#E6E1D8;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;">Private Training Online</td>
                   </tr>
                 </table>
@@ -87,7 +94,7 @@ Use logo URL:
               <td style="padding:18px 24px;background:#3D3D3D;border-bottom:3px solid #a0c81d;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
-                    <td><img src="https://my.privatetrainingonline.se/pto-logotyp-2026.png" alt="PTO" width="34" height="34" style="display:block;border:0;" /></td>
+                    <td><img src="{{LOGO_URL}}" alt="PTO" width="34" height="34" style="display:block;border:0;" /></td>
                     <td style="padding-left:10px;color:#E6E1D8;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;">Private Training Online</td>
                   </tr>
                 </table>
@@ -128,4 +135,3 @@ Use the same layout and button style, but with:
 - Title: `Bekräfta ny e-postadress`
 - CTA label: `Bekräfta e-post`
 - Link: `{{ .ConfirmationURL }}`
-
