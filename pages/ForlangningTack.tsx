@@ -1,8 +1,23 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2, ArrowRight, Sparkles, ShieldCheck } from 'lucide-react';
 
+type ForlangningTackState = {
+  fullName?: string;
+  email?: string;
+  paymentMethod?: string;
+  portal?: string;
+  newExpiresAt?: string;
+  currentExpiresAt?: string;
+  billingStartsAt?: string;
+};
+
 export const ForlangningTack: React.FC = () => {
+  const location = useLocation();
+  const state = location.state as ForlangningTackState | null;
+
+  const hasSummary = Boolean(state && (state.newExpiresAt || state.paymentMethod));
+
   return (
     <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-12 md:pb-24 pt-24 px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
@@ -21,11 +36,10 @@ export const ForlangningTack: React.FC = () => {
                 <span className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Bekräftelse</span>
               </div>
               <h1 className="text-3xl md:text-4xl font-black text-[#3D3D3D] tracking-tight">
-                Tack! Din förlängning är mottagen.
+                Tack! Din förlängning är registrerad.
               </h1>
               <p className="text-[#6B6158] mt-3 max-w-2xl">
-                Vi har registrerat din förlängning. Ditt medlemskap uppdateras och du behåller dina klientpriser
-                utan avbrott. Om vi behöver något mer hör vi av oss via e‑post.
+                Vi hanterar nu betalningen separat med dig och uppdaterar medlemskapet enligt din bekräftelse.
               </p>
             </div>
             <div className="flex flex-col gap-3 w-full md:w-auto">
@@ -50,21 +64,30 @@ export const ForlangningTack: React.FC = () => {
                 <Sparkles className="w-4 h-4" /> Nästa steg
               </div>
               <ul className="space-y-3 text-sm text-[#6B6158]">
-                <li>Vi bekräftar förlängningen och uppdaterar din period.</li>
-                <li>Du får automatiskt tillgång till klientpriser och premiumfunktioner.</li>
-                <li>Har du frågor om din förlängning? Hör av dig så hjälper vi dig direkt.</li>
+                <li>Vi bekräftar betalning och uppdaterar medlemskapet.</li>
+                <li>Nytt utgångsdatum aktiveras enligt bekräftelsen.</li>
+                <li>Vid frågor hjälper vi dig direkt via support.</li>
               </ul>
             </div>
 
             <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/80 p-6 flex flex-col justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">
-                  <ShieldCheck className="w-4 h-4" /> Tryggt & klart
+                  <ShieldCheck className="w-4 h-4" /> Sammanfattning
                 </div>
-                <h2 className="text-lg font-black text-[#3D3D3D]">Allt är registrerat</h2>
-                <p className="text-[#6B6158] text-sm mt-2">
-                  Din förlängning är säkrad. Vi återkopplar om något behöver kompletteras.
-                </p>
+                {hasSummary ? (
+                  <div className="space-y-2 text-sm text-[#6B6158]">
+                    {state?.fullName && <div><span className="font-black text-[#3D3D3D]">Namn:</span> {state.fullName}</div>}
+                    {state?.email && <div><span className="font-black text-[#3D3D3D]">E-post:</span> {state.email}</div>}
+                    {state?.paymentMethod && <div><span className="font-black text-[#3D3D3D]">Betalning:</span> {state.paymentMethod}</div>}
+                    {state?.portal && <div><span className="font-black text-[#3D3D3D]">Portal:</span> {state.portal}</div>}
+                    {state?.newExpiresAt && (
+                      <div><span className="font-black text-[#3D3D3D]">Nytt utgångsdatum:</span> {state.newExpiresAt}</div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[#6B6158]">Förlängningen är mottagen och under hantering.</p>
+                )}
               </div>
               <Link
                 to="/forlangning"

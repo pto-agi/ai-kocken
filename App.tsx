@@ -48,27 +48,23 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   },
   '/profile': {
     title: 'Mina sidor',
-    description: 'Dashboard för översikt, snabbåtgärder och genvägar. Se status, senaste inlämningar, sparade planer och medlemskap.'
+    description: 'Dashboard för översikt, snabbåtgärder och genvägar. Se status, senaste inlämningar och din adminpanel för medlemskap och konto.'
   },
   '/profile/inlamningar': {
     title: 'Inlämningar',
     description: 'Historik för startformulär och uppföljningar. Skicka nya inlämningar och se status på tidigare.'
   },
-  '/profile/medlemskap': {
-    title: 'Medlemskap',
-    description: 'Hantera medlemskap med paus, deaktivering, återaktivering och status. Se utgångsdatum och plan.'
+  '/profile/adminpanel': {
+    title: 'Adminpanel',
+    description: 'Samlad panel för medlemskap, konto, leveransuppgifter och säkerhet.'
   },
-  '/profile/veckomenyer': {
-    title: 'Veckomenyer',
-    description: 'Arkiv över sparade veckomenyer. Ladda ner PDF eller skapa en ny plan.'
+  '/profile/medlemskap': {
+    title: 'Adminpanel',
+    description: 'Samlad panel för medlemskap, konto, leveransuppgifter och säkerhet.'
   },
   '/profile/konto': {
-    title: 'Konto',
-    description: 'Uppdatera kontaktuppgifter, leveransadress och säkerhet.'
-  },
-  '/profile/progress': {
-    title: 'Progress',
-    description: 'Följ din resa och se hur din utveckling ser ut över tid. Milstolpar, mål och feedback samlat på ett ställe.'
+    title: 'Adminpanel',
+    description: 'Samlad panel för medlemskap, konto, leveransuppgifter och säkerhet.'
   },
   '/nps': {
     title: 'Feedback',
@@ -100,7 +96,7 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   },
   '/forlangning': {
     title: 'Förlängning',
-    description: 'Förläng medlemskapet till klientpris. Välj period och betalningssätt, få tillgång till premium utan avbrott och fortsätt resan tryggt. Klientpris utan krångel.'
+    description: 'Se ditt personliga erbjudande för att förlänga året ut. Bekräfta förlängning i steg och hantera betalningen separat med teamet.'
   },
   '/tack-forlangning': {
     title: 'Förlängning Mottagen',
