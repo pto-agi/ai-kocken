@@ -26,24 +26,24 @@ const CLIENT_SHEET_ID = process.env.GOOGLE_SHEET_ID || '1DHKLVUhJmaTBFooHnn_OAAl
 
 const todoistCreateTaskTool = tool({
   name: 'todoist_create_task',
-  description: 'Skapa en ny uppgift i Todoist. Ange projektnamn eller projekt-ID, uppgiftens titel, och eventuellt en beskrivning eller sektion.',
+  description: 'Skapa en ny uppgift i Todoist. Ange projekt-ID och uppgiftens titel. Beskrivning och sektion är valfria (skicka tom sträng om ej relevant).',
   parameters: {
     type: 'object' as const,
     properties: {
       project_id: { type: 'string', description: 'Todoist project ID' },
       content: { type: 'string', description: 'Task title/content' },
-      description: { type: 'string', description: 'Optional task description' },
-      section_id: { type: 'string', description: 'Optional section ID to place the task in' },
+      description: { type: 'string', description: 'Task description, or empty string if not needed' },
+      section_id: { type: 'string', description: 'Section ID, or empty string if not needed' },
     },
-    required: ['project_id', 'content'],
-    additionalProperties: false,
+    required: ['project_id', 'content', 'description', 'section_id'],
+    additionalProperties: false as const,
   },
   execute: async (input: any) => {
     return await todoistCreateTask({
       projectId: input.project_id,
       content: input.content,
-      description: input.description,
-      sectionId: input.section_id,
+      description: input.description || undefined,
+      sectionId: input.section_id || undefined,
     });
   },
 });
@@ -57,7 +57,7 @@ const todoistFindProjectTool = tool({
       name: { type: 'string', description: 'Project name to search for' },
     },
     required: ['name'],
-    additionalProperties: false,
+    additionalProperties: false as const,
   },
   execute: async (input: any) => {
     return await todoistFindProject(input.name);
@@ -66,18 +66,18 @@ const todoistFindProjectTool = tool({
 
 const todoistFindTaskTool = tool({
   name: 'todoist_find_task',
-  description: 'Sök efter uppgifter i ett Todoist-projekt. Kan filtrera på uppgiftens titel.',
+  description: 'Sök efter uppgifter i Todoist. Ange project_id och/eller query (tom sträng = alla uppgifter).',
   parameters: {
     type: 'object' as const,
     properties: {
-      project_id: { type: 'string', description: 'Project ID to search in' },
-      query: { type: 'string', description: 'Optional text to filter tasks by content' },
+      project_id: { type: 'string', description: 'Project ID to search in, or empty string for all projects' },
+      query: { type: 'string', description: 'Text to filter tasks by content, or empty string for all' },
     },
-    required: [],
-    additionalProperties: false,
+    required: ['project_id', 'query'],
+    additionalProperties: false as const,
   },
   execute: async (input: any) => {
-    return await todoistFindTask({ projectId: input.project_id, query: input.query });
+    return await todoistFindTask({ projectId: input.project_id || undefined, query: input.query || undefined });
   },
 });
 
@@ -91,7 +91,7 @@ const todoistAddCommentTool = tool({
       content: { type: 'string', description: 'Comment text' },
     },
     required: ['task_id', 'content'],
-    additionalProperties: false,
+    additionalProperties: false as const,
   },
   execute: async (input: any) => {
     return await todoistAddComment(input.task_id, input.content);
@@ -102,38 +102,38 @@ const todoistAddCommentTool = tool({
 
 const sheetsGetDataTool = tool({
   name: 'sheets_get_data',
-  description: 'Hämta rader från ett Google Sheets-blad. Returnerar header och data. Använd detta för att läsa klientdata, utgångsdatum, pausstatus m.m. Standard sheet_id = Client File.',
+  description: 'Hämta rader från ett Google Sheets-blad. Returnerar header och data. Standard sheet_id = Client File. Skicka tom sträng för sheet_id/range om ej relevant.',
   parameters: {
     type: 'object' as const,
     properties: {
-      sheet_id: { type: 'string', description: 'Google Spreadsheet ID (defaults to Client File if omitted)' },
+      sheet_id: { type: 'string', description: 'Google Spreadsheet ID, or empty string for default Client File' },
       worksheet_name: { type: 'string', description: 'Worksheet/tab name, e.g. "Aktiva", "Paus", "Expired"' },
-      range: { type: 'string', description: 'Optional A1 range, e.g. "A1:F50"' },
+      range: { type: 'string', description: 'A1 range e.g. "A1:F50", or empty string for all data' },
     },
-    required: ['worksheet_name'],
-    additionalProperties: false,
+    required: ['sheet_id', 'worksheet_name', 'range'],
+    additionalProperties: false as const,
   },
   execute: async (input: any) => {
     return await sheetsGetWorksheetData({
       sheetId: input.sheet_id || CLIENT_SHEET_ID,
       worksheetName: input.worksheet_name,
-      range: input.range,
+      range: input.range || undefined,
     });
   },
 });
 
 const sheetsLookupEmailTool = tool({
   name: 'sheets_lookup_email',
-  description: 'Sök efter en kund via e-post i ett Google Sheets-blad. Returnerar hela raden för matchad klient. Perfekt för att hitta utgångsdatum, pausinfo etc.',
+  description: 'Sök efter en kund via e-post i ett Google Sheets-blad. Returnerar hela raden för matchad klient. Skicka tom sträng för sheet_id om ej relevant.',
   parameters: {
     type: 'object' as const,
     properties: {
-      sheet_id: { type: 'string', description: 'Google Spreadsheet ID (defaults to Client File if omitted)' },
+      sheet_id: { type: 'string', description: 'Google Spreadsheet ID, or empty string for default Client File' },
       worksheet_name: { type: 'string', description: 'Worksheet/tab name, e.g. "Aktiva", "Paus"' },
       email: { type: 'string', description: 'Email address to search for' },
     },
-    required: ['worksheet_name', 'email'],
-    additionalProperties: false,
+    required: ['sheet_id', 'worksheet_name', 'email'],
+    additionalProperties: false as const,
   },
   execute: async (input: any) => {
     return await sheetsLookupByEmail({
@@ -146,14 +146,14 @@ const sheetsLookupEmailTool = tool({
 
 const sheetsGetInfoTool = tool({
   name: 'sheets_get_info',
-  description: 'Hämta metadata om ett Google Sheets-dokument: titel, alla blad/worksheets och antal rader.',
+  description: 'Hämta metadata om ett Google Sheets-dokument: titel, alla blad/worksheets och antal rader. Skicka tom sträng för sheet_id om ej relevant.',
   parameters: {
     type: 'object' as const,
     properties: {
-      sheet_id: { type: 'string', description: 'Google Spreadsheet ID (defaults to Client File if omitted)' },
+      sheet_id: { type: 'string', description: 'Google Spreadsheet ID, or empty string for default Client File' },
     },
-    required: [],
-    additionalProperties: false,
+    required: ['sheet_id'],
+    additionalProperties: false as const,
   },
   execute: async (input: any) => {
     return await sheetsGetSpreadsheetInfo(input.sheet_id || CLIENT_SHEET_ID);
