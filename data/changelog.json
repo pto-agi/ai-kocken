@@ -1,6 +1,50 @@
 {
-  "last_commit": "bf902aa7733689d10d6284ad857efc066fbb26b7",
+  "last_commit": "9d8bdbe9de2c5d4e178b530bc267db4dfa756562",
   "entries": [
+    {
+      "id": "2026-03-05T23:08:07.521Z-9d8bdbe",
+      "date": "2026-03-05T23:08:07.522Z",
+      "range": "bf902aa7733689d10d6284ad857efc066fbb26b7..9d8bdbe9de2c5d4e178b530bc267db4dfa756562",
+      "head": "9d8bdbe9de2c5d4e178b530bc267db4dfa756562",
+      "commit_count": 6,
+      "commits": [
+        {
+          "hash": "9d8bdbe",
+          "subject": "fix: wrap persistence in try-catch so failed save doesn't break chat UX"
+        },
+        {
+          "hash": "f0f49ac",
+          "subject": "chore: switch default model to gpt-5-mini"
+        },
+        {
+          "hash": "79c4f1f",
+          "subject": "fix: list all properties in required for OpenAI strict mode schema validation"
+        },
+        {
+          "hash": "a773c97",
+          "subject": "debug: show real error message in SSE error events"
+        },
+        {
+          "hash": "d5e57b0",
+          "subject": "debug: add console.error logging to chat error handling"
+        },
+        {
+          "hash": "7aac0ff",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/chat.ts",
+        "components/SupportChat.tsx",
+        "data/changelog.json",
+        "services/agentWorkflow.ts"
+      ],
+      "stats": {
+        "files": 4,
+        "insertions": 82,
+        "deletions": 42
+      }
+    },
     {
       "id": "2026-03-05T22:34:10.442Z-bf902aa",
       "date": "2026-03-05T22:34:10.442Z",
