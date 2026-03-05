@@ -186,6 +186,7 @@ type UserConfirmationContent = {
   subtitle: string;
   introText: string;
   detailText: string;
+  outroText?: string;
   ctaLabel: string;
   ctaHref: string;
 };
@@ -535,32 +536,35 @@ function getUserConfirmationContent(source: FormSource): UserConfirmationContent
   const appBaseUrl = getAppBaseUrl();
   if (source === 'startform') {
     return {
-      subject: 'Vi har mottagit ditt startformulär',
-      title: 'Startformuläret är mottaget',
-      subtitle: 'Tack för att du tog dig tid att fylla i det.',
-      introText: 'Vi har registrerat ditt startformulär.',
-      detailText: 'Vårt team använder underlaget för att planera ditt personliga upplägg.',
+      subject: 'Tack för din inlämning!',
+      title: 'Tack för din inlämning',
+      subtitle: 'Din startinlämning är mottagen.',
+      introText: 'Vi har mottagit din startinlämning och sätter igång med planeringsarbetet.',
+      detailText: 'Om du har frågor eller vill komplettera med något kan du svara direkt på detta mejl.',
+      outroText: 'Vi hörs vidare inom kort.',
       ctaLabel: 'Öppna Mina sidor',
       ctaHref: `${appBaseUrl}/profile/inlamningar`,
     };
   }
   if (source === 'forlangning') {
     return {
-      subject: 'Vi har mottagit din förlängning',
-      title: 'Förlängningen är mottagen',
-      subtitle: 'Tack för din bekräftelse.',
-      introText: 'Vi har registrerat din förlängning.',
-      detailText: 'Vi går igenom uppgifterna och återkopplar om något behöver kompletteras.',
+      subject: 'Tack för din förlängning!',
+      title: 'Tack för din förlängning',
+      subtitle: 'Din förlängning är mottagen.',
+      introText: 'Vi har mottagit din förlängning och registrerar den i systemet.',
+      detailText: 'Om något behöver kompletteras återkommer vi, annars är allt på plats.',
+      outroText: 'Tack för att du fortsätter din resa med oss.',
       ctaLabel: 'Öppna Mina sidor',
       ctaHref: `${appBaseUrl}/profile`,
     };
   }
   return {
-    subject: 'Vi har mottagit din uppföljning',
-    title: 'Uppföljningen är mottagen',
-    subtitle: 'Tack för din återkoppling.',
-    introText: 'Vi har registrerat din uppföljning.',
-    detailText: 'Vårt team går igenom ditt underlag och använder det i planeringen av ditt nästa upplägg.',
+    subject: 'Tack för din uppföljning!',
+    title: 'Tack för din uppföljning',
+    subtitle: 'Din uppföljning är mottagen.',
+    introText: 'Vi har mottagit din uppföljning och går igenom den inför nästa planering.',
+    detailText: 'Om du vill lägga till något är det bara att svara direkt på detta mejl.',
+    outroText: 'Vi återkommer så snart nästa steg är klart.',
     ctaLabel: 'Öppna Mina sidor',
     ctaHref: `${appBaseUrl}/profile/inlamningar`,
   };
@@ -568,13 +572,15 @@ function getUserConfirmationContent(source: FormSource): UserConfirmationContent
 
 function buildUserConfirmationText(source: FormSource, fullName: string): string {
   const content = getUserConfirmationContent(source);
-  const displayName = fullName || 'hej';
+  const greeting = fullName ? `Hej ${fullName},` : 'Hej,';
+  const outroLine = content.outroText ? [content.outroText, ''] : [];
   return [
-    `Tack ${displayName}!`,
+    greeting,
     '',
     content.introText,
     content.detailText,
     '',
+    ...outroLine,
     'Vänliga hälsningar,',
     'Private Training Online',
   ].join('\n');
@@ -582,16 +588,18 @@ function buildUserConfirmationText(source: FormSource, fullName: string): string
 
 function buildUserConfirmationHtml(source: FormSource, fullName: string): string {
   const content = getUserConfirmationContent(source);
-  const displayName = escapeHtml(fullName || 'hej');
+  const displayName = escapeHtml(fullName);
+  const greeting = displayName ? `Hej ${displayName},` : 'Hej,';
   return buildBaseEmailLayout({
     title: content.title,
     subtitle: content.subtitle,
     preheader: content.subject,
     badge: 'PTO Bekräftelse',
-    introHtml: `<p style="margin:0 0 10px;"><strong>Tack ${displayName}!</strong></p>`,
+    introHtml: `<p style="margin:0 0 10px;"><strong>${greeting}</strong></p>`,
     bodyHtml: `
       <p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.introText)}</p>
-      <p style="margin:0;font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.detailText)}</p>
+      <p style="margin:0 0 ${content.outroText ? '10px' : '0'};font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.detailText)}</p>
+      ${content.outroText ? `<p style="margin:0;font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.outroText)}</p>` : ''}
     `,
     ctaLabel: content.ctaLabel,
     ctaHref: content.ctaHref,
@@ -677,6 +685,7 @@ export default async function handler(req: any, res: any) {
         subject: userContent.subject,
         text: buildUserConfirmationText(source, fullName),
         html: buildUserConfirmationHtml(source, fullName),
+        reply_to: DEFAULT_TO,
       };
       const confirmationData = await sendResendEmail(apiKey, confirmationPayload);
       confirmationId = confirmationData?.id || null;

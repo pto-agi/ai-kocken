@@ -146,7 +146,9 @@ describe('form notifications api', () => {
     const [, confirmationInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
     const confirmationBody = JSON.parse(String(confirmationInit.body));
     expect(confirmationBody.to).toEqual(['ada@example.com']);
-    expect(confirmationBody.subject).toBe('Vi har mottagit ditt startformulär');
+    expect(confirmationBody.subject).toBe('Tack för din inlämning!');
+    expect(confirmationBody.text).toContain('Vi har mottagit din startinlämning');
+    expect(confirmationBody.reply_to).toBe('info@privatetrainingonline.se');
 
     expect(res.statusCode).toBe(200);
     expect(res.jsonBody).toEqual({ ok: true, id: 'email_123', channel: 'resend', confirmation_id: 'email_123_confirm' });
@@ -204,10 +206,10 @@ describe('form notifications api', () => {
     const [, confirmationInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
     const confirmationBody = JSON.parse(String(confirmationInit.body));
     expect(confirmationBody.to).toEqual(['alex@example.com']);
-    expect(confirmationBody.subject).toBe('Vi har mottagit din uppföljning');
-    expect(confirmationBody.text).toContain('Vi har registrerat din uppföljning.');
-    expect(confirmationBody.html).toContain('Uppföljningen är mottagen');
-    expect(confirmationBody.reply_to).toBeUndefined();
+    expect(confirmationBody.subject).toBe('Tack för din uppföljning!');
+    expect(confirmationBody.text).toContain('Vi har mottagit din uppföljning');
+    expect(confirmationBody.html).toContain('Tack för din uppföljning');
+    expect(confirmationBody.reply_to).toBe('info@privatetrainingonline.se');
 
     expect(res.statusCode).toBe(200);
     expect(res.jsonBody).toEqual({ ok: true, id: 'email_upp_123', channel: 'resend', confirmation_id: 'email_upp_confirm_123' });
@@ -305,7 +307,8 @@ describe('form notifications api', () => {
     const [, confirmationInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
     const confirmationBody = JSON.parse(String(confirmationInit.body));
     expect(confirmationBody.to).toEqual(['marcus@example.com']);
-    expect(confirmationBody.subject).toBe('Vi har mottagit din förlängning');
+    expect(confirmationBody.subject).toBe('Tack för din förlängning!');
+    expect(confirmationBody.reply_to).toBe('info@privatetrainingonline.se');
 
     expect(res.statusCode).toBe(200);
     expect(res.jsonBody).toEqual({ ok: true, id: 'email_ext_123', channel: 'resend', confirmation_id: 'email_ext_confirm_123' });
