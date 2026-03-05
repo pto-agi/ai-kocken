@@ -268,9 +268,7 @@ export default async function handler(req: any, res: any) {
       ...requestMeta,
     });
     sendSSE(res, 'error', {
-      message: process.env.CHAT_DEBUG === 'true'
-        ? (error?.message || String(error))
-        : 'Något gick fel. Försök igen.',
+      message: error?.message || 'Något gick fel. Försök igen.',
     });
   } finally {
     res.end();
