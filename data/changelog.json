@@ -1,6 +1,39 @@
 {
-  "last_commit": "1ae09b7c1ec58d13495fa5bbaf7442a6e8aa61f6",
+  "last_commit": "8c759e837527965bdae872e4dac83c2b66fcac38",
   "entries": [
+    {
+      "id": "2026-03-05T15:16:49.686Z-8c759e8",
+      "date": "2026-03-05T15:16:49.686Z",
+      "range": "1ae09b7c1ec58d13495fa5bbaf7442a6e8aa61f6..8c759e837527965bdae872e4dac83c2b66fcac38",
+      "head": "8c759e837527965bdae872e4dac83c2b66fcac38",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "8c759e8",
+          "subject": "feat(start): harden start form ux and resend delivery flow"
+        },
+        {
+          "hash": "6957bac",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "README.md",
+        "api/form-notifications.ts",
+        "data/changelog.json",
+        "pages/Intranet.tsx",
+        "pages/Start.tsx",
+        "tests/formNotificationsApi.live.test.ts",
+        "tests/formNotificationsApi.test.ts",
+        "tests/startNotification.test.ts",
+        "utils/startNotification.ts"
+      ],
+      "stats": {
+        "files": 9,
+        "insertions": 342,
+        "deletions": 90
+      }
+    },
     {
       "id": "2026-03-05T14:49:39.595Z-1ae09b7",
       "date": "2026-03-05T14:49:39.596Z",
