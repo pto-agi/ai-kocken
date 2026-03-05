@@ -1,6 +1,33 @@
 {
-  "last_commit": "0467e271d2c140a397eca47c07120f50a9fbf952",
+  "last_commit": "a975a7bdbc177eccc0ba796b5b60b018ad3ce9d0",
   "entries": [
+    {
+      "id": "2026-03-05T14:10:50.086Z-a975a7b",
+      "date": "2026-03-05T14:10:50.087Z",
+      "range": "0467e271d2c140a397eca47c07120f50a9fbf952..a975a7bdbc177eccc0ba796b5b60b018ad3ce9d0",
+      "head": "a975a7bdbc177eccc0ba796b5b60b018ad3ce9d0",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "a975a7b",
+          "subject": "fix(uppfoljning): always send admin email to info@privatetrainingonline.se"
+        },
+        {
+          "hash": "d977aa5",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/form-notifications.ts",
+        "data/changelog.json",
+        "tests/formNotificationsApi.test.ts"
+      ],
+      "stats": {
+        "files": 3,
+        "insertions": 31,
+        "deletions": 2
+      }
+    },
     {
       "id": "2026-03-05T14:03:47.004Z-0467e27",
       "date": "2026-03-05T14:03:47.004Z",
