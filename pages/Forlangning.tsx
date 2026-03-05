@@ -1,45 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  ArrowRight,
-  BadgePercent,
-  CheckCircle2,
-  CreditCard,
-  ShieldCheck,
-  Sparkles,
-  Wallet
-} from 'lucide-react';
-
-const PLAN_OPTIONS = [
-  {
-    id: '3',
-    label: '3 månader',
-    price: '1795 kr',
-    discounted: '1495:-',
-    highlight: false
-  },
-  {
-    id: '6',
-    label: '6 månader',
-    price: '3960 kr',
-    discounted: '1995:-',
-    highlight: false
-  },
-  {
-    id: '12',
-    label: '12 månader',
-    price: '7920 kr',
-    discounted: '2995:-',
-    highlight: true,
-    tag: 'Rekommenderas'
-  }
-];
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, CheckCircle2, CreditCard, Sparkles, User2 } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
+import { computeYearEndOffer } from '../utils/extensionOffer';
 
 const PAYMENT_OPTIONS = [
   'Jag betalar via friskvårdsportal',
   'Faktura utan extra avgifter',
   'Swish (123 003 73 17)',
-  'Delbetalning'
+  'Delbetalning',
 ];
 
 const PORTAL_OPTIONS = [
@@ -48,391 +17,466 @@ const PORTAL_OPTIONS = [
   'Benefits',
   'Wellnet',
   'Söderberg & Partners',
-  'Edenred'
+  'Edenred',
 ];
 
-const FRISKVARD_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uc9x2zz/';
-const STRIPE_PAYMENT_LINKS: Record<string, string> = {
-  '3': 'https://betalning.privatetrainingonline.se/b/3cIfZg8s37dt9mK8ITcfK0w?locale=sv',
-  '6': 'https://betalning.privatetrainingonline.se/b/6oU4gy4bN41hcyW4sDcfK0x?locale=sv',
-  '12': 'https://betalning.privatetrainingonline.se/b/14A6oG7nZ0P56aycZ9cfK0y?locale=sv'
+const FORLANGNING_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uc9x2zz/';
+const FORLANGNING_MONTHS_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/u0jqozb/';
+
+type FlowStep = 'intro' | 'offer' | 'confirm';
+
+type FormState = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  payment: string;
+  portal: string;
 };
 
-const buildStripeLink = (baseUrl: string, email: string) => {
-  try {
-    const url = new URL(baseUrl);
-    if (email) url.searchParams.set('prefilled_email', email);
-    return url.toString();
-  } catch (err) {
-    console.warn('Invalid Stripe payment link URL', err);
-    return baseUrl;
-  }
-};
+function formatDate(value?: string | null): string {
+  if (!value) return 'Ej registrerat';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('sv-SE');
+}
+
+function splitName(fullName: string): { firstName: string; lastName: string } {
+  const trimmed = fullName.trim();
+  if (!trimmed) return { firstName: '', lastName: '' };
+  const [firstName = '', ...rest] = trimmed.split(' ');
+  return { firstName, lastName: rest.join(' ') };
+}
 
 export const Forlangning: React.FC = () => {
-  const [form, setForm] = useState({
+  const navigate = useNavigate();
+  const { profile, session } = useAuthStore();
+
+  const [step, setStep] = useState<FlowStep>('intro');
+  const [form, setForm] = useState<FormState>({
     firstName: '',
     lastName: '',
     email: '',
-    plan: '12',
     payment: '',
-    portal: ''
+    portal: '',
   });
-  const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+
+  const offer = useMemo(() => computeYearEndOffer({
+    coachingExpiresAt: profile?.coaching_expires_at || null,
+    monthlyPrice: 249,
+  }), [profile?.coaching_expires_at]);
 
   const isPortalRequired = form.payment === 'Jag betalar via friskvårdsportal';
 
-  const selectedPlan = useMemo(() => PLAN_OPTIONS.find((p) => p.id === form.plan), [form.plan]);
+  useEffect(() => {
+    if (!profile && !session?.user?.email) return;
+
+    const nameParts = splitName(profile?.full_name || '');
+    const email = profile?.email || session?.user?.email || '';
+
+    setForm((prev) => ({
+      ...prev,
+      firstName: prev.firstName || nameParts.firstName,
+      lastName: prev.lastName || nameParts.lastName,
+      email: prev.email || email,
+    }));
+  }, [profile?.full_name, profile?.email, session?.user?.email]);
+
+  const validateForm = () => {
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
+      return 'Fyll i förnamn, efternamn och e-post.';
+    }
+    if (!form.payment) {
+      return 'Välj betalningsmetod.';
+    }
+    if (isPortalRequired && !form.portal) {
+      return 'Välj vilken friskvårdsportal du använder.';
+    }
+    return null;
+  };
+
+  const handleContinue = () => {
+    setError(null);
+
+    if (offer.monthCount <= 0) {
+      setError('Din period ser redan ut att täcka året ut. Kontakta support för nästa erbjudande.');
+      return;
+    }
+
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setStep('confirm');
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
-      setError('Fyll i namn och e-post.');
-      setStatus('error');
-      return;
-    }
-
-    if (!form.plan) {
-      setError('Välj hur många månader du vill förlänga med.');
-      setStatus('error');
-      return;
-    }
-
-    if (!form.payment) {
-      setError('Välj betalningsalternativ.');
-      setStatus('error');
-      return;
-    }
-
-    if (isPortalRequired && !form.portal) {
-      setError('Välj friskvårdsportal.');
-      setStatus('error');
-      return;
-    }
-
     setStatus('sending');
 
-    if (!isPortalRequired) {
-      const stripeBaseUrl = STRIPE_PAYMENT_LINKS[form.plan];
-      if (!stripeBaseUrl) {
-        setStatus('error');
-        setError('Kunde inte hitta betalningslänk för vald period.');
-        return;
-      }
+    const payload = {
+      source: 'forlangning',
+      campaign: 'year_end_offer',
+      campaign_year: offer.campaignYear,
+      monthly_price: offer.monthlyPrice,
+      month_count: offer.monthCount,
+      billable_days: offer.billableDays,
+      calculation_mode: offer.calculationMode,
+      total_price: offer.totalPrice,
+      current_expires_at: offer.currentExpiresAt || '',
+      billing_starts_at: offer.billingStartsAt,
+      new_expires_at: offer.newExpiresAt,
+      first_name: form.firstName.trim(),
+      last_name: form.lastName.trim(),
+      name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
+      email: form.email.trim(),
+      payment_method: form.payment,
+      wellness_portal: isPortalRequired ? form.portal : '',
+    };
 
-      const redirectUrl = buildStripeLink(stripeBaseUrl, form.email.trim());
-      window.location.href = redirectUrl;
-      return;
-    }
+    const body = new URLSearchParams(
+      Object.entries(payload).map(([key, value]) => [key, String(value ?? '')])
+    ).toString();
 
     try {
-      const payload = {
-        first_name: form.firstName.trim(),
-        last_name: form.lastName.trim(),
-        name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
-        email: form.email.trim(),
-        extension_months: selectedPlan?.label || form.plan,
-        payment_method: form.payment,
-        wellness_portal: isPortalRequired ? form.portal : '',
-        source: 'forlangning'
-      };
-
-      const body = new URLSearchParams(
-        Object.entries(payload).map(([key, value]) => [key, String(value ?? '')])
-      ).toString();
-
       let res: Response | null = null;
+
       try {
-        res = await fetch(FRISKVARD_WEBHOOK_URL, {
+        res = await fetch(FORLANGNING_WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body
+          body,
         });
       } catch (err) {
-        // Likely CORS/network; retry with no-cors to still deliver to Zapier
-        console.warn('Webhook primary failed, retrying no-cors:', err);
-        await fetch(FRISKVARD_WEBHOOK_URL, {
+        console.warn('Forlangning webhook primary failed, retrying no-cors:', err);
+        await fetch(FORLANGNING_WEBHOOK_URL, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain' },
-          body
+          body,
         });
         res = null;
       }
 
       if (res && !res.ok) throw new Error('Webhook failed');
 
-      setStatus('success');
-      setForm({ firstName: '', lastName: '', email: '', plan: '', payment: '', portal: '' });
-      navigate('/tack-forlangning-friskvard', {
-        state: {
-          planId: form.plan,
-          planLabel: selectedPlan?.label || form.plan,
-          planPrice: selectedPlan?.discounted || '',
-          portal: form.portal
+      const roundedMonthsExtended = Math.max(0, Math.round(offer.monthCount));
+      const monthsPayload = new URLSearchParams({
+        name: payload.name,
+        email: payload.email,
+        months_extended: `${roundedMonthsExtended} månader`,
+      }).toString();
+
+      let monthsRes: Response | null = null;
+
+      try {
+        monthsRes = await fetch(FORLANGNING_MONTHS_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: monthsPayload,
+        });
+      } catch (err) {
+        console.warn('Forlangning months webhook primary failed, retrying no-cors:', err);
+        await fetch(FORLANGNING_MONTHS_WEBHOOK_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: monthsPayload,
+        });
+        monthsRes = null;
+      }
+
+      if (monthsRes && !monthsRes.ok) throw new Error('Months webhook failed');
+
+      const formNotificationPayload = {
+        source: 'forlangning',
+        submitted_at: new Date().toISOString(),
+        first_name: form.firstName.trim(),
+        last_name: form.lastName.trim(),
+        email: form.email.trim(),
+        current_expires_at: offer.currentExpiresAt || 'Ej registrerat',
+        new_expires_at: offer.newExpiresAt,
+        billing_starts_at: offer.billingStartsAt,
+        months_extended: `${roundedMonthsExtended} månader`,
+        month_count: String(offer.monthCount),
+        total_price: String(offer.totalPrice),
+        payment_method: form.payment,
+        wellness_portal: isPortalRequired ? form.portal : '',
+        campaign_year: String(offer.campaignYear),
+      };
+
+      try {
+        const notificationRes = await fetch('/api/form-notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formNotificationPayload),
+        });
+        if (!notificationRes.ok) {
+          console.warn('Forlangning notification non-200:', notificationRes.status);
         }
+      } catch (notificationErr) {
+        console.warn('Forlangning notification error:', notificationErr);
+      }
+
+      navigate('/tack-forlangning', {
+        state: {
+          fullName: payload.name,
+          email: payload.email,
+          paymentMethod: payload.payment_method,
+          portal: payload.wellness_portal,
+          newExpiresAt: offer.newExpiresAt,
+          currentExpiresAt: offer.currentExpiresAt,
+          billingStartsAt: offer.billingStartsAt,
+        },
       });
     } catch (err) {
-      console.error('Forlangning webhook error:', err);
+      console.error('Forlangning submit error:', err);
       setStatus('error');
-      setError('Kunde inte skicka förlängningen. Försök igen.');
+      setError('Kunde inte registrera förlängningen just nu. Försök igen.');
+      return;
     }
+
+    setStatus('idle');
   };
 
+  const displayName = profile?.full_name?.trim() || `${form.firstName} ${form.lastName}`.trim() || 'vän';
+
   return (
-    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-24 pt-20 md:pt-24 px-4 overflow-x-hidden">
+    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-16 pt-20 md:pt-24 px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px] pointer-events-none"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[100px]"></div>
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-[#a0c81d]/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[100px]" />
       </div>
 
-      <div className="max-w-6xl mx-auto relative z-10 animate-fade-in">
-        <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-12 border border-[#E6E1D8] shadow-2xl mb-10 md:mb-12 overflow-hidden relative">
-          <div className="absolute -right-10 -top-10 w-[320px] h-[320px] bg-[#a0c81d]/10 rounded-full blur-[120px]"></div>
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-3 rounded-full border border-[#E6E1D8] bg-[#ffffff]/70 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-[#6B6158]">
-              <Sparkles className="w-3 h-3 text-[#a0c81d]" /> Klienterbjudande
-            </div>
-            <h1 className="mt-4 text-3xl md:text-5xl font-black text-[#3D3D3D] font-heading tracking-tight">
-              Förläng ditt medlemskap till exklusiva priser
-            </h1>
-            <p className="mt-3 text-[#6B6158] text-sm md:text-base font-medium max-w-2xl">
-              Passa på att förlänga ditt medlemskap innan utgångsdatumet för att kunna nyttja dina unika klientpriser.
-            </p>
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-[#6B6158]">
-              {[
-                'Upp till 70% förlängningsrabatt med priser som bättre än vad som erbjuds någon annan stans.',
-                'Betalning med friskvårdsbidrag.',
-                'Månader som adderas på ditt redan befintliga medlemskap.',
-                'Garanterat bättre priser.'
-              ].map((text) => (
-                <div key={text} className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#a0c81d] mt-0.5 shrink-0" />
-                  <span>{text}</span>
-                </div>
-              ))}
-            </div>
+      <div className="max-w-3xl mx-auto relative z-10 animate-fade-in space-y-5">
+        <div className="bg-[#E8F1D5]/85 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 border border-[#E6E1D8] shadow-2xl">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#8A8177] mb-4">
+            <Sparkles className="w-4 h-4 text-[#a0c81d]" />
+            Förlängning
+            <span className="ml-auto text-[#6B6158] tracking-[0.14em]">
+              Steg {step === 'intro' ? '1' : step === 'offer' ? '2' : '3'} av 3
+            </span>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-10 md:mb-12">
-          {PLAN_OPTIONS.map((plan) => (
-            <button
-              key={plan.id}
-              type="button"
-              onClick={() => setForm((prev) => ({ ...prev, plan: plan.id }))}
-              aria-pressed={form.plan === plan.id}
-              className={`relative text-left rounded-[1.5rem] border p-4 md:p-8 shadow-xl transition-all focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/40 ${
-                form.plan === plan.id
-                  ? 'border-[#a0c81d] bg-[#E8F1D5] shadow-[0_20px_60px_rgba(160,200,29,0.2)]'
-                  : plan.highlight
-                    ? 'border-[#a0c81d]/60 bg-[#E8F1D5] shadow-[0_20px_60px_rgba(160,200,29,0.18)]'
-                    : 'border-[#E6E1D8] bg-[#eadfd9]/80'
-              }`}
-            >
-              {(plan.highlight || form.plan === plan.id) && (
-                <div className={`absolute top-4 right-4 rounded-full text-[9px] font-black uppercase tracking-widest px-2.5 py-1 ${
-                  form.plan === plan.id
-                    ? 'bg-[#3D3D3D] text-[#F6F1E7]'
-                    : 'bg-[#a0c81d] text-[#F6F1E7]'
-                }`}>
-                  {form.plan === plan.id ? 'Vald' : plan.tag}
+          {step === 'intro' && (
+            <div className="space-y-4">
+              <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D]">Hej {displayName}, säkra din plats året ut.</h1>
+              <p className="text-sm md:text-base text-[#6B6158] font-medium">
+                Ditt nuvarande utgångsdatum är <span className="font-black text-[#3D3D3D]">{formatDate(profile?.coaching_expires_at)}</span>.
+              </p>
+
+              <div className="rounded-2xl border border-[#E6E1D8] bg-white/70 p-4 space-y-3">
+                <p className="text-xs font-black uppercase tracking-widest text-[#8A8177] mb-2">Kampanj</p>
+                <p className="text-sm text-[#6B6158]">
+                  Förläng året ut till <span className="font-black text-[#3D3D3D]">{offer.campaignEndsAt}</span> med ett personligt erbjudande anpassat till din period.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-2.5 py-1 rounded-full bg-[#F6F1E7] border border-[#E6E1D8] text-[11px] font-bold uppercase tracking-wide text-[#6B6158]">
+                    Tar ca 30 sekunder
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-[#F6F1E7] border border-[#E6E1D8] text-[11px] font-bold uppercase tracking-wide text-[#6B6158]">
+                    Ingen betalning i detta steg
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setStep('offer');
+                }}
+                className="w-full md:w-auto px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition inline-flex items-center justify-center gap-2"
+              >
+                Se ditt personliga erbjudande
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {step === 'offer' && (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-[#E6E1D8] bg-white/70 p-4 space-y-2">
+                <p className="text-[11px] font-black uppercase tracking-widest text-[#8A8177]">Ditt erbjudande</p>
+                {offer.monthCount > 0 ? (
+                  <>
+                    <p className="text-lg font-black text-[#3D3D3D]">Ditt personliga pris: {offer.totalPrice} kr</p>
+                    <p className="text-sm text-[#6B6158]">
+                      Nytt utgångsdatum blir <span className="font-black text-[#3D3D3D]">{offer.newExpiresAt}</span> efter bekräftelse.
+                    </p>
+                    <p className="text-sm text-[#6B6158]">
+                      Beräknat från <span className="font-black text-[#3D3D3D]">{offer.billingStartsAt}</span> till <span className="font-black text-[#3D3D3D]">{offer.campaignEndsAt}</span> baserat på din period.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-[#6B6158]">
+                    Din period täcker redan året ut. Kontakta support för nästa kampanj.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Förnamn</label>
+                  <input
+                    value={form.firstName}
+                    onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                    className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-2.5 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
+                    placeholder="Förnamn"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Efternamn</label>
+                  <input
+                    value={form.lastName}
+                    onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-2.5 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
+                    placeholder="Efternamn"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">E-post</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                  className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-2.5 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
+                  placeholder="E-postadress"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Betalningsmetod</p>
+                <div className="space-y-2">
+                  {PAYMENT_OPTIONS.map((option) => (
+                    <label
+                      key={option}
+                      className={`flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                        form.payment === option ? 'border-[#a0c81d]/60 bg-[#F6F1E7]' : 'border-[#E6E1D8] bg-[#F6F1E7]/60'
+                      }`}
+                    >
+                      <span className="text-sm text-[#3D3D3D]">{option}</span>
+                      <input
+                        type="radio"
+                        name="payment"
+                        value={option}
+                        checked={form.payment === option}
+                        onChange={() => setForm((prev) => ({ ...prev, payment: option, portal: '' }))}
+                        className="accent-[#a0c81d]"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {isPortalRequired && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Friskvårdsportal</label>
+                  <select
+                    value={form.portal}
+                    onChange={(e) => setForm((prev) => ({ ...prev, portal: e.target.value }))}
+                    className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-2.5 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
+                  >
+                    <option value="">Välj portal</option>
+                    {PORTAL_OPTIONS.map((portal) => (
+                      <option key={portal} value={portal}>{portal}</option>
+                    ))}
+                  </select>
                 </div>
               )}
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#6B6158]">
-                <BadgePercent className="w-4 h-4 text-[#a0c81d]" /> Förlängning
+
+              {error && (
+                <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setStep('intro');
+                  }}
+                  className="px-5 py-3 rounded-xl bg-white/70 border border-[#E6E1D8] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:bg-white transition"
+                >
+                  Tillbaka
+                </button>
+                <button
+                  type="button"
+                  onClick={handleContinue}
+                  className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition inline-flex items-center justify-center gap-2"
+                >
+                  Fortsätt
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
-              <h3 className="mt-3 text-xl md:text-2xl font-black text-[#3D3D3D]">{plan.label}</h3>
-              <div className="mt-2 text-[#6B6158] text-xs">Ordinarie: <span className="line-through">{plan.price}</span></div>
-              <div className="mt-1 text-2xl md:text-3xl font-black text-[#3D3D3D]">{plan.discounted}</div>
-              <p className="mt-2 text-[11px] text-[#6B6158]">Månader som adderas direkt på din nuvarande period.</p>
-            </button>
-          ))}
+            </div>
+          )}
+
+          {step === 'confirm' && (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="rounded-2xl border border-[#E6E1D8] bg-white/70 p-4 space-y-3">
+                <p className="text-[11px] font-black uppercase tracking-widest text-[#8A8177]">Bekräfta förlängning</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-[#6B6158]">
+                  <div className="flex items-start gap-2">
+                    <User2 className="w-4 h-4 mt-0.5 text-[#6B6158]" />
+                    <span>{form.firstName} {form.lastName}</span>
+                  </div>
+                  <div>{form.email}</div>
+                  <div>Nuvarande utgångsdatum: {offer.currentExpiresAt || 'Ej registrerat'}</div>
+                  <div>Nytt utgångsdatum: <span className="font-black text-[#3D3D3D]">{offer.newExpiresAt}</span></div>
+                  <div>Betalning: {form.payment}</div>
+                  <div>{isPortalRequired ? `Portal: ${form.portal}` : 'Portal: —'}</div>
+                </div>
+
+                <div className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-3 text-sm text-[#6B6158]">
+                  <div className="font-black text-[#3D3D3D]">Förlängningen registreras direkt när du bekräftar.</div>
+                  <div className="mt-1">Betalningen hanteras separat med dig av teamet efter att förlängningen skickats in.</div>
+                </div>
+              </div>
+
+              {error && (
+                <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setStep('offer');
+                  }}
+                  className="px-5 py-3 rounded-xl bg-white/70 border border-[#E6E1D8] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:bg-white transition"
+                >
+                  Tillbaka
+                </button>
+                <button
+                  type="submit"
+                  disabled={status === 'sending'}
+                  className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition inline-flex items-center justify-center gap-2 disabled:opacity-70"
+                >
+                  {status === 'sending' ? 'Registrerar...' : 'Bekräfta förlängning'}
+                  <CheckCircle2 className="w-4 h-4" />
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-          <div className="order-2 lg:order-1 bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-10 border border-[#E6E1D8] shadow-2xl">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
-                <Wallet className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Betalningsalternativ</p>
-                <h2 className="text-xl md:text-2xl font-black text-[#3D3D3D]">Välj det som passar dig</h2>
-              </div>
-            </div>
-
-            <div className="space-y-3 text-sm text-[#6B6158]">
-              {[
-                'Betala med ditt friskvårdsbidrag',
-                'Månaderna adderas ovanpå ditt aktiva medlemskap',
-                'Faktura utan extra kostnad',
-                'Swish (123 003 73 17)',
-                'Delbetalning',
-                'Du kan pausa när som helst – månaderna sparas'
-              ].map((text) => (
-                <div key={text} className="flex items-start gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-                  <span>{text}</span>
-                </div>
-              ))}
-              <div className="flex items-start gap-3">
-                <CreditCard className="w-4 h-4 text-[#6B6158] mt-0.5 shrink-0" />
-                <span>Alla priser är klientpriser och gäller endast befintliga medlemmar.</span>
-              </div>
-            </div>
-
-            <div className="mt-5 rounded-2xl border border-[#E6E1D8] bg-white/70 p-4 text-sm text-[#6B6158] space-y-2">
-              <p className="text-[11px] font-black uppercase tracking-widest text-[#8A8177]">Mer info om friskvårdsportal</p>
-              <p>
-                Betala hela beloppet direkt via din friskvårdsportal. Efter att du skickat in förlängningen
-                går du in i portalen, söker efter <strong>Private Training Online</strong> och genomför betalningen där.
-              </p>
-              <p>
-                Ditt klientpris här är oftast bättre än priset i portalen, så välj ett alternativ med samma pris – eller
-                ange eget belopp om det finns. Vi justerar sedan antalet månader i portalen så att det matchar din
-                förlängning här.
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="order-1 lg:order-2 bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2rem] p-6 md:p-10 border border-[#E6E1D8] shadow-2xl space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Förlängning</p>
-                <h2 className="text-xl md:text-2xl font-black text-[#3D3D3D]">Skicka in din förlängning</h2>
-              </div>
-              <span className="text-[10px] font-bold text-[#8A8177]">"*" anger obligatoriska fält</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Förnamn *</label>
-                <input
-                  value={form.firstName}
-                  onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
-                  className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-2.5 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
-                  placeholder="Förnamn"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Efternamn *</label>
-                <input
-                  value={form.lastName}
-                  onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                  className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-2.5 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
-                  placeholder="Efternamn"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">E-postadress *</label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-2.5 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
-                placeholder="E-postadress"
-                required
-              />
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Jag vill förlänga med *</p>
-              <div className="grid grid-cols-1 gap-2">
-                {PLAN_OPTIONS.map((plan) => (
-                  <label key={plan.id} className={`flex items-center justify-between gap-3 p-3 rounded-2xl border cursor-pointer transition-all ${
-                    form.plan === plan.id ? 'border-[#a0c81d]/60 bg-[#F6F1E7]' : 'border-[#E6E1D8] bg-[#F6F1E7]/60 hover:border-[#E6E1D8]'
-                  }`}>
-                    <div>
-                      <p className="font-bold text-[#3D3D3D]">{plan.label}</p>
-                      <p className="text-xs text-[#6B6158]">
-                        Ordinarie: <span className="line-through">{plan.price}</span>
-                        <span className="ml-2 text-[#3D3D3D] font-black">Klientpris: {plan.discounted}</span>
-                      </p>
-                    </div>
-                    <input
-                      type="radio"
-                      name="plan"
-                      value={plan.id}
-                      checked={form.plan === plan.id}
-                      onChange={() => setForm((prev) => ({ ...prev, plan: plan.id }))}
-                      className="accent-[#a0c81d]"
-                      required
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Hur vill du betala för din förlängning? *</p>
-              <div className="grid grid-cols-1 gap-2">
-                {PAYMENT_OPTIONS.map((option) => (
-                  <label key={option} className={`flex items-center justify-between gap-3 p-3 rounded-2xl border cursor-pointer transition-all ${
-                    form.payment === option ? 'border-[#a0c81d]/60 bg-[#F6F1E7]' : 'border-[#E6E1D8] bg-[#F6F1E7]/60 hover:border-[#E6E1D8]'
-                  }`}>
-                    <span className="text-sm text-[#3D3D3D]">{option}</span>
-                    <input
-                      type="radio"
-                      name="payment"
-                      value={option}
-                      checked={form.payment === option}
-                      onChange={() => setForm((prev) => ({ ...prev, payment: option }))}
-                      className="accent-[#a0c81d]"
-                      required
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {isPortalRequired && (
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Ange friskvårdsportal *</label>
-                <select
-                  value={form.portal}
-                  onChange={(e) => setForm((prev) => ({ ...prev, portal: e.target.value }))}
-                  className="w-full bg-[#F6F1E7] border border-[#E6E1D8] rounded-xl px-4 py-2.5 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none"
-                  required={isPortalRequired}
-                >
-                  <option value="">Välj portal</option>
-                  {PORTAL_OPTIONS.map((portal) => (
-                    <option key={portal} value={portal}>{portal}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {status === 'error' && error && (
-              <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {error}
-              </div>
-            )}
-
-            {!isPortalRequired && (
-              <p className="text-[11px] text-[#8A8177] leading-relaxed">
-                Vid kort, Swish, faktura eller delbetalning skickas du vidare till säker betalning hos Stripe.
-                Där kan du betala med Klarna, Apple Pay, kort eller Swish.
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={status === 'sending'}
-              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#a0c81d] text-[#F6F1E7] px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#5C7A12] disabled:opacity-70"
-            >
-              {status === 'sending' ? 'Skickar...' : 'Skicka förlängning'}
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
+        <div className="rounded-2xl border border-[#E6E1D8] bg-white/70 px-4 py-3 text-sm text-[#6B6158] flex items-start gap-2">
+          <CreditCard className="w-4 h-4 mt-0.5 text-[#6B6158]" />
+          <span>
+            Har du frågor om betalning eller erbjudandet? <Link to="/support" className="font-black text-[#3D3D3D] hover:text-[#5C7A12]">Kontakta support</Link>.
+          </span>
         </div>
       </div>
     </div>
