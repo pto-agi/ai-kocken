@@ -245,11 +245,18 @@ export default async function handler(req: any, res: any) {
       }
     });
 
-    // Persist messages after successful completion
-    const userId = await verifyUserFromToken(accessToken);
+    // Persist messages after successful completion (non-critical – don't break UX if this fails)
     let resultConvId: string | null = conversationId;
-    if (userId && fullOutput.trim()) {
-      resultConvId = await persistMessages(userId, conversationId, inputText, fullOutput);
+    try {
+      const userId = await verifyUserFromToken(accessToken);
+      if (userId && fullOutput.trim()) {
+        resultConvId = await persistMessages(userId, conversationId, inputText, fullOutput);
+      }
+    } catch (persistErr: any) {
+      console.warn('Chat stream: persistence failed (non-critical)', {
+        error: persistErr?.message || String(persistErr),
+        ...requestMeta,
+      });
     }
 
     // Send final metadata including conversation_id
