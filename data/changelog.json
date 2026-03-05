@@ -1,6 +1,53 @@
 {
-  "last_commit": "8c759e837527965bdae872e4dac83c2b66fcac38",
+  "last_commit": "5a7069954ef103ebc523aba5d537b79fd56a2873",
   "entries": [
+    {
+      "id": "2026-03-05T18:20:03.978Z-5a70699",
+      "date": "2026-03-05T18:20:03.978Z",
+      "range": "8c759e837527965bdae872e4dac83c2b66fcac38..5a7069954ef103ebc523aba5d537b79fd56a2873",
+      "head": "5a7069954ef103ebc523aba5d537b79fd56a2873",
+      "commit_count": 5,
+      "commits": [
+        {
+          "hash": "5a70699",
+          "subject": "fix(auth): align staff and manager page access rules"
+        },
+        {
+          "hash": "41c051b",
+          "subject": "fix(email): remove confirmation hero/cta and start body at greeting"
+        },
+        {
+          "hash": "8f07fca",
+          "subject": "fix(email): render customer confirmation copy in primary content block"
+        },
+        {
+          "hash": "c7dfa39",
+          "subject": "feat(email): integrate resend for pause/reactivate and warm customer copy"
+        },
+        {
+          "hash": "91e4aef",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "App.tsx",
+        "README.md",
+        "api/form-notifications.ts",
+        "api/member-actions.ts",
+        "components/AuthGuard.tsx",
+        "components/Navbar.tsx",
+        "data/changelog.json",
+        "pages/Intranet.tsx",
+        "pages/Support.tsx",
+        "tests/formNotificationsApi.test.ts",
+        "tests/memberActionsApi.test.ts"
+      ],
+      "stats": {
+        "files": 11,
+        "insertions": 787,
+        "deletions": 86
+      }
+    },
     {
       "id": "2026-03-05T15:16:49.686Z-8c759e8",
       "date": "2026-03-05T15:16:49.686Z",
