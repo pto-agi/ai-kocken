@@ -1,6 +1,34 @@
 {
-  "last_commit": "a975a7bdbc177eccc0ba796b5b60b018ad3ce9d0",
+  "last_commit": "59947bbad61b5c302cc8cb07e9ac919f15b3f6d0",
   "entries": [
+    {
+      "id": "2026-03-05T14:23:38.916Z-59947bb",
+      "date": "2026-03-05T14:23:38.916Z",
+      "range": "a975a7bdbc177eccc0ba796b5b60b018ad3ce9d0..59947bbad61b5c302cc8cb07e9ac919f15b3f6d0",
+      "head": "59947bbad61b5c302cc8cb07e9ac919f15b3f6d0",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "59947bb",
+          "subject": "feat(email): add PTO base template for resend and auth template docs"
+        },
+        {
+          "hash": "a52ec22",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/form-notifications.ts",
+        "data/changelog.json",
+        "docs/email-templates/supabase-auth-templates.md",
+        "tests/formNotificationsApi.test.ts"
+      ],
+      "stats": {
+        "files": 4,
+        "insertions": 400,
+        "deletions": 112
+      }
+    },
     {
       "id": "2026-03-05T14:10:50.086Z-a975a7b",
       "date": "2026-03-05T14:10:50.087Z",
