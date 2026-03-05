@@ -1,92 +1,183 @@
-import { fileSearchTool, hostedMcpTool, RunContext, Agent, AgentInputItem, Runner, withTrace } from '@openai/agents';
+import { fileSearchTool, tool, RunContext, Agent, AgentInputItem, Runner, withTrace } from '@openai/agents';
 import { OpenAI } from 'openai';
 import { runGuardrails } from '@openai/guardrails';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  todoistCreateTask,
+  todoistFindProject,
+  todoistFindTask,
+  todoistAddComment,
+  sheetsGetWorksheetData,
+  sheetsLookupByEmail,
+  sheetsGetSpreadsheetInfo,
+  getProfileDirect,
+} from './directTools.js';
 
-const WORKFLOW_ID = 'wf_698f3221c2a481909c391387fd6efe8e0a3f823293ebb086';
+// All agent logic is owned in-code. No Agent Builder or Zapier MCP.
 
 // Tool definitions
 const fileSearch = fileSearchTool(['vs_699b3242c3f88191b0fcdeeb1df56307']);
 
-const ZAPIER_MCP_AUTH_TOKEN = process.env.ZAPIER_MCP_AUTH_TOKEN;
-if (!ZAPIER_MCP_AUTH_TOKEN) {
-  throw new Error('Missing required environment variable: ZAPIER_MCP_AUTH_TOKEN');
-}
-
 const AGENT_MODEL = process.env.AGENT_MODEL || 'gpt-4.1';
 
-const mcp = hostedMcpTool({
-  serverLabel: 'zapier',
-  allowedTools: [
-    'get_configuration_url',
-    'todoist_find_project',
-    'todoist_find_task',
-    'todoist_add_comment_to_task',
-    'todoist_create_task',
-    'todoist_update_task',
-    'todoist_api_request_beta',
-    'google_sheets_lookup_spreadsheet_rows_advanced',
-    'google_sheets_find_worksheet',
-    'google_sheets_get_data_range',
-    'google_sheets_get_many_spreadsheet_rows_advanced',
-    'google_sheets_get_row_by_id',
-    'google_sheets_get_spreadsheet_by_id',
-    'google_sheets_lookup_spreadsheet_row',
-    'google_sheets_api_request_beta',
-  ],
-  authorization: ZAPIER_MCP_AUTH_TOKEN,
-  requireApproval: 'never',
-  serverUrl: 'https://mcp.zapier.com/api/mcp/mcp',
-});
-function createMcp1(accessToken: string) {
-  return hostedMcpTool({
-    serverLabel: 'my_mcp2',
-    allowedTools: [
-      'get_profile',
-      'get_start_intake_latest',
-      'get_followup_latest',
-      'get_weekly_plans',
-      'save_weekly_plan',
-    ],
-    authorization: accessToken,
-    requireApproval: 'never',
-    serverUrl: 'https://mcp-0brh.onrender.com/mcp',
-  });
-}
+// Default Google Sheet ID for client data
+const CLIENT_SHEET_ID = process.env.GOOGLE_SHEET_ID || '1DHKLVUhJmaTBFooHnn_OAAlPe_kR0Fs84FibCr9zoAM';
 
-async function fetchProfileFromMcp(accessToken: string) {
-  if (!accessToken) return null;
-  const transport = new StreamableHTTPClientTransport(new URL('https://mcp-0brh.onrender.com/mcp'), {
-    requestInit: {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+// ─── Direct Todoist Tools ────────────────────────────────────────
+
+const todoistCreateTaskTool = tool({
+  name: 'todoist_create_task',
+  description: 'Skapa en ny uppgift i Todoist. Ange projektnamn eller projekt-ID, uppgiftens titel, och eventuellt en beskrivning eller sektion.',
+  parameters: {
+    type: 'object' as const,
+    properties: {
+      project_id: { type: 'string', description: 'Todoist project ID' },
+      content: { type: 'string', description: 'Task title/content' },
+      description: { type: 'string', description: 'Optional task description' },
+      section_id: { type: 'string', description: 'Optional section ID to place the task in' },
     },
-  });
-  const client = new Client({ name: 'ptoai-app', version: '1.0.0' });
+    required: ['project_id', 'content'],
+    additionalProperties: false,
+  },
+  execute: async (input: any) => {
+    return await todoistCreateTask({
+      projectId: input.project_id,
+      content: input.content,
+      description: input.description,
+      sectionId: input.section_id,
+    });
+  },
+});
+
+const todoistFindProjectTool = tool({
+  name: 'todoist_find_project',
+  description: 'Hitta ett Todoist-projekt med namn. Returnerar projekt-ID och metadata.',
+  parameters: {
+    type: 'object' as const,
+    properties: {
+      name: { type: 'string', description: 'Project name to search for' },
+    },
+    required: ['name'],
+    additionalProperties: false,
+  },
+  execute: async (input: any) => {
+    return await todoistFindProject(input.name);
+  },
+});
+
+const todoistFindTaskTool = tool({
+  name: 'todoist_find_task',
+  description: 'Sök efter uppgifter i ett Todoist-projekt. Kan filtrera på uppgiftens titel.',
+  parameters: {
+    type: 'object' as const,
+    properties: {
+      project_id: { type: 'string', description: 'Project ID to search in' },
+      query: { type: 'string', description: 'Optional text to filter tasks by content' },
+    },
+    required: [],
+    additionalProperties: false,
+  },
+  execute: async (input: any) => {
+    return await todoistFindTask({ projectId: input.project_id, query: input.query });
+  },
+});
+
+const todoistAddCommentTool = tool({
+  name: 'todoist_add_comment',
+  description: 'Lägg till en kommentar på en Todoist-uppgift.',
+  parameters: {
+    type: 'object' as const,
+    properties: {
+      task_id: { type: 'string', description: 'The task ID to add a comment to' },
+      content: { type: 'string', description: 'Comment text' },
+    },
+    required: ['task_id', 'content'],
+    additionalProperties: false,
+  },
+  execute: async (input: any) => {
+    return await todoistAddComment(input.task_id, input.content);
+  },
+});
+
+// ─── Direct Google Sheets Tools ──────────────────────────────────
+
+const sheetsGetDataTool = tool({
+  name: 'sheets_get_data',
+  description: 'Hämta rader från ett Google Sheets-blad. Returnerar header och data. Använd detta för att läsa klientdata, utgångsdatum, pausstatus m.m. Standard sheet_id = Client File.',
+  parameters: {
+    type: 'object' as const,
+    properties: {
+      sheet_id: { type: 'string', description: 'Google Spreadsheet ID (defaults to Client File if omitted)' },
+      worksheet_name: { type: 'string', description: 'Worksheet/tab name, e.g. "Aktiva", "Paus", "Expired"' },
+      range: { type: 'string', description: 'Optional A1 range, e.g. "A1:F50"' },
+    },
+    required: ['worksheet_name'],
+    additionalProperties: false,
+  },
+  execute: async (input: any) => {
+    return await sheetsGetWorksheetData({
+      sheetId: input.sheet_id || CLIENT_SHEET_ID,
+      worksheetName: input.worksheet_name,
+      range: input.range,
+    });
+  },
+});
+
+const sheetsLookupEmailTool = tool({
+  name: 'sheets_lookup_email',
+  description: 'Sök efter en kund via e-post i ett Google Sheets-blad. Returnerar hela raden för matchad klient. Perfekt för att hitta utgångsdatum, pausinfo etc.',
+  parameters: {
+    type: 'object' as const,
+    properties: {
+      sheet_id: { type: 'string', description: 'Google Spreadsheet ID (defaults to Client File if omitted)' },
+      worksheet_name: { type: 'string', description: 'Worksheet/tab name, e.g. "Aktiva", "Paus"' },
+      email: { type: 'string', description: 'Email address to search for' },
+    },
+    required: ['worksheet_name', 'email'],
+    additionalProperties: false,
+  },
+  execute: async (input: any) => {
+    return await sheetsLookupByEmail({
+      sheetId: input.sheet_id || CLIENT_SHEET_ID,
+      worksheetName: input.worksheet_name,
+      email: input.email,
+    });
+  },
+});
+
+const sheetsGetInfoTool = tool({
+  name: 'sheets_get_info',
+  description: 'Hämta metadata om ett Google Sheets-dokument: titel, alla blad/worksheets och antal rader.',
+  parameters: {
+    type: 'object' as const,
+    properties: {
+      sheet_id: { type: 'string', description: 'Google Spreadsheet ID (defaults to Client File if omitted)' },
+    },
+    required: [],
+    additionalProperties: false,
+  },
+  execute: async (input: any) => {
+    return await sheetsGetSpreadsheetInfo(input.sheet_id || CLIENT_SHEET_ID);
+  },
+});
+
+// All direct tools in one array
+const directTools = [
+  todoistCreateTaskTool,
+  todoistFindProjectTool,
+  todoistFindTaskTool,
+  todoistAddCommentTool,
+  sheetsGetDataTool,
+  sheetsLookupEmailTool,
+  sheetsGetInfoTool,
+];
+
+async function fetchProfileDirect(accessToken: string) {
+  if (!accessToken) return null;
   try {
-    await client.connect(transport);
-    const result = await client.request(
-      {
-        method: 'tools/call',
-        params: {
-          name: 'get_profile',
-          arguments: { access_token: accessToken },
-        },
-      },
-      CallToolResultSchema,
-    );
-    const textItem = result?.content?.find((item: any) => item?.type === 'text');
-    if (!textItem || textItem.type !== 'text' || typeof textItem.text !== 'string') return null;
-    const parsed = JSON.parse(textItem.text);
-    return parsed?.profile ?? null;
+    return await getProfileDirect(accessToken);
   } catch (error) {
-    console.warn('MCP profile fetch failed', error);
+    console.warn('Direct profile fetch failed', error);
     return null;
-  } finally {
-    await transport.close().catch(() => undefined);
   }
 }
 
@@ -213,8 +304,8 @@ Data
 - Fil: faq.md = Vanliga frågor och svar
 - Fil: instruction.md = Dina instruktioner
 - Storage: Admin Agent = Samling av filerna faq.md och instruction.md 
-- MCP: zapier = Integrationer med verktyg som todoist.
-- MCP: my_mcp2 = Användardata såsom namn och e-post
+- Verktyg: todoist_create_task, todoist_find_project, todoist_find_task, todoist_add_comment = Direkt Todoist API
+- Verktyg: sheets_get_data, sheets_lookup_email, sheets_get_info = Direkt Google Sheets API
 
 RUN BOOKS
 
@@ -235,9 +326,8 @@ När det ska skapas ett ärende/uppgift för att något ska ändras i klientens 
 2. Utgångsdatum
 - När användaren frågar om utgångsdatum:
 
-1. Använd 'google_sheets_get_spreadsheet_by_id 1DHKLVUhJmaTBFooHnn_OAAlPe_kR0Fs84FibCr9zoAM' (filnamn: Client File).
-2. Hämta header-raden i worksheet 'Aktiva' (kolumnnamn, särskilt e-post och utgångsdatum).
-3. Sök raden i 'Aktiva' där kolumn 'Epost' matchar användarens e-post och returnera raden (utgångsdatum).
+1. Använd verktyget 'sheets_lookup_email' med worksheet_name='Aktiva' och email=användarens e-post. Det returnerar hela raden inklusive utgångsdatum.
+2. Om användaren ej hittas i 'Aktiva', sök i worksheet 'Paus' på samma sätt.
 - Om användaren finns i blad "Paus":
 - Pausdatum i kolumn D
 - Antal innestående månader i kolumn C
@@ -282,12 +372,12 @@ När det ska skapas ett ärende/uppgift för att något ska ändras i klientens 
 - Informera vid eventuella förseningar att alla paket är på väg. Be användaren återkomma om ingen avisering mottagits inom en dag.`;
 };
 
-function createPtoaiSupport(accessToken: string) {
+function createPtoaiSupport(_accessToken: string) {
   return new Agent({
     name: 'PTOAi Support',
     instructions: ptoaiSupportInstructions,
     model: AGENT_MODEL,
-    tools: [fileSearch, mcp, createMcp1(accessToken)],
+    tools: [fileSearch, ...directTools],
     modelSettings: {
       store: true,
     },
@@ -350,7 +440,7 @@ export const runWorkflow = async (messages: UIMessage[], accessToken: string): P
       target_calories: null,
       biometrics_json: null,
     };
-    const profile = await fetchProfileFromMcp(accessToken);
+    const profile = await fetchProfileDirect(accessToken);
     const profileName =
       (typeof profile?.full_name === 'string' && profile.full_name.trim()) ||
       (typeof profile?.name === 'string' && profile.name.trim()) ||
@@ -366,8 +456,7 @@ export const runWorkflow = async (messages: UIMessage[], accessToken: string): P
     const conversationHistory: AgentInputItem[] = [...toAgentItems(messages)];
     const runner = new Runner({
       traceMetadata: {
-        __trace_source__: 'agent-builder',
-        workflow_id: WORKFLOW_ID,
+        __trace_source__: 'pto-agent',
       },
     });
     const guardrailsInputText = workflow.input_as_text;
@@ -396,4 +485,34 @@ export const runWorkflow = async (messages: UIMessage[], accessToken: string): P
 
     return ptoaiSupportResult;
   });
+};
+
+/**
+ * Streaming variant of runWorkflow.
+ * Runs the agent to completion, then yields the output in small chunks
+ * via the onChunk callback for SSE/typewriter-effect streaming.
+ */
+export const runWorkflowStream = async (
+  messages: UIMessage[],
+  accessToken: string,
+  onChunk: (chunk: string, done: boolean) => void,
+): Promise<void> => {
+  const result = await runWorkflow(messages, accessToken);
+  const text = result.output_text;
+
+  // Stream in ~30-char chunks with small delays for typewriter effect
+  const CHUNK_SIZE = 30;
+  for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+    const chunk = text.slice(i, i + CHUNK_SIZE);
+    const isLast = i + CHUNK_SIZE >= text.length;
+    onChunk(chunk, isLast);
+    if (!isLast) {
+      await new Promise((resolve) => setTimeout(resolve, 15));
+    }
+  }
+
+  // If text was empty, signal done
+  if (!text.length) {
+    onChunk('', true);
+  }
 };

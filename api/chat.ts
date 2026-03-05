@@ -1,4 +1,5 @@
-import { runWorkflow } from '../services/agentWorkflow.js';
+import { runWorkflowStream } from '../services/agentWorkflow.js';
+import { createClient } from '@supabase/supabase-js';
 
 type UIMessage = {
   id?: string;
@@ -87,6 +88,80 @@ function getLatestUserText(messages: UIMessage[]): string | null {
   return null;
 }
 
+// Create a Supabase service-role client for server-side persistence
+function getSupabaseAdmin() {
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return null;
+  return createClient(url, serviceKey, { auth: { persistSession: false } });
+}
+
+// Verify Supabase JWT and return user ID
+async function verifyUserFromToken(accessToken: string): Promise<string | null> {
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+
+  const userClient = createClient(url, anonKey, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+  });
+  const { data } = await userClient.auth.getUser(accessToken);
+  return data?.user?.id ?? null;
+}
+
+async function persistMessages(
+  userId: string,
+  conversationId: string | null,
+  userText: string,
+  assistantText: string,
+): Promise<string | null> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return conversationId;
+
+  try {
+    let convId = conversationId;
+
+    // Create conversation if none provided
+    if (!convId) {
+      const title = userText.slice(0, 60) + (userText.length > 60 ? '…' : '');
+      const { data, error } = await supabase
+        .from('chat_conversations')
+        .insert({ user_id: userId, title })
+        .select('id')
+        .single();
+      if (error || !data) {
+        console.warn('Failed to create conversation', error);
+        return null;
+      }
+      convId = data.id;
+    } else {
+      // Update timestamp on existing conversation
+      await supabase
+        .from('chat_conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', convId);
+    }
+
+    // Insert both messages
+    const { error } = await supabase.from('chat_messages').insert([
+      { conversation_id: convId, role: 'user', content: userText },
+      { conversation_id: convId, role: 'assistant', content: assistantText },
+    ]);
+    if (error) console.warn('Failed to persist messages', error);
+
+    return convId;
+  } catch (err) {
+    console.warn('Persistence error', err);
+    return conversationId;
+  }
+}
+
+// SSE helper
+function sendSSE(res: any, event: string, data: any) {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
 export default async function handler(req: any, res: any) {
   const origin = req.headers?.origin as string | undefined;
   const requestId = createRequestId();
@@ -120,6 +195,7 @@ export default async function handler(req: any, res: any) {
 
   const body = await readJsonBody(req);
   const messages = Array.isArray(body?.messages) ? (body.messages as UIMessage[]) : [];
+  const conversationId = typeof body?.conversation_id === 'string' ? body.conversation_id : null;
   const accessToken =
     getBearerToken(req.headers?.authorization as string | undefined) ||
     (typeof body?.access_token === 'string' ? body.access_token : undefined);
@@ -147,22 +223,41 @@ export default async function handler(req: any, res: any) {
 
   const startedAt = Date.now();
 
-  try {
-    console.info('Chat stream: running workflow', {
-      ...requestMeta,
-      workflow_id: 'wf_698f3221c2a481909c391387fd6efe8e0a3f823293ebb086',
-    });
-    const result = await runWorkflow(messages, accessToken);
-    const outputText =
-      typeof result?.output_text === 'string' && result.output_text.trim().length > 0
-        ? result.output_text
-        : JSON.stringify(result ?? {});
+  // Set up SSE streaming response
+  setStandardHeaders(res, origin, requestId);
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.status(200);
+  res.flushHeaders?.();
 
-    setStandardHeaders(res, origin, requestId);
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.status(200).send(outputText);
+  let fullOutput = '';
+
+  try {
+    console.info('Chat stream: running workflow', requestMeta);
+
+    await runWorkflowStream(messages, accessToken, (chunk, done) => {
+      fullOutput += chunk;
+      sendSSE(res, 'chunk', { text: chunk });
+      if (done) {
+        sendSSE(res, 'done', { text: '' });
+      }
+    });
+
+    // Persist messages after successful completion
+    const userId = await verifyUserFromToken(accessToken);
+    let resultConvId: string | null = conversationId;
+    if (userId && fullOutput.trim()) {
+      resultConvId = await persistMessages(userId, conversationId, inputText, fullOutput);
+    }
+
+    // Send final metadata including conversation_id
+    sendSSE(res, 'meta', { conversation_id: resultConvId });
+
     console.info('Chat stream: completed', {
       duration_ms: Date.now() - startedAt,
+      conversation_id: resultConvId,
       ...requestMeta,
     });
   } catch (error: any) {
@@ -172,15 +267,12 @@ export default async function handler(req: any, res: any) {
       duration_ms: Date.now() - startedAt,
       ...requestMeta,
     });
-    setStandardHeaders(res, origin, requestId);
-    if (process.env.CHAT_DEBUG === 'true') {
-      res.status(502).json({
-        error: 'Workflow run failed',
-        message: error?.message || String(error),
-        stack: error?.stack,
-      });
-      return;
-    }
-    res.status(502).json({ error: 'Workflow run failed' });
+    sendSSE(res, 'error', {
+      message: process.env.CHAT_DEBUG === 'true'
+        ? (error?.message || String(error))
+        : 'Något gick fel. Försök igen.',
+    });
+  } finally {
+    res.end();
   }
 }

@@ -7,9 +7,10 @@ export const Support: React.FC = () => {
   const { profile } = useAuthStore();
   const isStaff = profile?.is_staff === true;
   const isManager = profile?.is_manager === true;
-  const hasStaffAccess = isStaff || isManager;
+  const chatEnabled = profile?.chat_enabled === true;
+  const hasChatAccess = isStaff || isManager || chatEnabled;
 
-  if (!hasStaffAccess) {
+  if (!hasChatAccess) {
     return (
       <div className="min-h-[100svh] min-h-[100dvh] bg-[#F6F1E7] pb-10 md:pb-16 animate-fade-in relative font-sans overflow-x-hidden text-[#3D3D3D] flex flex-col">
         <div className="max-w-6xl mx-auto px-4 md:px-6 pt-10 md:pt-16">
@@ -25,7 +26,7 @@ export const Support: React.FC = () => {
               <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-[0.3em] text-[#6B6158]">
                 <span className="flex items-center gap-2">
                   <Sparkles className="w-3 h-3 text-[#a0c81d]" />
-                  Chatt lanseras i mars 2026
+                  PTO Coach
                 </span>
                 <span className="flex items-center gap-2 px-3 py-1 rounded-full border border-[#E6E1D8] text-[#6B6158] bg-[#ffffff]/70">
                   <CalendarDays className="w-3 h-3" />
@@ -34,30 +35,30 @@ export const Support: React.FC = () => {
               </div>
 
               <h1 className="mt-6 text-3xl md:text-5xl font-black text-[#3D3D3D] font-heading tracking-tight">
-                Din chatt är på väg.
+                Din coach är på väg.
               </h1>
               <p className="mt-4 text-[#6B6158] text-sm md:text-base font-medium">
-                Vi bygger en snabbare, smartare chattupplevelse med bättre svar och tydligare uppföljning.
-                Titta tillbaka i mars så öppnar vi stegvis.
+                Vi bygger en smartare och snabbare chattupplevelse med personliga svar och direkt åtgärd.
+                Vi släpper den gradvis till alla medlemmar inom kort.
               </p>
 
               <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
                   {
                     title: 'Snabb hjälp',
-                    text: 'Få svar på frågor om kost, medlemsskap och teknik utan väntetid.'
+                    text: 'Få svar på frågor om kost, medlemskap och teknik utan väntetid.'
+                  },
+                  {
+                    title: 'Direkt åtgärd',
+                    text: 'Byt övningar, förläng eller pausa – direkt via chatten.'
                   },
                   {
                     title: 'Personlig uppföljning',
-                    text: 'Chatten kommer komma ihåg din historik och ge bättre råd.'
-                  },
-                  {
-                    title: 'Prioriterade svar',
-                    text: 'Medlemmar får snabbare guidning när det behövs som mest.'
+                    text: 'Chatten vet vem du är och ger råd utifrån din profil.'
                   },
                   {
                     title: 'Trygg dialog',
-                    text: 'Tydliga ramar och smart filtrering gör det lättare att komma vidare.'
+                    text: 'Tydliga ramar och filtrering gör det lättare att komma vidare.'
                   }
                 ].map((item) => (
                   <div key={item.title} className="rounded-2xl border border-[#E6E1D8] bg-white/80 p-4 shadow-[0_12px_30px_rgba(61,61,61,0.08)]">
@@ -80,21 +81,21 @@ export const Support: React.FC = () => {
 
   return (
     <div className="min-h-[100svh] min-h-[100dvh] bg-[#F6F1E7] pb-10 md:pb-16 animate-fade-in relative font-sans overflow-x-hidden text-[#3D3D3D] flex flex-col">
-      <div className="max-w-6xl mx-auto px-4 md:px-6 pt-6 md:pt-10">
-        <div className="mb-8 text-center">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 pt-6 md:pt-10 w-full">
+        <div className="mb-6 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#E6E1D8] bg-[#ffffff]/70 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-[#6B6158]">
-            <LifeBuoy className="w-3 h-3 text-[#a0c81d]" /> Chatt
+            <LifeBuoy className="w-3 h-3 text-[#a0c81d]" /> PTO Coach
           </div>
           <h1 className="mt-4 text-3xl md:text-5xl font-black text-[#3D3D3D] font-heading tracking-tight">
             Snabb hjälp, precis när du behöver den
           </h1>
-          <p className="mt-3 text-[#6B6158] text-sm md:text-base font-medium">
-            Skriv till oss i chatten så guidar vi dig vidare. Vi svarar vanligtvis inom några minuter.
+          <p className="mt-3 text-[#6B6158] text-sm md:text-base font-medium max-w-2xl mx-auto">
+            Skriv till oss så guidar vi dig vidare. Byt övningar, se ditt utgångsdatum, förläng eller pausa – allt direkt i chatten.
           </p>
         </div>
       </div>
       <div className="flex-1 min-h-0 w-full">
-        <div className="max-w-5xl mx-auto px-4 md:px-6">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
           <SupportChat />
         </div>
       </div>

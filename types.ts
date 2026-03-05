@@ -70,6 +70,7 @@ export interface UserProfile {
   isPremium?: boolean;       // Helper property often used in frontend
   is_staff?: boolean;
   is_manager?: boolean;
+  chat_enabled?: boolean;
   subscription_status?: string;
   coaching_expires_at?: string; // DATE STRING from Google Sheets/Zapier
   referral_code?: string;
