@@ -1,6 +1,32 @@
 {
-  "last_commit": "59947bbad61b5c302cc8cb07e9ac919f15b3f6d0",
+  "last_commit": "1ae09b7c1ec58d13495fa5bbaf7442a6e8aa61f6",
   "entries": [
+    {
+      "id": "2026-03-05T14:49:39.595Z-1ae09b7",
+      "date": "2026-03-05T14:49:39.596Z",
+      "range": "59947bbad61b5c302cc8cb07e9ac919f15b3f6d0..1ae09b7c1ec58d13495fa5bbaf7442a6e8aa61f6",
+      "head": "1ae09b7c1ec58d13495fa5bbaf7442a6e8aa61f6",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "1ae09b7",
+          "subject": "docs(email): set fixed Supabase logo URL placeholder guidance"
+        },
+        {
+          "hash": "360308a",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "docs/email-templates/supabase-auth-templates.md"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 40,
+        "deletions": 6
+      }
+    },
     {
       "id": "2026-03-05T14:23:38.916Z-59947bb",
       "date": "2026-03-05T14:23:38.916Z",
