@@ -1,6 +1,32 @@
 {
-  "last_commit": "0f07adf36df5c66d8ac76c36a18395236c7b242a",
+  "last_commit": "0067fae9b0180d58e99e31a3d701c5a745223b20",
   "entries": [
+    {
+      "id": "2026-03-05T23:23:23.983Z-0067fae",
+      "date": "2026-03-05T23:23:23.983Z",
+      "range": "0f07adf36df5c66d8ac76c36a18395236c7b242a..0067fae9b0180d58e99e31a3d701c5a745223b20",
+      "head": "0067fae9b0180d58e99e31a3d701c5a745223b20",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "0067fae",
+          "subject": "fix: migrate _todoistMcp.ts from deprecated rest/v2 to api/v1"
+        },
+        {
+          "hash": "3e2a949",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/_todoistMcp.ts",
+        "data/changelog.json"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 28,
+        "deletions": 2
+      }
+    },
     {
       "id": "2026-03-05T23:14:58.068Z-0f07adf",
       "date": "2026-03-05T23:14:58.068Z",
