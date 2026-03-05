@@ -274,7 +274,7 @@ function getSectionConfig(source: FormSource): SectionConfig[] {
 
 function getRecipientsForSource(source: FormSource): string[] {
   if (source === 'forlangning' || source === 'uppfoljning') return [DEFAULT_TO];
-  return parseRecipientList(process.env.RESEND_FORM_TO, DEFAULT_TO);
+  return dedupeRecipients([DEFAULT_TO, ...parseRecipientList(process.env.RESEND_FORM_TO)]);
 }
 
 function getReplyToForSource(source: FormSource, payload: Record<string, unknown>): string | undefined {
@@ -285,14 +285,25 @@ function getReplyToForSource(source: FormSource, payload: Record<string, unknown
   return undefined;
 }
 
-function parseRecipientList(raw: string | undefined, fallback: string): string[] {
-  const list = (raw || fallback)
+function parseRecipientList(raw: string | undefined): string[] {
+  return (raw || '')
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
 
-  if (list.length > 0) return list;
-  return [fallback];
+function dedupeRecipients(recipients: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  recipients.forEach((recipient) => {
+    const normalized = recipient.trim();
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    output.push(normalized);
+  });
+  return output;
 }
 
 function getAppBaseUrl(): string {

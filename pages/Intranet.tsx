@@ -2177,52 +2177,37 @@ const Intranet: React.FC = () => {
     if (submission.kind === 'start') {
       return (
         <div className={wrapperClass}>
-          <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Nyckelinfo</h4>
-            <div className="space-y-3">
-              {row('Önskat startdatum', formatDateOnly(submission.data.desired_start_date))}
-              {row('Pass per vecka', submission.data.sessions_per_week || '—')}
-              {row('Fokusområden', formatList(submission.data.focus_areas))}
-            </div>
-          </section>
+          {renderSection('Nyckelinfo', [
+            row('Önskat startdatum', formatDateOnly(submission.data.desired_start_date), { hideIfEmpty: true }),
+            row('Pass per vecka', submission.data.sessions_per_week || '—'),
+            row('Fokusområden', formatList(submission.data.focus_areas), { hideIfEmpty: true }),
+          ])}
 
-          <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Grunddata</h4>
-            <div className="space-y-3">
-              {row('Vikt', formatNumber(submission.data.weight_kg, ' kg'))}
-              {row('Längd', formatNumber(submission.data.height_cm, ' cm'))}
-              {row('Ålder', formatNumber(submission.data.age))}
-            </div>
-          </section>
+          {renderSection('Grunddata', [
+            row('Vikt', formatNumber(submission.data.weight_kg, ' kg')),
+            row('Längd', formatNumber(submission.data.height_cm, ' cm')),
+            row('Ålder', formatNumber(submission.data.age)),
+          ])}
 
-          <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Mål & bakgrund</h4>
-            <div className="space-y-3">
-              {row('Målbeskrivning', submission.data.goal_description || '—')}
-              {row('Skador', submission.data.injuries || '—')}
-              {row('Träningserfarenhet', submission.data.training_experience || '—')}
-              {row('Aktivitet 6 månader', submission.data.activity_last_6_months || '—')}
-              {row('Kosthållning 6 månader', submission.data.diet_last_6_months || '—')}
-            </div>
-          </section>
+          {renderSection('Mål & bakgrund', [
+            row('Målbeskrivning', submission.data.goal_description || '—', { hideIfEmpty: true }),
+            row('Skador', submission.data.injuries || '—', { hideIfEmpty: true }),
+            row('Träningserfarenhet', submission.data.training_experience || '—', { hideIfEmpty: true }),
+            row('Aktivitet 6 månader', submission.data.activity_last_6_months || '—', { hideIfEmpty: true }),
+            row('Kosthållning 6 månader', submission.data.diet_last_6_months || '—', { hideIfEmpty: true }),
+          ])}
 
-          <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Träningsupplägg</h4>
-            <div className="space-y-3">
-              {row('Träningsformer', formatList(submission.data.training_forms))}
-              {row('Träningsformer annat', submission.data.training_forms_other || '—')}
-              {row('Träningsplatser', formatList(submission.data.training_places))}
-              {row('Träningsplatser annat', submission.data.training_places_other || '—')}
-              {row('Pass/vecka (detalj)', submission.data.sessions_per_week_other || '—')}
-            </div>
-          </section>
+          {renderSection('Träningsupplägg', [
+            row('Träningsformer', formatList(submission.data.training_forms), { hideIfEmpty: true }),
+            row('Träningsformer annat', submission.data.training_forms_other || '—', { hideIfEmpty: true }),
+            row('Träningsplatser', formatList(submission.data.training_places), { hideIfEmpty: true }),
+            row('Träningsplatser annat', submission.data.training_places_other || '—', { hideIfEmpty: true }),
+            row('Pass/vecka (detalj)', submission.data.sessions_per_week_other || '—', { hideIfEmpty: true }),
+          ])}
 
-          <section className="rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] p-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Kroppsmått</h4>
-            <div className="space-y-3">
-              {row('Mått (cm)', buildMeasurements(submission.data))}
-            </div>
-          </section>
+          {renderSection('Kroppsmått', [
+            row('Mått (cm)', buildMeasurements(submission.data), { hideIfEmpty: true }),
+          ])}
         </div>
       );
     }

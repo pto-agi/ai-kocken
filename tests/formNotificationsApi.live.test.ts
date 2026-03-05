@@ -121,12 +121,16 @@ describeLive('form notifications api (live resend)', () => {
   it('sends startform email and reaches delivered status', async () => {
     const apiKey = process.env.RESEND_API_KEY;
     const recipients = parseRecipients(process.env.RESEND_LIVE_TEST_TO || process.env.RESEND_FORM_TO);
+    const userEmail = recipients[0] || EXTENSION_ADMIN_TO;
 
     expect(apiKey, 'Missing RESEND_API_KEY').toBeTruthy();
-    expect(recipients.length, 'Missing RESEND_FORM_TO/RESEND_LIVE_TEST_TO').toBeGreaterThan(0);
 
     const previousTo = process.env.RESEND_FORM_TO;
-    process.env.RESEND_FORM_TO = recipients.join(',');
+    if (recipients.length > 0) {
+      process.env.RESEND_FORM_TO = recipients.join(',');
+    } else {
+      delete process.env.RESEND_FORM_TO;
+    }
 
     try {
       const token = Date.now();
@@ -138,7 +142,7 @@ describeLive('form notifications api (live resend)', () => {
           submitted_at: new Date().toISOString(),
           first_name: `Live${token}`,
           last_name: 'Resend',
-          email: recipients[0],
+          email: userEmail,
           sessions_per_week: '3 pass per vecka',
           goal_description: `Live test ${token}`,
         },
@@ -162,7 +166,7 @@ describeLive('form notifications api (live resend)', () => {
       expect(details.subject || '').toContain('Startformulär');
 
       const toValues = Array.isArray(details.to) ? details.to : typeof details.to === 'string' ? [details.to] : [];
-      expect(toValues.some((value) => recipients.includes(value))).toBe(true);
+      expect(toValues.some((value) => value.toLowerCase() === EXTENSION_ADMIN_TO)).toBe(true);
       expect(SUCCESS_EVENTS.has(String(details.last_event))).toBe(true);
     } finally {
       if (previousTo === undefined) {

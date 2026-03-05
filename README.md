@@ -26,7 +26,7 @@ When a user submits `/start` or `/uppfoljning`, the app posts to `api/form-notif
 Required env vars in `.env.local`:
 
 - `RESEND_API_KEY`
-- `RESEND_FORM_TO` (single email or comma-separated list)
+- `RESEND_FORM_TO` (optional extra admin recipients for `startform`; `info@privatetrainingonline.se` is always included)
 - `RESEND_FORM_FROM` (optional, defaults to `onboarding@resend.dev`)
 - `RESEND_LIVE_TEST_TO` (optional, only for live test override)
 

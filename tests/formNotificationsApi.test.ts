@@ -141,7 +141,7 @@ describe('form notifications api', () => {
     expect(parsedBody.html).not.toContain('Kroppsmått');
     expect(parsedBody.html).not.toContain('Mått midja');
     expect(parsedBody.html).not.toContain('>—<');
-    expect(parsedBody.to).toEqual(['admin1@example.com', 'admin2@example.com']);
+    expect(parsedBody.to).toEqual(['info@privatetrainingonline.se', 'admin1@example.com', 'admin2@example.com']);
 
     const [, confirmationInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
     const confirmationBody = JSON.parse(String(confirmationInit.body));
@@ -211,6 +211,45 @@ describe('form notifications api', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.jsonBody).toEqual({ ok: true, id: 'email_upp_123', channel: 'resend', confirmation_id: 'email_upp_confirm_123' });
+  });
+
+  it('deduplicates startform admin recipients and keeps fixed admin inbox first', async () => {
+    process.env.RESEND_API_KEY = 'test_key';
+    process.env.RESEND_FORM_TO = 'INFO@privatetrainingonline.se, admin@example.com';
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_start_456' }),
+        text: async () => '',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_start_confirm_456' }),
+        text: async () => '',
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req: MockReq = {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: {
+        source: 'startform',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        email: 'ada@example.com',
+        sessions_per_week: '3 pass per vecka',
+      },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    const [, adminInit] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const adminBody = JSON.parse(String(adminInit.body));
+    expect(adminBody.to).toEqual(['info@privatetrainingonline.se', 'admin@example.com']);
+    expect(res.statusCode).toBe(200);
   });
 
   it('posts extension confirmation email to fixed admin inbox', async () => {

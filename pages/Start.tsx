@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ClipboardList, Loader2, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { buildStartNotificationBody, sendStartNotification, type StartNotificationBody } from '../utils/startNotification';
 
 type StartFormState = {
   firstName: string;
@@ -125,11 +126,15 @@ const toggleArrayValue = (list: string[], value: string) => (
   list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
 );
 
+type StartSubmitStatus = 'idle' | 'submitting' | 'resending_notification' | 'success' | 'error' | 'notification_error';
+
 const Start: React.FC = () => {
   const { session, profile } = useAuthStore();
   const [form, setForm] = useState<StartFormState>(emptyState);
-  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [status, setStatus] = useState<StartSubmitStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
+  const [pendingNotificationBody, setPendingNotificationBody] = useState<StartNotificationBody | null>(null);
   const isConfigured = isSupabaseConfigured();
   const navigate = useNavigate();
 
@@ -151,6 +156,45 @@ const Start: React.FC = () => {
       lastName: prev.lastName || last
     }));
   }, [session?.user?.email, fullName]);
+
+  const requiredFields = useMemo(() => {
+    const checks = [
+      { label: 'Förnamn och efternamn', done: Boolean(form.firstName.trim() && form.lastName.trim()) },
+      { label: 'E-post', done: Boolean(form.email.trim()) },
+      { label: 'Vikt', done: Boolean(form.weightKg.trim()) },
+      { label: 'Längd', done: Boolean(form.heightCm.trim()) },
+      { label: 'Ålder', done: Boolean(form.age.trim()) },
+      { label: 'Fokusområden', done: form.focusAreas.length > 0 },
+      { label: 'Pass per vecka', done: Boolean(form.sessionsPerWeek) },
+    ];
+
+    if (form.sessionsPerWeek === 'other') {
+      checks.push({
+        label: 'Antal pass per vecka',
+        done: Boolean(form.sessionsPerWeekOther.trim()),
+      });
+    }
+
+    return checks;
+  }, [
+    form.age,
+    form.email,
+    form.firstName,
+    form.focusAreas.length,
+    form.heightCm,
+    form.lastName,
+    form.sessionsPerWeek,
+    form.sessionsPerWeekOther,
+    form.weightKg,
+  ]);
+
+  const completedRequiredCount = requiredFields.filter((item) => item.done).length;
+  const requiredProgress = requiredFields.length === 0
+    ? 0
+    : Math.round((completedRequiredCount / requiredFields.length) * 100);
+  const missingRequiredLabels = requiredFields
+    .filter((item) => !item.done)
+    .map((item) => item.label);
 
   const validate = () => {
     if (!form.firstName.trim() || !form.lastName.trim()) {
@@ -177,6 +221,27 @@ const Start: React.FC = () => {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setErrorMessage(null);
+    setNotificationMessage(null);
+
+    if (pendingNotificationBody) {
+      setStatus('resending_notification');
+      try {
+        const retryResponse = await sendStartNotification(pendingNotificationBody);
+        if (!retryResponse.ok) {
+          throw new Error(`Notification failed with status ${retryResponse.status}`);
+        }
+      } catch (err) {
+        console.warn('Startform notification retry error:', err);
+        setStatus('notification_error');
+        setNotificationMessage('Formuläret är redan sparat, men bekräftelsemail kunde inte skickas ännu. Försök igen.');
+        return;
+      }
+
+      setPendingNotificationBody(null);
+      setStatus('success');
+      navigate('/start/tack');
+      return;
+    }
 
     if (!isConfigured) {
       setErrorMessage('Supabase är inte konfigurerat. Kontrollera VITE_SUPABASE_URL och VITE_SUPABASE_ANON_KEY.');
@@ -243,21 +308,18 @@ const Start: React.FC = () => {
       return;
     }
 
+    const notificationBody = buildStartNotificationBody(payload);
     try {
-      const response = await fetch('/api/form-notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...payload,
-          source: 'startform',
-          submitted_at: new Date().toISOString()
-        })
-      });
+      const response = await sendStartNotification(notificationBody);
       if (!response.ok) {
-        console.warn('Startform notification non-200:', response.status);
+        throw new Error(`Notification failed with status ${response.status}`);
       }
     } catch (err) {
       console.warn('Startform notification error:', err);
+      setPendingNotificationBody(notificationBody);
+      setStatus('notification_error');
+      setNotificationMessage('Formuläret är sparat, men bekräftelsemail kunde inte skickas. Klicka på knappen för att försöka skicka igen.');
+      return;
     }
 
     setStatus('success');
@@ -265,14 +327,14 @@ const Start: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-32 pt-24 px-4 overflow-x-hidden">
+    <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-24 md:pb-32 pt-12 sm:pt-14 md:pt-24 px-3 sm:px-4 overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-[#a0c81d]/5 rounded-full blur-[120px] pointer-events-none"></div>
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px]"></div>
       </div>
 
       <div className="max-w-5xl mx-auto relative z-10 animate-fade-in">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-10">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-5 md:mb-10">
           <div>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-11 h-11 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
@@ -280,19 +342,39 @@ const Start: React.FC = () => {
               </div>
               <span className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Startformulär</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-black text-[#3D3D3D] tracking-tight">Nu är det dags att inleda planeringsarbetet</h1>
-            <p className="text-[#6B6158] mt-3 max-w-2xl">Fyll i uppgifter kring mål, träningserfarenheter, skador och annan information som ligger till grund för din planering.</p>
+            <h1 className="text-[30px] leading-tight md:text-4xl font-black text-[#3D3D3D] tracking-tight">Nu är det dags att inleda planeringsarbetet</h1>
+            <p className="text-[#6B6158] mt-3 text-[15px] leading-6 max-w-2xl">Fyll i uppgifter kring mål, träningserfarenheter, skador och annan information som ligger till grund för din planering.</p>
+            <p className="mt-3 text-xs font-bold uppercase tracking-widest text-[#8A8177]">Fält markerade med <span className="text-[#a0c81d]">*</span> är obligatoriska.</p>
           </div>
         </div>
 
-        <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2.5rem] p-6 md:p-10 border border-[#E6E1D8] shadow-2xl">
+        <div className="mb-4 rounded-2xl border border-[#DAD1C5] bg-white/80 p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[11px] font-black uppercase tracking-widest text-[#6B6158]">Obligatoriska fält</p>
+            <span className="text-sm font-black text-[#3D3D3D]">{completedRequiredCount}/{requiredFields.length}</span>
+          </div>
+          <div className="mt-3 h-2 rounded-full bg-[#E6E1D8] overflow-hidden">
+            <div
+              className="h-full rounded-full bg-[#a0c81d] transition-all duration-300"
+              style={{ width: `${requiredProgress}%` }}
+            />
+          </div>
+          {missingRequiredLabels.length > 0 && (
+            <p className="mt-2 text-xs text-[#6B6158]">
+              Kvar att fylla i: {missingRequiredLabels.slice(0, 3).join(', ')}
+              {missingRequiredLabels.length > 3 ? ' ...' : ''}
+            </p>
+          )}
+        </div>
+
+        <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[1.75rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-10 border border-[#E6E1D8] shadow-2xl">
           {!isConfigured && (
-            <div className="mb-8 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-amber-200 text-sm">
-              Supabase är inte konfigurerat ännu. Lägg in dina nycklar i <code className="text-amber-100">.env.local</code> för att kunna skicka formulär.
+            <div className="mb-8 rounded-2xl border border-amber-500/40 bg-amber-50 p-4 text-amber-900 text-sm" role="alert" aria-live="polite">
+              Supabase är inte konfigurerat ännu. Lägg in dina nycklar i <code className="text-amber-950">.env.local</code> för att kunna skicka formulär.
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-12">
+          <form onSubmit={handleSubmit} className="space-y-8 md:space-y-12">
             <section className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
@@ -301,10 +383,12 @@ const Start: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Förnamn<span className="text-[#a0c81d]">*</span></label>
+                  <label htmlFor="start-first-name" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Förnamn<span className="text-[#a0c81d]">*</span></label>
                   <input
+                    id="start-first-name"
                     type="text"
                     required
+                    autoComplete="given-name"
                     value={form.firstName}
                     onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
                     className={inputClass}
@@ -312,10 +396,12 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Efternamn<span className="text-[#a0c81d]">*</span></label>
+                  <label htmlFor="start-last-name" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Efternamn<span className="text-[#a0c81d]">*</span></label>
                   <input
+                    id="start-last-name"
                     type="text"
                     required
+                    autoComplete="family-name"
                     value={form.lastName}
                     onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
                     className={inputClass}
@@ -326,10 +412,12 @@ const Start: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">E-post<span className="text-[#a0c81d]">*</span></label>
+                  <label htmlFor="start-email" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">E-post<span className="text-[#a0c81d]">*</span></label>
                   <input
+                    id="start-email"
                     type="email"
                     required
+                    autoComplete="email"
                     value={form.email}
                     onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
                     className={inputClass}
@@ -337,8 +425,9 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Önskat startdatum</label>
+                  <label htmlFor="start-date" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Önskat startdatum</label>
                   <input
+                    id="start-date"
                     type="date"
                     value={form.desiredStartDate}
                     onChange={(e) => setForm((prev) => ({ ...prev, desiredStartDate: e.target.value }))}
@@ -355,12 +444,15 @@ const Start: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Kroppsvikt (kg)<span className="text-[#a0c81d]">*</span></label>
+                  <label htmlFor="start-weight" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Kroppsvikt (kg)<span className="text-[#a0c81d]">*</span></label>
                   <input
+                    id="start-weight"
                     type="number"
                     required
                     min={30}
                     max={300}
+                    step="0.1"
+                    inputMode="decimal"
                     value={form.weightKg}
                     onChange={(e) => setForm((prev) => ({ ...prev, weightKg: e.target.value }))}
                     className={inputClass}
@@ -368,12 +460,14 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Längd (cm)<span className="text-[#a0c81d]">*</span></label>
+                  <label htmlFor="start-height" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Längd (cm)<span className="text-[#a0c81d]">*</span></label>
                   <input
+                    id="start-height"
                     type="number"
                     required
                     min={100}
                     max={250}
+                    inputMode="decimal"
                     value={form.heightCm}
                     onChange={(e) => setForm((prev) => ({ ...prev, heightCm: e.target.value }))}
                     className={inputClass}
@@ -381,12 +475,15 @@ const Start: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Ålder<span className="text-[#a0c81d]">*</span></label>
+                  <label htmlFor="start-age" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Ålder<span className="text-[#a0c81d]">*</span></label>
                   <input
+                    id="start-age"
                     type="number"
                     required
                     min={10}
                     max={120}
+                    step={1}
+                    inputMode="numeric"
                     value={form.age}
                     onChange={(e) => setForm((prev) => ({ ...prev, age: e.target.value }))}
                     className={inputClass}
@@ -539,10 +636,11 @@ const Start: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-sm text-[#6B6158]">
+                  <label htmlFor="start-sessions" className="text-sm text-[#6B6158]">
                     Hur många pass per vecka vill du träna?<span className="text-[#a0c81d]">*</span>
                   </label>
                   <select
+                    id="start-sessions"
                     value={form.sessionsPerWeek}
                     onChange={(e) => setForm((prev) => ({ ...prev, sessionsPerWeek: e.target.value }))}
                     className={inputClass}
@@ -557,8 +655,11 @@ const Start: React.FC = () => {
                   </select>
                   {form.sessionsPerWeek === 'other' && (
                     <input
+                      id="start-sessions-other"
                       type="number"
                       min={0}
+                      step={1}
+                      inputMode="numeric"
                       value={form.sessionsPerWeekOther}
                       onChange={(e) => setForm((prev) => ({ ...prev, sessionsPerWeekOther: e.target.value }))}
                       className={inputClass}
@@ -683,13 +784,19 @@ const Start: React.FC = () => {
             </section>
 
             {errorMessage && (
-              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200 text-sm">
+              <div className="rounded-2xl border border-red-500/40 bg-red-50 p-4 text-red-900 text-sm" role="alert" aria-live="assertive">
                 {errorMessage}
               </div>
             )}
 
+            {notificationMessage && (
+              <div className="rounded-2xl border border-amber-500/40 bg-amber-50 p-4 text-amber-900 text-sm" role="alert" aria-live="polite">
+                {notificationMessage}
+              </div>
+            )}
+
             {status === 'success' && (
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-200 text-sm">
+              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-50 p-4 text-emerald-900 text-sm" role="status" aria-live="polite">
                 Tack! Ditt startformulär är inskickat.
               </div>
             )}
@@ -697,15 +804,15 @@ const Start: React.FC = () => {
             <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
               <button
                 type="submit"
-                disabled={status === 'submitting'}
+                disabled={status === 'submitting' || status === 'resending_notification'}
                 className="w-full md:w-auto px-8 py-4 rounded-2xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-sm shadow-xl shadow-[#a0c81d]/20 hover:bg-[#5C7A12] transition flex items-center justify-center gap-2"
               >
-                {status === 'submitting' ? (
+                {status === 'submitting' || status === 'resending_notification' ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" /> Skickar...
                   </>
                 ) : (
-                  'Skicka in startformulär'
+                  pendingNotificationBody ? 'Skicka bekräftelse igen' : 'Skicka in startformulär'
                 )}
               </button>
             </div>
