@@ -29,6 +29,7 @@ const Navbar: React.FC = () => {
   const isActive = (path: string) => location.pathname === path;
   const isStaff = profile?.is_staff === true;
   const isManager = profile?.is_manager === true;
+  const hasStaffAccess = isStaff || isManager;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -48,7 +49,7 @@ const Navbar: React.FC = () => {
     setIsDrawerOpen(false);
   };
 
-  const navLinks = isStaff
+  const navLinks = hasStaffAccess
     ? [
         { path: '/intranet', label: 'INTRANÄT', icon: ShieldCheck },
         ...(isManager ? [{ path: '/intranet/manager', label: 'MANAGER', icon: LayoutDashboard }] : []),
@@ -111,7 +112,7 @@ const Navbar: React.FC = () => {
             
             {session ? (
               <div className="ml-2 flex items-center gap-2">
-                {!isStaff && (
+                {!hasStaffAccess && (
                   <Link
                     to="/profile"
                     className="p-2 text-white/70 hover:text-[#a0c81d] transition-colors"
@@ -130,7 +131,7 @@ const Navbar: React.FC = () => {
               </div>
             ) : (
               <div className="ml-2 flex items-center gap-2">
-                {!isStaff && (
+                {!hasStaffAccess && (
                   <Link
                     to="/profile"
                     className="p-2 text-white/70 hover:text-[#a0c81d] transition-colors"

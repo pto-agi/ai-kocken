@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -174,22 +174,6 @@ const ScrollToTop = () => {
   return null;
 };
 
-const StaffRedirect = () => {
-  const { session, profile, isLoading } = useAuthStore();
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (!session) return;
-    if (profile?.is_staff !== true) return;
-    if (location.pathname.startsWith('/intranet') || location.pathname === '/sales-capital') return;
-    navigate('/intranet', { replace: true });
-  }, [isLoading, session, profile?.is_staff, location.pathname, navigate]);
-
-  return null;
-};
-
 const PageContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="max-w-7xl mx-auto px-4 md:px-8 pb-12 md:pb-24 text-[#3D3D3D] min-h-[60vh]">
     {children}
@@ -215,7 +199,6 @@ function App() {
     <Router>
       <MetaManager />
       <ScrollToTop />
-      <StaffRedirect />
       <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans selection:bg-[#a0c81d] selection:text-[#F6F1E7] flex flex-col">
 
         <Navbar />

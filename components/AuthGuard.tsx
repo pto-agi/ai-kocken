@@ -20,6 +20,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   const location = useLocation();
   const isStaff = profile?.is_staff === true;
   const isManager = profile?.is_manager === true;
+  const hasStaffAccess = isStaff || isManager;
 
   // 1. Laddar profil/session
   if (isLoading) {
@@ -35,15 +36,11 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     return <Navigate to="/auth-required" state={{ from: location }} replace />;
   }
 
-  if (requireStaff && !isStaff) {
+  if (requireStaff && !hasStaffAccess) {
     return <Navigate to="/" replace />;
   }
 
   if (requireManager && !isManager) {
-    return <Navigate to="/intranet" replace />;
-  }
-
-  if (!requireStaff && isStaff) {
     return <Navigate to="/intranet" replace />;
   }
 

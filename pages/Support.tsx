@@ -6,8 +6,10 @@ import SupportChat from '../components/SupportChat';
 export const Support: React.FC = () => {
   const { profile } = useAuthStore();
   const isStaff = profile?.is_staff === true;
+  const isManager = profile?.is_manager === true;
+  const hasStaffAccess = isStaff || isManager;
 
-  if (!isStaff) {
+  if (!hasStaffAccess) {
     return (
       <div className="min-h-[100svh] min-h-[100dvh] bg-[#F6F1E7] pb-10 md:pb-16 animate-fade-in relative font-sans overflow-x-hidden text-[#3D3D3D] flex flex-col">
         <div className="max-w-6xl mx-auto px-4 md:px-6 pt-10 md:pt-16">

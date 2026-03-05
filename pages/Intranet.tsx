@@ -523,7 +523,7 @@ const buildMeasurements = (entry: StartFormEntry) => {
 
 const Intranet: React.FC = () => {
   const { session, profile } = useAuthStore();
-  const isStaff = profile?.is_staff === true;
+  const isStaff = profile?.is_staff === true || profile?.is_manager === true;
   const isManager = profile?.is_manager === true;
   const canUseStaffIntranet = isStaff || isManager;
   const [filter, setFilter] = useState<FilterValue>('uppfoljning');
