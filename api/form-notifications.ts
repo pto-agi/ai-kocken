@@ -175,6 +175,7 @@ type BaseEmailLayoutParams = {
   badge?: string;
   introHtml?: string;
   bodyHtml?: string;
+  hideHero?: boolean;
   ctaLabel?: string;
   ctaHref?: string;
   footerNote?: string;
@@ -454,6 +455,22 @@ function buildBaseEmailLayout(params: BaseEmailLayoutParams): string {
               </td>
             </tr>`
     : '';
+  const heroBlock = params.hideHero
+    ? `
+            <tr>
+              <td style="padding:26px 24px 18px;background:#fff;">
+                ${params.introHtml ? `<div style="font-size:14px;line-height:1.65;color:#3D3D3D;">${params.introHtml}</div>` : ''}
+              </td>
+            </tr>`
+    : `
+            <tr>
+              <td style="padding:26px 24px 8px;background:#fff;">
+                <h1 style="margin:0;font-size:26px;line-height:1.2;color:#2A241F;font-weight:900;">${title}</h1>
+                ${subtitle ? `<p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:#6B6158;">${subtitle}</p>` : ''}
+                ${params.introHtml ? `<div style="margin:14px 0 0;font-size:14px;line-height:1.65;color:#3D3D3D;">${params.introHtml}</div>` : ''}
+                ${ctaBlock}
+              </td>
+            </tr>`;
 
   return `<!doctype html>
 <html lang="sv">
@@ -485,14 +502,7 @@ function buildBaseEmailLayout(params: BaseEmailLayoutParams): string {
                 </table>
               </td>
             </tr>
-            <tr>
-              <td style="padding:26px 24px 8px;background:#fff;">
-                <h1 style="margin:0;font-size:26px;line-height:1.2;color:#2A241F;font-weight:900;">${title}</h1>
-                ${subtitle ? `<p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:#6B6158;">${subtitle}</p>` : ''}
-                ${params.introHtml ? `<div style="margin:14px 0 0;font-size:14px;line-height:1.65;color:#3D3D3D;">${params.introHtml}</div>` : ''}
-                ${ctaBlock}
-              </td>
-            </tr>
+            ${heroBlock}
             ${bodyBlock}
             <tr>
               <td style="padding:14px 24px;background:#F4F0E6;border-top:1px solid #E6E1D8;color:#6B6158;font-size:12px;line-height:1.5;">
@@ -603,6 +613,7 @@ function buildUserConfirmationHtml(source: FormSource, fullName: string): string
     subtitle: content.subtitle,
     preheader: content.subject,
     badge: 'PTO Bekräftelse',
+    hideHero: true,
     introHtml: `
       <p style="margin:0 0 10px;"><strong>${greeting}</strong></p>
       <p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.introText)}</p>
@@ -611,8 +622,6 @@ function buildUserConfirmationHtml(source: FormSource, fullName: string): string
       <p style="margin:0;font-size:14px;line-height:1.65;color:#3D3D3D;">Med vänliga hälsningar,<br />Private Training Online</p>
     `,
     bodyHtml: '',
-    ctaLabel: content.ctaLabel,
-    ctaHref: content.ctaHref,
     footerNote: 'Du kan svara direkt på detta mejl om du vill komplettera något.',
   });
 }
