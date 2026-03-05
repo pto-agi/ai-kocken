@@ -93,12 +93,19 @@ describe('form notifications api', () => {
   it('posts email to Resend for startform payload', async () => {
     process.env.RESEND_API_KEY = 'test_key';
     process.env.RESEND_FORM_TO = 'admin1@example.com, admin2@example.com';
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({ id: 'email_123' }),
-      text: async () => '',
-    }));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_123' }),
+        text: async () => '',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_123_confirm' }),
+        text: async () => '',
+      });
     vi.stubGlobal('fetch', fetchMock);
 
     const req: MockReq = {
@@ -117,7 +124,7 @@ describe('form notifications api', () => {
 
     await handler(req, res);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('https://api.resend.com/emails');
     expect(init.method).toBe('POST');
@@ -136,8 +143,13 @@ describe('form notifications api', () => {
     expect(parsedBody.html).not.toContain('>—<');
     expect(parsedBody.to).toEqual(['admin1@example.com', 'admin2@example.com']);
 
+    const [, confirmationInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+    const confirmationBody = JSON.parse(String(confirmationInit.body));
+    expect(confirmationBody.to).toEqual(['ada@example.com']);
+    expect(confirmationBody.subject).toBe('Vi har mottagit ditt startformulär');
+
     expect(res.statusCode).toBe(200);
-    expect(res.jsonBody).toEqual({ ok: true, id: 'email_123', channel: 'resend', confirmation_id: null });
+    expect(res.jsonBody).toEqual({ ok: true, id: 'email_123', channel: 'resend', confirmation_id: 'email_123_confirm' });
   });
 
   it('posts email to Resend for uppfoljning payload', async () => {
@@ -193,8 +205,8 @@ describe('form notifications api', () => {
     const confirmationBody = JSON.parse(String(confirmationInit.body));
     expect(confirmationBody.to).toEqual(['alex@example.com']);
     expect(confirmationBody.subject).toBe('Vi har mottagit din uppföljning');
-    expect(confirmationBody.text).toContain('Vi har mottagit din uppföljning.');
-    expect(confirmationBody.html).toContain('Vi har mottagit din uppföljning');
+    expect(confirmationBody.text).toContain('Vi har registrerat din uppföljning.');
+    expect(confirmationBody.html).toContain('Uppföljningen är mottagen');
     expect(confirmationBody.reply_to).toBeUndefined();
 
     expect(res.statusCode).toBe(200);
@@ -204,12 +216,19 @@ describe('form notifications api', () => {
   it('posts extension confirmation email to fixed admin inbox', async () => {
     process.env.RESEND_API_KEY = 'test_key';
     process.env.RESEND_FORM_TO = 'other-admin@example.com';
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({ id: 'email_ext_123' }),
-      text: async () => '',
-    }));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_ext_123' }),
+        text: async () => '',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_ext_confirm_123' }),
+        text: async () => '',
+      });
     vi.stubGlobal('fetch', fetchMock);
 
     const req: MockReq = {
@@ -232,7 +251,7 @@ describe('form notifications api', () => {
 
     await handler(req, res);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     const parsedBody = JSON.parse(String(init.body));
     expect(parsedBody.subject).toContain('Förlängning');
@@ -244,7 +263,12 @@ describe('form notifications api', () => {
     expect(parsedBody.html).toContain('Antal månader förlängt');
     expect(parsedBody.reply_to).toBe('info@privatetrainingonline.se');
 
+    const [, confirmationInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+    const confirmationBody = JSON.parse(String(confirmationInit.body));
+    expect(confirmationBody.to).toEqual(['marcus@example.com']);
+    expect(confirmationBody.subject).toBe('Vi har mottagit din förlängning');
+
     expect(res.statusCode).toBe(200);
-    expect(res.jsonBody).toEqual({ ok: true, id: 'email_ext_123', channel: 'resend', confirmation_id: null });
+    expect(res.jsonBody).toEqual({ ok: true, id: 'email_ext_123', channel: 'resend', confirmation_id: 'email_ext_confirm_123' });
   });
 });

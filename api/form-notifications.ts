@@ -27,6 +27,8 @@ const RESEND_API_URL = 'https://api.resend.com/emails';
 const EMPTY_VALUE = '—';
 const DEFAULT_FROM = 'onboarding@resend.dev';
 const DEFAULT_TO = 'info@privatetrainingonline.se';
+const DEFAULT_APP_BASE_URL = 'https://my.privatetrainingonline.se';
+const DEFAULT_LOGO_PATH = '/pto-logotyp-2026.png';
 
 const FIELD_LABELS: Record<string, string> = {
   submitted_at: 'Skickat',
@@ -166,6 +168,28 @@ type ResendPayload = {
   reply_to?: string;
 };
 
+type BaseEmailLayoutParams = {
+  title: string;
+  subtitle?: string;
+  preheader?: string;
+  badge?: string;
+  introHtml?: string;
+  bodyHtml: string;
+  ctaLabel?: string;
+  ctaHref?: string;
+  footerNote?: string;
+};
+
+type UserConfirmationContent = {
+  subject: string;
+  title: string;
+  subtitle: string;
+  introText: string;
+  detailText: string;
+  ctaLabel: string;
+  ctaHref: string;
+};
+
 async function readBody(req: any): Promise<Record<string, unknown>> {
   if (req?.body && typeof req.body === 'object') {
     return req.body as Record<string, unknown>;
@@ -271,6 +295,16 @@ function parseRecipientList(raw: string | undefined, fallback: string): string[]
   return [fallback];
 }
 
+function getAppBaseUrl(): string {
+  return (process.env.MAIL_APP_BASE_URL || process.env.PUBLIC_APP_URL || DEFAULT_APP_BASE_URL).trim().replace(/\/+$/, '');
+}
+
+function getBrandLogoUrl(): string {
+  const configured = (process.env.MAIL_LOGO_URL || '').trim();
+  if (configured) return configured;
+  return `${getAppBaseUrl()}${DEFAULT_LOGO_PATH}`;
+}
+
 async function sendResendEmail(apiKey: string, payload: ResendPayload): Promise<{ id?: string | null }> {
   const upstream = await fetch(RESEND_API_URL, {
     method: 'POST',
@@ -353,67 +387,99 @@ function buildSectionRowsHtml(rows: EmailRow[]): string {
   return rows
     .map((row) => `
       <tr>
-        <td style="padding:10px 0;border-bottom:1px solid #eef2f7;width:230px;color:#64748b;font-size:13px;vertical-align:top;">${escapeHtml(row.label)}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #eef2f7;font-size:14px;color:#111827;line-height:1.45;word-break:break-word;">${row.htmlValue}</td>
+        <td style="padding:10px 0;border-bottom:1px solid #ece7db;width:220px;color:#6B6158;font-size:12px;vertical-align:top;font-weight:700;letter-spacing:.03em;text-transform:uppercase;">${escapeHtml(row.label)}</td>
+        <td style="padding:10px 0;border-bottom:1px solid #ece7db;font-size:14px;color:#2A241F;line-height:1.5;word-break:break-word;">${row.htmlValue}</td>
       </tr>`)
     .join('');
 }
 
-function buildEmailHtml(source: FormSource, sections: EmailSection[], fullName: string, submittedAt: string): string {
-  const label = SOURCE_LABEL[source];
-  const escapedFullName = escapeHtml(fullName || EMPTY_VALUE);
-  const escapedSubmittedAt = escapeHtml(submittedAt);
-
-  const sectionsHtml = sections
+function buildSectionsHtml(sections: EmailSection[]): string {
+  return sections
     .map((section) => `
-      <tr>
-        <td style="padding:0 24px 20px;">
-          <h3 style="margin:0 0 8px;font-size:15px;color:#0f172a;">${escapeHtml(section.title)}</h3>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-            ${buildSectionRowsHtml(section.rows)}
-          </table>
-        </td>
-      </tr>`)
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 18px;">
+        <tr>
+          <td style="padding:0 0 8px;">
+            <h3 style="margin:0;font-size:15px;line-height:1.3;color:#3D3D3D;font-weight:800;letter-spacing:.02em;">${escapeHtml(section.title)}</h3>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#ffffff;border:1px solid #E6E1D8;border-radius:12px;overflow:hidden;">
+              ${buildSectionRowsHtml(section.rows)}
+            </table>
+          </td>
+        </tr>
+      </table>`)
     .join('');
+}
+
+function buildBaseEmailLayout(params: BaseEmailLayoutParams): string {
+  const appBaseUrl = getAppBaseUrl();
+  const logoUrl = getBrandLogoUrl();
+  const preheader = escapeHtml(params.preheader || params.title);
+  const title = escapeHtml(params.title);
+  const subtitle = params.subtitle ? escapeHtml(params.subtitle) : '';
+  const badge = escapeHtml(params.badge || 'Private Training Online');
+  const footerNote = escapeHtml(params.footerNote || 'Detta mejl skickades automatiskt från medlemssystemet.');
+  const ctaBlock = params.ctaLabel && params.ctaHref
+    ? `
+      <table role="presentation" cellspacing="0" cellpadding="0" style="margin:22px 0 0;">
+        <tr>
+          <td style="border-radius:12px;background:#a0c81d;">
+            <a href="${escapeHtml(params.ctaHref)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 18px;color:#2A241F;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">${escapeHtml(params.ctaLabel)}</a>
+          </td>
+        </tr>
+      </table>`
+    : '';
 
   return `<!doctype html>
 <html lang="sv">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${escapeHtml(label)} inkommet</title>
+    <title>${title}</title>
   </head>
-  <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:24px 12px;">
+  <body style="margin:0;padding:0;background:#F6F1E7;font-family:'Helvetica Neue',Arial,sans-serif;color:#2A241F;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preheader}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F6F1E7;padding:24px 10px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:760px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;background:#ffffff;border:1px solid #E6E1D8;border-radius:20px;overflow:hidden;">
             <tr>
-              <td style="padding:24px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#ffffff;">
-                <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.9;">Privatetrainingonline</div>
-                <h1 style="margin:8px 0 0;font-size:24px;line-height:1.2;">${escapeHtml(label)} inkommet</h1>
-                <p style="margin:8px 0 0;font-size:14px;opacity:.95;">Skickat: ${escapedSubmittedAt}</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:18px 24px 6px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+              <td style="padding:18px 24px;background:#3D3D3D;border-bottom:3px solid #a0c81d;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
-                    <td style="padding:8px 0;border-bottom:1px solid #eef2f7;width:230px;color:#64748b;font-size:13px;">Namn</td>
-                    <td style="padding:8px 0;border-bottom:1px solid #eef2f7;font-size:14px;font-weight:600;color:#111827;">${escapedFullName}</td>
+                    <td style="vertical-align:middle;">
+                      <img src="${escapeHtml(logoUrl)}" alt="PTO" width="34" height="34" style="display:block;border:0;outline:none;text-decoration:none;" />
+                    </td>
+                    <td style="padding-left:10px;vertical-align:middle;">
+                      <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#E6E1D8;font-weight:700;">${badge}</div>
+                    </td>
+                    <td align="right" style="vertical-align:middle;">
+                      <a href="${escapeHtml(appBaseUrl)}" target="_blank" rel="noopener noreferrer" style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a0c81d;text-decoration:none;">Öppna appen</a>
+                    </td>
                   </tr>
                 </table>
               </td>
             </tr>
             <tr>
-              <td style="padding:10px 24px 14px;">
-                <h2 style="margin:0;font-size:16px;color:#0f172a;">Inskickade uppgifter</h2>
+              <td style="padding:26px 24px 8px;background:#fff;">
+                <h1 style="margin:0;font-size:26px;line-height:1.2;color:#2A241F;font-weight:900;">${title}</h1>
+                ${subtitle ? `<p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:#6B6158;">${subtitle}</p>` : ''}
+                ${params.introHtml ? `<div style="margin:14px 0 0;font-size:14px;line-height:1.65;color:#3D3D3D;">${params.introHtml}</div>` : ''}
+                ${ctaBlock}
               </td>
             </tr>
-            ${sectionsHtml}
             <tr>
-              <td style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e5e7eb;color:#64748b;font-size:12px;">
-                Detta mejl skickades automatiskt från formulärflödet.
+              <td style="padding:10px 24px 18px;">
+                <div style="background:#F6F1E7;border:1px solid #E6E1D8;border-radius:14px;padding:16px;">
+                  ${params.bodyHtml}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 24px;background:#F4F0E6;border-top:1px solid #E6E1D8;color:#6B6158;font-size:12px;line-height:1.5;">
+                ${footerNote}
               </td>
             </tr>
           </table>
@@ -424,61 +490,102 @@ function buildEmailHtml(source: FormSource, sections: EmailSection[], fullName: 
 </html>`;
 }
 
-function buildUppfoljningConfirmationText(fullName: string): string {
+function buildEmailHtml(source: FormSource, sections: EmailSection[], fullName: string, submittedAt: string): string {
+  const label = SOURCE_LABEL[source];
+  const summaryRows = [
+    { label: 'Namn', value: fullName || EMPTY_VALUE },
+    { label: 'Skickat', value: submittedAt },
+  ];
+  const summaryHtml = `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#ffffff;border:1px solid #E6E1D8;border-radius:12px;overflow:hidden;margin:0 0 18px;">
+      ${summaryRows.map((item) => `
+        <tr>
+          <td style="padding:10px 0 10px 12px;border-bottom:1px solid #ece7db;width:220px;color:#6B6158;font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;">${escapeHtml(item.label)}</td>
+          <td style="padding:10px 12px 10px 0;border-bottom:1px solid #ece7db;font-size:14px;color:#2A241F;line-height:1.5;">${escapeHtml(item.value)}</td>
+        </tr>`).join('')}
+    </table>
+  `;
+  const sectionsHtml = buildSectionsHtml(sections);
+
+  return buildBaseEmailLayout({
+    title: `${label} inkommet`,
+    subtitle: 'Ny inlämning registrerad i medlemssystemet.',
+    preheader: `${label} inkommet`,
+    badge: 'PTO Inkommande',
+    introHtml: '<strong>Inskickade uppgifter</strong>',
+    bodyHtml: `${summaryHtml}${sectionsHtml}`,
+    ctaLabel: 'Öppna intranätet',
+    ctaHref: `${getAppBaseUrl()}/intranet`,
+    footerNote: 'Detta mejl skickades automatiskt från formulärflödet.',
+  });
+}
+
+function getUserConfirmationContent(source: FormSource): UserConfirmationContent {
+  const appBaseUrl = getAppBaseUrl();
+  if (source === 'startform') {
+    return {
+      subject: 'Vi har mottagit ditt startformulär',
+      title: 'Startformuläret är mottaget',
+      subtitle: 'Tack för att du tog dig tid att fylla i det.',
+      introText: 'Vi har registrerat ditt startformulär.',
+      detailText: 'Vårt team använder underlaget för att planera ditt personliga upplägg.',
+      ctaLabel: 'Öppna Mina sidor',
+      ctaHref: `${appBaseUrl}/profile/inlamningar`,
+    };
+  }
+  if (source === 'forlangning') {
+    return {
+      subject: 'Vi har mottagit din förlängning',
+      title: 'Förlängningen är mottagen',
+      subtitle: 'Tack för din bekräftelse.',
+      introText: 'Vi har registrerat din förlängning.',
+      detailText: 'Vi går igenom uppgifterna och återkopplar om något behöver kompletteras.',
+      ctaLabel: 'Öppna Mina sidor',
+      ctaHref: `${appBaseUrl}/profile`,
+    };
+  }
+  return {
+    subject: 'Vi har mottagit din uppföljning',
+    title: 'Uppföljningen är mottagen',
+    subtitle: 'Tack för din återkoppling.',
+    introText: 'Vi har registrerat din uppföljning.',
+    detailText: 'Vårt team går igenom ditt underlag och använder det i planeringen av ditt nästa upplägg.',
+    ctaLabel: 'Öppna Mina sidor',
+    ctaHref: `${appBaseUrl}/profile/inlamningar`,
+  };
+}
+
+function buildUserConfirmationText(source: FormSource, fullName: string): string {
+  const content = getUserConfirmationContent(source);
   const displayName = fullName || 'hej';
   return [
     `Tack ${displayName}!`,
     '',
-    'Vi har mottagit din uppföljning.',
-    'Vårt team går igenom ditt underlag och använder det i planeringen av ditt nästa upplägg.',
+    content.introText,
+    content.detailText,
     '',
     'Vänliga hälsningar,',
     'Private Training Online',
   ].join('\n');
 }
 
-function buildUppfoljningConfirmationHtml(fullName: string): string {
+function buildUserConfirmationHtml(source: FormSource, fullName: string): string {
+  const content = getUserConfirmationContent(source);
   const displayName = escapeHtml(fullName || 'hej');
-  return `<!doctype html>
-<html lang="sv">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vi har mottagit din uppföljning</title>
-  </head>
-  <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:24px 12px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
-            <tr>
-              <td style="padding:24px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#ffffff;">
-                <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.9;">Privatetrainingonline</div>
-                <h1 style="margin:8px 0 0;font-size:24px;line-height:1.2;">Vi har mottagit din uppföljning</h1>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:24px;">
-                <p style="margin:0 0 12px;font-size:16px;color:#0f172a;"><strong>Tack ${displayName}!</strong></p>
-                <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#334155;">
-                  Din uppföljning är nu registrerad hos oss.
-                </p>
-                <p style="margin:0;font-size:14px;line-height:1.6;color:#334155;">
-                  Vårt team går igenom ditt underlag och använder det i planeringen av ditt nästa upplägg.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e5e7eb;color:#64748b;font-size:12px;">
-                Vänliga hälsningar,<br/>Private Training Online
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
+  return buildBaseEmailLayout({
+    title: content.title,
+    subtitle: content.subtitle,
+    preheader: content.subject,
+    badge: 'PTO Bekräftelse',
+    introHtml: `<p style="margin:0 0 10px;"><strong>Tack ${displayName}!</strong></p>`,
+    bodyHtml: `
+      <p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.introText)}</p>
+      <p style="margin:0;font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.detailText)}</p>
+    `,
+    ctaLabel: content.ctaLabel,
+    ctaHref: content.ctaHref,
+    footerNote: 'Vänliga hälsningar, Private Training Online',
+  });
 }
 
 export default async function handler(req: any, res: any) {
@@ -550,19 +657,18 @@ export default async function handler(req: any, res: any) {
     const adminData = await sendResendEmail(apiKey, resendPayload);
     let confirmationId: string | null = null;
 
-    if (source === 'uppfoljning') {
-      const userEmail = typeof body.email === 'string' ? body.email.trim() : '';
-      if (userEmail) {
-        const confirmationPayload: ResendPayload = {
-          from,
-          to: [userEmail],
-          subject: 'Vi har mottagit din uppföljning',
-          text: buildUppfoljningConfirmationText(fullName),
-          html: buildUppfoljningConfirmationHtml(fullName),
-        };
-        const confirmationData = await sendResendEmail(apiKey, confirmationPayload);
-        confirmationId = confirmationData?.id || null;
-      }
+    const userEmail = typeof body.email === 'string' ? body.email.trim() : '';
+    if (userEmail) {
+      const userContent = getUserConfirmationContent(source);
+      const confirmationPayload: ResendPayload = {
+        from,
+        to: [userEmail],
+        subject: userContent.subject,
+        text: buildUserConfirmationText(source, fullName),
+        html: buildUserConfirmationHtml(source, fullName),
+      };
+      const confirmationData = await sendResendEmail(apiKey, confirmationPayload);
+      confirmationId = confirmationData?.id || null;
     }
 
     setCors(res, origin);
