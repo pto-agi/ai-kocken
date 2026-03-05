@@ -81,6 +81,7 @@ async function sendChatSSE(
 
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
+      console.error('[SupportChat] API error', res.status, errBody);
       throw new Error((errBody as any)?.error || `Servern svarade ${res.status}`);
     }
 
@@ -129,6 +130,7 @@ async function sendChatSSE(
     if (err?.name === 'AbortError') {
       onError('Timeout – servern svarade inte i tid. Försök igen.');
     } else {
+      console.error('[SupportChat] Chat error:', err);
       onError(err?.message || 'Okänt fel');
     }
   } finally {
@@ -309,8 +311,8 @@ const SupportChat: React.FC = () => {
       <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-fade-in`}>
         <div
           className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${isUser
-              ? 'bg-[#a0c81d] text-[#0b1222]'
-              : 'bg-white/90 text-[#3D3D3D] border border-[#E6E1D8]'
+            ? 'bg-[#a0c81d] text-[#0b1222]'
+            : 'bg-white/90 text-[#3D3D3D] border border-[#E6E1D8]'
             }`}
         >
           <div className="prose prose-sm max-w-none text-inherit [&_a]:text-[#4a7c10] [&_a]:underline">
@@ -361,8 +363,8 @@ const SupportChat: React.FC = () => {
                 type="button"
                 onClick={() => loadConversation(conv.id)}
                 className={`w-full text-left rounded-xl px-3 py-2.5 text-xs transition ${conversationId === conv.id
-                    ? 'bg-[#a0c81d]/15 text-[#3D3D3D] font-semibold'
-                    : 'text-[#6B6158] hover:bg-white/60'
+                  ? 'bg-[#a0c81d]/15 text-[#3D3D3D] font-semibold'
+                  : 'text-[#6B6158] hover:bg-white/60'
                   }`}
               >
                 <p className="truncate font-medium">{conv.title}</p>
