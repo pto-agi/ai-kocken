@@ -13,7 +13,7 @@ const DEFAULT_ZAPIER_MCP_URL = 'https://mcp.zapier.com/api/mcp/mcp';
 const DEFAULT_ZAPIER_MCP_AUTH =
   'MTIyN2ZhYjItOTY2YS00YzM1LTk2NWQtYTIzYTI5YmE2MDg3Om5DOHFSVExHSDBEMmxNOVl6eDBUaVZnVWpDT1V4eTN0eHVtVFl3WTVqTkk9';
 
-const TODOIST_REST_V2 = 'https://api.todoist.com/rest/v2';
+const TODOIST_REST_V2 = 'https://api.todoist.com/api/v1'; // migrated from rest/v2 (deprecated Feb 2026)
 const TODOIST_API_V1 = 'https://api.todoist.com/api/v1';
 
 type CallToolParsedResponse = {
