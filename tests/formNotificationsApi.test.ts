@@ -137,7 +137,7 @@ describe('form notifications api', () => {
     expect(parsedBody.to).toEqual(['admin1@example.com', 'admin2@example.com']);
 
     expect(res.statusCode).toBe(200);
-    expect(res.jsonBody).toEqual({ ok: true, id: 'email_123' });
+    expect(res.jsonBody).toEqual({ ok: true, id: 'email_123', channel: 'resend' });
   });
 
   it('posts email to Resend for uppfoljning payload', async () => {
@@ -178,9 +178,10 @@ describe('form notifications api', () => {
     expect(parsedBody.html).toContain('Mål');
     expect(parsedBody.html).toContain('>—<');
     expect(parsedBody.reply_to).toBe('alex@example.com');
+    expect(parsedBody.to).toEqual(['info@privatetrainingonline.se']);
 
     expect(res.statusCode).toBe(200);
-    expect(res.jsonBody).toEqual({ ok: true, id: 'email_upp_123' });
+    expect(res.jsonBody).toEqual({ ok: true, id: 'email_upp_123', channel: 'resend' });
   });
 
   it('posts extension confirmation email to fixed admin inbox', async () => {
@@ -227,6 +228,6 @@ describe('form notifications api', () => {
     expect(parsedBody.reply_to).toBe('info@privatetrainingonline.se');
 
     expect(res.statusCode).toBe(200);
-    expect(res.jsonBody).toEqual({ ok: true, id: 'email_ext_123' });
+    expect(res.jsonBody).toEqual({ ok: true, id: 'email_ext_123', channel: 'resend' });
   });
 });

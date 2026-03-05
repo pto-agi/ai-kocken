@@ -475,7 +475,7 @@ export default async function handler(req: any, res: any) {
 
     const data = await upstream.json().catch(() => ({}));
     setCors(res, origin);
-    res.status(200).json({ ok: true, id: data?.id || null });
+    res.status(200).json({ ok: true, id: data?.id || null, channel: 'resend' });
   } catch (error: any) {
     console.error('Form notification error', error);
     setCors(res, origin);
