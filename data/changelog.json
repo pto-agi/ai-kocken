@@ -1,6 +1,36 @@
 {
-  "last_commit": "d99bdd25482be57b5b33dd1da93422d6c27c2866",
+  "last_commit": "7f99b24f35a150c1042be8479fea0ce51257893e",
   "entries": [
+    {
+      "id": "2026-03-05T13:52:22.432Z-7f99b24",
+      "date": "2026-03-05T13:52:22.433Z",
+      "range": "d99bdd25482be57b5b33dd1da93422d6c27c2866..7f99b24f35a150c1042be8479fea0ce51257893e",
+      "head": "7f99b24f35a150c1042be8479fea0ce51257893e",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "7f99b24",
+          "subject": "feat(uppfoljning): improve mobile form UX and lock notifications to resend"
+        },
+        {
+          "hash": "bb47679",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/form-notifications.ts",
+        "data/changelog.json",
+        "pages/Uppfoljning.tsx",
+        "tests/formNotificationsApi.test.ts",
+        "tests/uppfoljningNotification.test.ts",
+        "utils/uppfoljningNotification.ts"
+      ],
+      "stats": {
+        "files": 6,
+        "insertions": 235,
+        "deletions": 82
+      }
+    },
     {
       "id": "2026-03-05T13:05:50.207Z-d99bdd2",
       "date": "2026-03-05T13:05:50.207Z",
