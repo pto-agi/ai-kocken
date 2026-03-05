@@ -1,6 +1,32 @@
 {
-  "last_commit": "9d8bdbe9de2c5d4e178b530bc267db4dfa756562",
+  "last_commit": "0f07adf36df5c66d8ac76c36a18395236c7b242a",
   "entries": [
+    {
+      "id": "2026-03-05T23:14:58.068Z-0f07adf",
+      "date": "2026-03-05T23:14:58.068Z",
+      "range": "9d8bdbe9de2c5d4e178b530bc267db4dfa756562..0f07adf36df5c66d8ac76c36a18395236c7b242a",
+      "head": "0f07adf36df5c66d8ac76c36a18395236c7b242a",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "0f07adf",
+          "subject": "fix: migrate Todoist API from deprecated rest/v2 to unified api/v1"
+        },
+        {
+          "hash": "9575734",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "data/changelog.json",
+        "services/directTools.ts"
+      ],
+      "stats": {
+        "files": 2,
+        "insertions": 52,
+        "deletions": 8
+      }
+    },
     {
       "id": "2026-03-05T23:08:07.521Z-9d8bdbe",
       "date": "2026-03-05T23:08:07.522Z",
