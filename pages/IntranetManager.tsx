@@ -19,6 +19,14 @@ import { buildRenewalPipeline } from '../utils/renewalPipeline';
 import { computeNpsSummary, categorizeNps, categoryLabel, categoryColor, type NpsResponse } from '../utils/npsHelpers';
 import { computeSalesOverview, formatCurrency } from '../utils/salesOverview';
 import { computeReferralSummary, REFERRAL_STATUS_LABELS, REFERRAL_STATUS_COLORS, type Referral } from '../utils/referralHelpers';
+import {
+  AUTOMATION_PROGRESS_STEPS,
+  MANAGER_AUTOMATIONS,
+  addAutomationTask,
+  createAutomationTaskState,
+  getAutomationProgress,
+  setAutomationTaskProgress
+} from '../utils/managerAutomations';
 
 const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const;
 const getWeekdayCode = (dateKey: string) => WEEKDAY_CODES[new Date(`${dateKey}T00:00:00`).getDay()];
@@ -236,6 +244,15 @@ export const IntranetManager: React.FC = () => {
     sales: true,
     referrals: true
   });
+  const [automationSectionOpen, setAutomationSectionOpen] = useState(true);
+  const [selectedAutomationId, setSelectedAutomationId] = useState<string | null>(() => (
+    MANAGER_AUTOMATIONS[0]?.id || null
+  ));
+  const [automationTaskState, setAutomationTaskState] = useState(() => (
+    createAutomationTaskState(MANAGER_AUTOMATIONS)
+  ));
+  const [newAutomationTaskLabel, setNewAutomationTaskLabel] = useState('');
+  const [newAutomationTaskProgress, setNewAutomationTaskProgress] = useState<number>(0);
   const [expandedStaff, setExpandedStaff] = useState<Record<string, boolean>>({});
   const [historyOpen, setHistoryOpen] = useState<Record<string, boolean>>({});
   const [historyItemsByUser, setHistoryItemsByUser] = useState<Record<string, CompletionItem[]>>({});
@@ -618,6 +635,15 @@ export const IntranetManager: React.FC = () => {
     [renewalPipeline]
   );
 
+  const selectedAutomation = useMemo(
+    () => MANAGER_AUTOMATIONS.find((automation) => automation.id === selectedAutomationId) || MANAGER_AUTOMATIONS[0] || null,
+    [selectedAutomationId]
+  );
+  const selectedAutomationTasks = useMemo(() => {
+    if (!selectedAutomation) return [];
+    return automationTaskState[selectedAutomation.id] || [];
+  }, [selectedAutomation, automationTaskState]);
+
   const referralSummary = useMemo(
     () => computeReferralSummary(allReferrals),
     [allReferrals]
@@ -628,6 +654,16 @@ export const IntranetManager: React.FC = () => {
     weekAgo.setDate(weekAgo.getDate() - 7);
     return allReferrals.filter((r) => new Date(r.created_at) >= weekAgo);
   }, [allReferrals]);
+
+  const handleSetAutomationTaskProgress = (automationId: string, taskId: string, progress: number) => {
+    setAutomationTaskState((prev) => setAutomationTaskProgress(prev, automationId, taskId, progress));
+  };
+
+  const handleAddAutomationTask = (automationId: string) => {
+    setAutomationTaskState((prev) => addAutomationTask(prev, automationId, newAutomationTaskLabel, newAutomationTaskProgress));
+    setNewAutomationTaskLabel('');
+    setNewAutomationTaskProgress(0);
+  };
 
   const missedTasksWindow = Math.max(0, windowPerformance.totals.expectedTasks - windowPerformance.totals.completedTasks);
   const missedTasksRateWindow = windowPerformance.totals.expectedTasks > 0
@@ -1396,6 +1432,166 @@ export const IntranetManager: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                <div className="mt-5 rounded-xl border border-[#D1D5DB] bg-[#FAFAFA]">
+                  <button
+                    type="button"
+                    onClick={() => setAutomationSectionOpen((prev) => !prev)}
+                    className="w-full px-3 py-3 flex items-center justify-between text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#111111]">Automationer</span>
+                      <span className="rounded-full bg-[#111111] px-2 py-0.5 text-[10px] font-black text-white">
+                        {MANAGER_AUTOMATIONS.length}
+                      </span>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 text-[#111111] transition-transform ${automationSectionOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {automationSectionOpen && (
+                    <div className="border-t border-[#E5E7EB] p-3 space-y-3">
+                      <div className="space-y-2">
+                        {MANAGER_AUTOMATIONS.map((automation) => {
+                          const progress = getAutomationProgress(automation, automationTaskState);
+                          const isSelected = selectedAutomationId === automation.id;
+                          return (
+                            <button
+                              key={automation.id}
+                              type="button"
+                              onClick={() => setSelectedAutomationId(automation.id)}
+                              className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${isSelected
+                                ? 'border-[#111111] bg-white'
+                                : 'border-[#D1D5DB] bg-white/70 hover:bg-white'
+                                }`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-sm font-bold text-[#111111]">{automation.title}</span>
+                                <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${progress.avgPercent === 100 ? 'text-emerald-700' : 'text-[#6B7280]'}`}>
+                                  {progress.avgPercent}%
+                                </span>
+                              </div>
+                              <div className="mt-1 h-1.5 rounded-full bg-[#E5E7EB]">
+                                <div
+                                  className="h-1.5 rounded-full bg-[#111111] transition-all"
+                                  style={{ width: `${progress.avgPercent}%` }}
+                                />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {selectedAutomation && (
+                        <div className="rounded-lg border border-[#D1D5DB] bg-white p-3">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <span className="text-sm font-black text-[#111111]">{selectedAutomation.title}</span>
+                            <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-[#374151]">
+                              {selectedAutomation.frequency}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#374151] mb-3">{selectedAutomation.summary}</p>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3 text-[11px]">
+                            <div className="rounded-md border border-[#E5E7EB] bg-[#FAFAFA] px-2 py-1">
+                              <span className="font-black uppercase tracking-[0.15em] text-[#6B7280]">Projekt</span>
+                              <div className="font-semibold text-[#111111]">{selectedAutomation.project}</div>
+                            </div>
+                            <div className="rounded-md border border-[#E5E7EB] bg-[#FAFAFA] px-2 py-1">
+                              <span className="font-black uppercase tracking-[0.15em] text-[#6B7280]">Ansvarig</span>
+                              <div className="font-semibold text-[#111111]">{selectedAutomation.owner}</div>
+                            </div>
+                            <div className="rounded-md border border-[#E5E7EB] bg-[#FAFAFA] px-2 py-1">
+                              <span className="font-black uppercase tracking-[0.15em] text-[#6B7280]">Steg</span>
+                              <div className="font-semibold text-[#111111]">{selectedAutomationTasks.length}</div>
+                            </div>
+                          </div>
+
+                          <div className="mb-3">
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#6B7280] mb-1">Checklista (0-100%)</div>
+                            <div className="mb-2 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
+                              <input
+                                type="text"
+                                value={newAutomationTaskLabel}
+                                onChange={(event) => setNewAutomationTaskLabel(event.target.value)}
+                                placeholder="Ny uppgift"
+                                className="w-full rounded-md border border-[#D1D5DB] bg-white px-2 py-1.5 text-xs text-[#111111]"
+                              />
+                              <select
+                                value={newAutomationTaskProgress}
+                                onChange={(event) => setNewAutomationTaskProgress(Number(event.target.value))}
+                                className="rounded-md border border-[#D1D5DB] bg-white px-2 py-1.5 text-xs text-[#111111]"
+                              >
+                                {AUTOMATION_PROGRESS_STEPS.map((value) => (
+                                  <option key={value} value={value}>{value}%</option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => handleAddAutomationTask(selectedAutomation.id)}
+                                disabled={!newAutomationTaskLabel.trim()}
+                                className="rounded-md border border-[#111111] bg-[#111111] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.15em] text-white disabled:opacity-50"
+                              >
+                                Lägg till
+                              </button>
+                            </div>
+                            <div className="space-y-2">
+                              {selectedAutomationTasks.map((task, index) => (
+                                <div key={task.id} className="flex items-center gap-2 rounded-md border border-[#E5E7EB] bg-[#FAFAFA] p-2">
+                                  <span className="min-w-0 flex-1 text-xs font-semibold text-[#111111]">
+                                    {index + 1}. {task.label}
+                                  </span>
+                                  <select
+                                    value={task.progress}
+                                    onChange={(event) => handleSetAutomationTaskProgress(selectedAutomation.id, task.id, Number(event.target.value))}
+                                    className="rounded-md border border-[#D1D5DB] bg-white px-2 py-1 text-xs text-[#111111]"
+                                  >
+                                    {AUTOMATION_PROGRESS_STEPS.map((value) => (
+                                      <option key={`${task.id}:${value}`} value={value}>{value}%</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ))}
+                              {selectedAutomationTasks.length === 0 && (
+                                <div className="rounded-md border border-dashed border-[#D1D5DB] p-2 text-[11px] text-[#6B7280]">
+                                  Inga uppgifter ännu.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mb-3">
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#6B7280] mb-1">Flöden</div>
+                            <div className="space-y-2">
+                              {selectedAutomation.flows.map((flow) => (
+                                <div key={`${selectedAutomation.id}:${flow.name}`} className="rounded-md border border-[#E5E7EB] bg-[#FAFAFA] p-2">
+                                  <div className="text-xs font-black text-[#111111]">{flow.name}</div>
+                                  <div className="text-[11px] text-[#4B5563] mt-0.5">{flow.description}</div>
+                                  <div className="text-[10px] text-[#6B7280] mt-1">Ingångar: {flow.entryPoints.join(', ')}</div>
+                                  <ol className="mt-1 space-y-0.5 text-[11px] text-[#374151]">
+                                    {flow.steps.map((flowStep, index) => (
+                                      <li key={`${selectedAutomation.id}:${flow.name}:${index}`}>
+                                        {index + 1}. {flowStep}
+                                      </li>
+                                    ))}
+                                  </ol>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#6B7280] mb-1">Information</div>
+                            <ul className="space-y-1 text-[11px] text-[#374151]">
+                              {selectedAutomation.notes.map((note, index) => (
+                                <li key={`${selectedAutomation.id}:note:${index}`}>• {note}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

@@ -1,20 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation, NavLink } from 'react-router-dom';
 import {
-  User, LogOut, Mail, Settings, Trash2, Loader2,
-  FileText, FileDown, Plus, Clock, RefreshCw,
-  ArrowRight, LayoutDashboard, ClipboardList, CreditCard, Sparkles,
-  AlertTriangle, PauseCircle, Ban, LineChart
+  User, LogOut, Mail, Settings, Clock,
+  FileText, LayoutDashboard, ClipboardList, CreditCard, Sparkles,
+  AlertTriangle, PauseCircle, Ban
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { databaseService } from '../services/databaseService';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { generateWeeklySchedulePDF } from '../utils/pdfGenerator';
-import { generateFullWeeklyDetails } from '../services/geminiService';
-import { buildProgressTimeline } from '../utils/progressTracker';
 
-type MainTab = 'OVERVIEW' | 'PLANS' | 'SUBMISSIONS' | 'MEMBERSHIP' | 'SETTINGS' | 'PROGRESS';
+type MainTab = 'OVERVIEW' | 'SUBMISSIONS' | 'ADMIN';
 
 type StartSubmission = {
   id: string;
@@ -43,7 +39,6 @@ export const Profile: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { session, profile: user, signOut, refreshProfile, profileError } = useAuthStore();
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelStatus, setCancelStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
@@ -52,9 +47,9 @@ export const Profile: React.FC = () => {
   const [pauseCooldownUntil, setPauseCooldownUntil] = useState<number | null>(null);
   const [isReactivating, setIsReactivating] = useState(false);
   const [reactivateStatus, setReactivateStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [reactivateCooldownUntil, setReactivateCooldownUntil] = useState<number | null>(null);
   const [isSyncingMembership, setIsSyncingMembership] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const queryClient = useQueryClient();
   const [expandedSubmissions, setExpandedSubmissions] = useState<Record<string, boolean>>({});
 
   const [newPassword, setNewPassword] = useState('');
@@ -66,12 +61,6 @@ export const Profile: React.FC = () => {
   const [city, setCity] = useState('');
   const [country, setCountry] = useState('Sverige');
   const [phone, setPhone] = useState('');
-
-  const { data: weeklyPlans = [] } = useQuery({
-    queryKey: ['weeklyPlans', user?.id],
-    queryFn: () => user ? databaseService.getSavedPlans(user.id) : Promise.resolve([]),
-    enabled: !!user,
-  });
 
   const { data: startSubmissions = [] } = useQuery({
     queryKey: ['startSubmissions', user?.id],
@@ -85,29 +74,24 @@ export const Profile: React.FC = () => {
     enabled: !!user,
   });
 
-  const deletePlanMutation = useMutation({
-    mutationFn: (id: string) => databaseService.deleteWeeklyPlan(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['weeklyPlans'] })
-  });
-
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
     if (!tab) return;
     if (tab === 'settings') {
-      navigate('/profile/konto', { replace: true });
+      navigate('/profile/adminpanel', { replace: true });
       return;
     }
     if (tab === 'membership') {
-      navigate('/profile/medlemskap', { replace: true });
+      navigate('/profile/adminpanel', { replace: true });
       return;
     }
     if (tab === 'submissions') {
       navigate('/profile/inlamningar', { replace: true });
       return;
     }
-    if (tab === 'plans') {
-      navigate('/profile/veckomenyer', { replace: true });
+    if (tab === 'plans' || tab === 'progress') {
+      navigate('/profile', { replace: true });
       return;
     }
     if (tab === 'overview') {
@@ -123,13 +107,22 @@ export const Profile: React.FC = () => {
     setCity(user.city || '');
     setCountry(user.country || 'Sverige');
     setPhone(user.phone || '');
-    const cooldownKey = `pto_pause_request:${user.id}`;
-    const rawCooldown = localStorage.getItem(cooldownKey);
-    if (rawCooldown) {
-      const parsed = Number(rawCooldown);
+    const pauseCooldownKey = `pto_pause_request:${user.id}`;
+    const rawPauseCooldown = localStorage.getItem(pauseCooldownKey);
+    if (rawPauseCooldown) {
+      const parsed = Number(rawPauseCooldown);
       setPauseCooldownUntil(Number.isFinite(parsed) ? parsed : null);
     } else {
       setPauseCooldownUntil(null);
+    }
+
+    const reactivateCooldownKey = `pto_reactivate_request:${user.id}`;
+    const rawReactivateCooldown = localStorage.getItem(reactivateCooldownKey);
+    if (rawReactivateCooldown) {
+      const parsed = Number(rawReactivateCooldown);
+      setReactivateCooldownUntil(Number.isFinite(parsed) ? parsed : null);
+    } else {
+      setReactivateCooldownUntil(null);
     }
   }, [user?.id, user?.address_line1, user?.address_line2, user?.postal_code, user?.city, user?.country, user?.phone]);
 
@@ -186,6 +179,12 @@ export const Profile: React.FC = () => {
   };
 
   const handleReactivateMembership = async () => {
+    const cooldownKey = `pto_reactivate_request:${user.id}`;
+    const now = Date.now();
+    if (reactivateCooldownUntil && now < reactivateCooldownUntil) {
+      setReactivateStatus('success');
+      return;
+    }
     if (isReactivating) return;
     setReactivateStatus('idle');
     setIsReactivating(true);
@@ -194,6 +193,9 @@ export const Profile: React.FC = () => {
         source: 'reactivate_membership'
       });
       setReactivateStatus('success');
+      const until = now + 24 * 60 * 60 * 1000;
+      localStorage.setItem(cooldownKey, String(until));
+      setReactivateCooldownUntil(until);
     } catch (err) {
       console.error('Reactivate membership webhook error:', err);
       setReactivateStatus('error');
@@ -280,24 +282,6 @@ export const Profile: React.FC = () => {
       console.error('Address update error:', err);
       setAddressStatus('error');
       setTimeout(() => setAddressStatus('idle'), 3000);
-    }
-  };
-
-  const handleDownloadSavedPlanPdf = async (plan: any) => {
-    setIsDownloadingPdf(plan.id);
-    try {
-      const targets = {
-        kcal: user.biometrics?.results?.targetCalories || 2200,
-        p: user.biometrics?.data?.macroSplit?.protein || 35,
-        c: user.biometrics?.data?.macroSplit?.carbs || 35,
-        f: user.biometrics?.data?.macroSplit?.fats || 30
-      };
-      const detailedPlan = await generateFullWeeklyDetails(plan.plan_data, targets);
-      generateWeeklySchedulePDF(detailedPlan, targets);
-    } catch {
-      alert('Kunde inte generera PDF.');
-    } finally {
-      setIsDownloadingPdf(null);
     }
   };
 
@@ -413,10 +397,7 @@ export const Profile: React.FC = () => {
   const tabItems: { id: MainTab; label: string; path: string; description: string; icon: any }[] = [
     { id: 'OVERVIEW', label: 'Översikt', path: '/profile', description: 'Status och genvägar', icon: LayoutDashboard },
     { id: 'SUBMISSIONS', label: 'Inlämningar', path: '/profile/inlamningar', description: 'Startformulär & uppföljning', icon: ClipboardList },
-    { id: 'PLANS', label: 'Veckomenyer', path: '/profile/veckomenyer', description: 'Sparade planer', icon: FileText },
-    { id: 'MEMBERSHIP', label: 'Medlemskap', path: '/profile/medlemskap', description: 'Pausa, deaktivera, återaktivera', icon: CreditCard },
-    { id: 'SETTINGS', label: 'Konto', path: '/profile/konto', description: 'Uppgifter & säkerhet', icon: Settings },
-    { id: 'PROGRESS', label: 'Progress', path: '/profile/progress', description: 'Din resa', icon: LineChart }
+    { id: 'ADMIN', label: 'Adminpanel', path: '/profile/adminpanel', description: 'Medlemskap, konto och leveransuppgifter', icon: CreditCard },
   ];
 
   const tabPathById = tabItems.reduce((acc, item) => {
@@ -428,17 +409,23 @@ export const Profile: React.FC = () => {
     ? location.pathname.slice(0, -1)
     : location.pathname;
 
+  useEffect(() => {
+    if (normalizedPath.startsWith('/profile/medlemskap') || normalizedPath.startsWith('/profile/konto')) {
+      navigate('/profile/adminpanel', { replace: true });
+      return;
+    }
+    if (normalizedPath.startsWith('/profile/veckomenyer') || normalizedPath.startsWith('/profile/progress')) {
+      navigate('/profile', { replace: true });
+    }
+  }, [normalizedPath, navigate]);
+
   const activeTab: MainTab = normalizedPath.startsWith('/profile/inlamningar')
     ? 'SUBMISSIONS'
-    : normalizedPath.startsWith('/profile/veckomenyer')
-      ? 'PLANS'
-      : normalizedPath.startsWith('/profile/medlemskap')
-        ? 'MEMBERSHIP'
-        : normalizedPath.startsWith('/profile/konto')
-          ? 'SETTINGS'
-          : normalizedPath.startsWith('/profile/progress')
-            ? 'PROGRESS'
-            : 'OVERVIEW';
+    : normalizedPath.startsWith('/profile/adminpanel') ||
+      normalizedPath.startsWith('/profile/medlemskap') ||
+      normalizedPath.startsWith('/profile/konto')
+      ? 'ADMIN'
+      : 'OVERVIEW';
 
   const activeTabMeta = tabItems.find((item) => item.id === activeTab);
 
@@ -500,6 +487,7 @@ export const Profile: React.FC = () => {
     (user.coaching_expires_at ? 'active' : 'inactive');
   const coachingActive = coachingStatus === 'active';
   const pauseCooldownActive = pauseCooldownUntil ? Date.now() < pauseCooldownUntil : false;
+  const reactivateCooldownActive = reactivateCooldownUntil ? Date.now() < reactivateCooldownUntil : false;
   const coachingStatusMeta = {
     active: {
       label: 'Aktiv',
@@ -633,16 +621,13 @@ export const Profile: React.FC = () => {
                       </div>
                       <div className="flex flex-col gap-2">
                         <button
-                          onClick={() => navigateToTab('MEMBERSHIP')}
+                          onClick={() => navigateToTab('ADMIN')}
                           className={`${ui.primaryBtnSm} w-full flex items-center justify-center`}
                         >
-                          Hantera medlemskap
+                          Öppna adminpanel
                         </button>
                         <Link to="/uppfoljning" className={`${ui.outlineBtn} w-full text-center`}>
-                          Skicka uppföljning
-                        </Link>
-                        <Link to="/recept" className={`${ui.outlineBtn} w-full text-center`}>
-                          Ny veckomeny
+                          Skicka in uppföljning
                         </Link>
                         <Link to="/support" className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] text-center hover:text-[#3D3D3D]">
                           Support
@@ -686,18 +671,15 @@ export const Profile: React.FC = () => {
                       <p className={ui.body}>
                         Starta viktiga flöden direkt utan att leta i menyerna.
                       </p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <button
-                          onClick={() => navigateToTab('MEMBERSHIP')}
+                          onClick={() => navigateToTab('ADMIN')}
                           className={`${ui.primaryBtnSm} w-full flex items-center justify-center`}
                         >
-                          Hantera medlemskap
+                          Öppna adminpanel
                         </button>
                         <Link to="/uppfoljning" className={`${ui.outlineBtn} w-full text-center`}>
-                          Skicka uppföljning
-                        </Link>
-                        <Link to="/recept" className={`${ui.outlineBtn} w-full text-center`}>
-                          Skapa veckomeny
+                          Skicka in uppföljning
                         </Link>
                       </div>
                     </div>
@@ -710,7 +692,7 @@ export const Profile: React.FC = () => {
                           <CardHeader
                             label="Inlämningar"
                             title="Senaste inskickat"
-                            icon={FileDown}
+                            icon={FileText}
                             action={
                               <span className={`${ui.label} text-[#6B6158]`}>
                                 {combinedSubmissions.length === 0 ? 'Inga inlämningar' : `${combinedSubmissions.length} totalt`}
@@ -747,153 +729,65 @@ export const Profile: React.FC = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => navigateToTab('SUBMISSIONS')}
-                            className={ui.outlineBtn}
-                          >
-                            Visa allt
-                          </button>
                           <Link to="/uppfoljning" className={ui.primaryBtnSm}>
-                            Skicka uppföljning
+                            Skicka in uppföljning
                           </Link>
                         </div>
                       </div>
                     </div>
 
                     <div className="bg-[#E8F1D5] rounded-[2.5rem] p-6 md:p-8 border border-[#E6E1D8] shadow-2xl relative overflow-hidden">
-                      <div className="absolute top-[-20%] right-[-10%] w-[280px] h-[280px] bg-purple-500/10 rounded-full blur-[100px]"></div>
+                      <div className="absolute top-[-20%] right-[-10%] w-[280px] h-[280px] bg-[#a0c81d]/10 rounded-full blur-[100px]"></div>
                       <div className="relative z-10 flex flex-col gap-6 h-full">
                         <div className="w-full">
                           <CardHeader
-                            label="Veckomenyer"
-                            title="Senaste planer"
-                            icon={FileText}
-                            action={
-                              <span className={`${ui.label} text-[#6B6158]`}>
-                                {weeklyPlans.length === 0 ? 'Inga sparade planer' : `${weeklyPlans.length} sparade`}
-                              </span>
-                            }
+                            label="Adminpanel"
+                            title="Medlemskap och konto"
+                            icon={CreditCard}
                           />
                           <p className={`${ui.body} mt-3`}>
-                            {weeklyPlans.length === 0 ? 'Inga sparade planer ännu.' : 'Här ser du dina senaste planer.'}
+                            Hantera medlemsstatus, lösenord samt leveransuppgifter på ett ställe.
                           </p>
                         </div>
                         <div className="space-y-3">
-                          {weeklyPlans.slice(0, 3).map((plan: any) => (
-                            <div key={plan.id} className={`flex items-center justify-between ${ui.cardSoft}`}>
-                              <div>
-                                <p className="text-sm font-bold text-[#3D3D3D]">{plan.title || 'Namnlös Vecka'}</p>
-                                <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">
-                                  {new Date(plan.created_at).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <button
-                                onClick={() => handleDownloadSavedPlanPdf(plan)}
-                                disabled={isDownloadingPdf === plan.id}
-                                className="text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
-                              >
-                                {isDownloadingPdf === plan.id ? 'Förbereder...' : 'PDF'}
-                              </button>
+                          <div className={`flex items-center justify-between ${ui.cardSoft}`}>
+                            <div>
+                              <p className="text-sm font-bold text-[#3D3D3D]">Status</p>
+                              <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">
+                                {coachingMeta.label}
+                              </p>
                             </div>
-                          ))}
-                          {weeklyPlans.length === 0 && (
-                            <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-4 py-4 text-sm text-[#8A8177]">
-                              Skapa en ny plan för att se den här.
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${coachingMeta.style}`}>
+                              PTO Coaching
+                            </span>
+                          </div>
+                          <div className={`flex items-center justify-between ${ui.cardSoft}`}>
+                            <div>
+                              <p className="text-sm font-bold text-[#3D3D3D]">Konto</p>
+                              <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">
+                                {user.email}
+                              </p>
                             </div>
-                          )}
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#6B6158]">
+                              Säkerhet & adress
+                            </span>
+                          </div>
                         </div>
-                        <div className="mt-auto flex items-center justify-between">
-                          <Link
-                            to="/recept"
+                        <div className="mt-auto flex items-center gap-3">
+                          <button
+                            onClick={() => navigateToTab('ADMIN')}
                             className={ui.primaryBtnSm}
                           >
-                            Skapa ny plan
-                          </Link>
-                          <button
-                            onClick={() => navigateToTab('PLANS')}
-                            className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition-all"
-                          >
-                            Visa alla
-                            <ArrowRight className="w-3 h-3" />
+                            Öppna adminpanel
                           </button>
+                          <Link
+                            to="/uppfoljning"
+                            className={ui.outlineBtn}
+                          >
+                            Skicka in uppföljning
+                          </Link>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'PLANS' && (
-                <div className="space-y-8 animate-fade-in">
-                  <div className={ui.panel}>
-                    <div className="absolute top-[-20%] right-[-10%] w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px]"></div>
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-                      <div>
-                        <h2 className="text-3xl font-black text-[#3D3D3D] uppercase tracking-tight mb-2 flex items-center gap-3">
-                          <FileText className="w-8 h-8 text-purple-400" /> Veckomeny-arkiv
-                        </h2>
-                        <p className={ui.body}>Här sparas alla dina genererade planer.</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => queryClient.invalidateQueries({ queryKey: ['weeklyPlans'] })}
-                          className="p-3 text-[#6B6158] hover:text-[#3D3D3D] hover:bg-[#ffffff]/70 rounded-xl transition-all"
-                          title="Uppdatera"
-                        >
-                          <RefreshCw className="w-5 h-5" />
-                        </button>
-                        <Link to="/recept" className="bg-[#a0c81d] text-[#F6F1E7] px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition-all flex items-center gap-2 shadow-lg shadow-[#a0c81d]/20">
-                          <Plus className="w-4 h-4" /> Ny Plan
-                        </Link>
-                      </div>
-                    </div>
-
-                    <div className="mt-12 space-y-4">
-                      {weeklyPlans.length === 0 ? (
-                        <div className="text-center py-24 bg-[#F6F1E7]/30 rounded-[2.5rem] border-2 border-dashed border-[#E6E1D8]">
-                          <Clock className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-                          <h3 className="text-lg font-bold text-[#3D3D3D] mb-2">Inga sparade planer ännu</h3>
-                          <p className="text-[#8A8177] text-sm">Om du precis skapat en plan, klicka Uppdatera.</p>
-                        </div>
-                      ) : (
-                        weeklyPlans.map((plan: any) => (
-                          <div key={plan.id} className="bg-[#F6F1E7]/80 backdrop-blur-md rounded-[2rem] border border-[#E6E1D8] p-6 hover:border-purple-500/40 transition-all group flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div className="flex items-center gap-5">
-                              <div className="bg-purple-500/10 p-4 rounded-2xl text-purple-400 group-hover:scale-110 transition-transform">
-                                <FileText className="w-6 h-6" />
-                              </div>
-                              <div>
-                                <h4 className="text-lg font-black text-[#3D3D3D] group-hover:text-purple-300 transition-colors">{plan.title || 'Namnlös Vecka'}</h4>
-                                <div className="flex items-center gap-3 mt-1">
-                                  <span className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest flex items-center gap-1.5">
-                                    <Clock className="w-3 h-3" /> {new Date(plan.created_at).toLocaleDateString()}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-3 w-full md:w-auto">
-                              <button
-                                onClick={() => handleDownloadSavedPlanPdf(plan)}
-                                disabled={isDownloadingPdf === plan.id}
-                                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#a0c81d] text-[#F6F1E7] px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all hover:bg-[#5C7A12] active:scale-95 shadow-xl shadow-[#a0c81d]/20"
-                              >
-                                {isDownloadingPdf === plan.id ? (
-                                  <><Loader2 className="w-4 h-4 animate-spin" /> Förbereder...</>
-                                ) : (
-                                  <><FileDown className="w-4 h-4" /> Ladda ner PDF</>
-                                )}
-                              </button>
-                              <button
-                                onClick={() => { if (window.confirm('Ta bort denna plan?')) deletePlanMutation.mutate(plan.id); }}
-                                className="p-3 text-[#8A8177] hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
                     </div>
                   </div>
                 </div>
@@ -916,7 +810,7 @@ export const Profile: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-3">
                           <Link to="/uppfoljning" className={ui.primaryBtnSm}>
-                            Skicka uppföljning
+                            Skicka in uppföljning
                           </Link>
                         </div>
                       </div>
@@ -1033,7 +927,7 @@ export const Profile: React.FC = () => {
                 </div>
               )}
 
-              {activeTab === 'MEMBERSHIP' && (
+              {activeTab === 'ADMIN' && (
                 <div className="space-y-8 animate-fade-in">
                   <div className={ui.panel}>
                     <div className="absolute top-[-15%] right-[-10%] w-[320px] h-[320px] bg-[#a0c81d]/10 rounded-full blur-[100px]"></div>
@@ -1172,6 +1066,11 @@ export const Profile: React.FC = () => {
                                     Begäran skickad
                                   </span>
                                 )}
+                                {reactivateCooldownActive && (
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-sky-700">
+                                    Återaktivering redan registrerad. Status uppdateras inom 24 timmar.
+                                  </span>
+                                )}
                                 {reactivateStatus === 'error' && (
                                   <span className="text-[10px] font-bold uppercase tracking-widest text-red-600">
                                     Kunde inte skicka
@@ -1179,10 +1078,14 @@ export const Profile: React.FC = () => {
                                 )}
                                 <button
                                   onClick={handleReactivateMembership}
-                                  disabled={isReactivating || !canReactivateMembership}
+                                  disabled={isReactivating || reactivateCooldownActive || !canReactivateMembership}
                                   className="px-4 py-2 rounded-xl border border-[#E6E1D8] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#E6E1D8] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
-                                  {isReactivating ? 'Skickar...' : 'Återaktivera medlemskap'}
+                                  {isReactivating
+                                    ? 'Skickar...'
+                                    : reactivateCooldownActive
+                                      ? 'Begäran registrerad'
+                                      : 'Återaktivera medlemskap'}
                                 </button>
                                 <Link
                                   to="/support"
@@ -1261,88 +1164,7 @@ export const Profile: React.FC = () => {
                 </div>
               )}
 
-              {activeTab === 'PROGRESS' && (() => {
-                const timeline = buildProgressTimeline([
-                  ...startSubmissions.map((s: StartSubmission) => ({
-                    created_at: s.created_at,
-                    kind: 'start' as const,
-                    goal_description: s.goal_description,
-                  })),
-                  ...uppSubmissions.map((s: UppfoljningSubmission) => ({
-                    created_at: s.created_at,
-                    kind: 'uppfoljning' as const,
-                    goal: s.goal,
-                    summary_feedback: s.summary_feedback,
-                  })),
-                ]);
-
-                return (
-                  <div className="space-y-8 animate-fade-in">
-                    <div className={ui.panel}>
-                      <div className="absolute top-[-20%] left-[-10%] w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-[100px]" />
-                      <div className="relative z-10 space-y-6">
-                        <CardHeader label="Din resa" title="Progress" icon={LineChart} />
-                        <p className={ui.body}>
-                          Se hur din resa utvecklats sedan starten. Varje punkt representerar en inlämning.
-                        </p>
-
-                        {timeline.milestones.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {timeline.milestones.map((m) => (
-                              <span key={m} className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-400/40 bg-emerald-50 text-emerald-700">
-                                🎉 {m}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {timeline.points.length === 0 ? (
-                          <div className={`${ui.card} text-center py-12`}>
-                            <p className="text-sm text-[#8A8177]">Inga inlämningar ännu.</p>
-                            <Link to="/startformular" className={`${ui.primaryBtnSm} inline-block mt-4`}>
-                              Fyll i startformulär
-                            </Link>
-                          </div>
-                        ) : (
-                          <div className="relative">
-                            <div className="absolute left-5 top-0 bottom-0 w-px bg-[#E6E1D8]" />
-                            <ul className="space-y-6">
-                              {timeline.points.map((point, i) => (
-                                <li key={`${point.kind}-${i}`} className="relative pl-12">
-                                  <span className={`absolute left-3 top-1.5 w-4 h-4 rounded-full border-2 ${point.kind === 'start'
-                                      ? 'bg-[#a0c81d] border-[#a0c81d]'
-                                      : 'bg-white border-[#a0c81d]'
-                                    }`} />
-                                  <div className={ui.card}>
-                                    <div className="flex items-center justify-between mb-2">
-                                      <span className="text-sm font-bold text-[#3D3D3D]">{point.label}</span>
-                                      <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
-                                        {new Date(point.date).toLocaleDateString('sv-SE')}
-                                      </span>
-                                    </div>
-                                    {point.goal && (
-                                      <p className="text-xs text-[#6B6158]">
-                                        <span className="font-bold">Mål:</span> {point.goal}
-                                      </p>
-                                    )}
-                                    {point.feedback && (
-                                      <p className="text-xs text-[#6B6158] mt-1">
-                                        <span className="font-bold">Feedback:</span> {point.feedback.length > 200 ? `${point.feedback.slice(0, 200)}…` : point.feedback}
-                                      </p>
-                                    )}
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {activeTab === 'SETTINGS' && (
+              {activeTab === 'ADMIN' && (
                 <div className="space-y-8 animate-fade-in">
                   <div className={ui.panel + ' min-h-[400px]'}>
                     <div className="border-b border-[#E6E1D8] pb-8 mb-10">

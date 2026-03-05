@@ -1,4 +1,6 @@
 type CompletionItemRow = { task_id: string };
+type CompletionItemByDateRow = { report_date: string; task_id: string };
+type LegacyCompletionRow = { report_date: string; completed_task_ids: unknown };
 
 const sanitizeTaskIds = (values: unknown[]) => (
   Array.from(
@@ -42,4 +44,34 @@ export const resolveCompletedTaskIds = (input: {
       ))
     )
   );
+};
+
+export const buildCompletionMapByDate = (input: {
+  dateKeys: string[];
+  completionItemRows: CompletionItemByDateRow[];
+  legacyRows: LegacyCompletionRow[];
+  completionItemsAvailable?: boolean;
+}) => {
+  const completionItemsAvailable = input.completionItemsAvailable ?? input.completionItemRows.length > 0;
+  const rowsByDate = input.completionItemRows.reduce<Record<string, CompletionItemRow[]>>((acc, row) => {
+    if (!row?.report_date) return acc;
+    if (!acc[row.report_date]) acc[row.report_date] = [];
+    acc[row.report_date].push({ task_id: row.task_id });
+    return acc;
+  }, {});
+  const legacyByDate = input.legacyRows.reduce<Record<string, LegacyCompletionRow>>((acc, row) => {
+    if (!row?.report_date) return acc;
+    acc[row.report_date] = row;
+    return acc;
+  }, {});
+
+  return input.dateKeys.reduce<Record<string, string[]>>((acc, dateKey) => {
+    const ids = resolveCompletedTaskIds({
+      completionItemsAvailable,
+      completionItemRows: rowsByDate[dateKey] || [],
+      legacyCompletedTaskIds: parseCompletedTaskIds(legacyByDate[dateKey]?.completed_task_ids)
+    });
+    acc[dateKey] = ids;
+    return acc;
+  }, {});
 };

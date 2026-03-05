@@ -75,6 +75,11 @@ export const IntranetTodoist: React.FC = () => {
           },
         });
 
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          throw new Error('Todoist-API svarade inte med JSON. Kör appen via Vercel Dev/produktion, inte statisk preview.');
+        }
+
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
           throw new Error(payload?.error || `Kunde inte hämta Todoist-data (${response.status})`);
@@ -121,6 +126,11 @@ export const IntranetTodoist: React.FC = () => {
             include_snapshot: true,
           }),
         });
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          throw new Error('Todoist-API svarade inte med JSON. Kör appen via Vercel Dev/produktion, inte statisk preview.');
+        }
 
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));

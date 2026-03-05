@@ -2,7 +2,7 @@
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/api-proxy/:path*", "destination": "https://generativelanguage.googleapis.com/:path*" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/|api-proxy/|@vite/|@react-refresh|src/|node_modules/|.*\\..*).*)", "destination": "/index.html" }
   ],
   "trailingSlash": false
 }
