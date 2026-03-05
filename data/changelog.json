@@ -1,6 +1,34 @@
 {
-  "last_commit": "7f99b24f35a150c1042be8479fea0ce51257893e",
+  "last_commit": "0467e271d2c140a397eca47c07120f50a9fbf952",
   "entries": [
+    {
+      "id": "2026-03-05T14:03:47.004Z-0467e27",
+      "date": "2026-03-05T14:03:47.004Z",
+      "range": "7f99b24f35a150c1042be8479fea0ce51257893e..0467e271d2c140a397eca47c07120f50a9fbf952",
+      "head": "0467e271d2c140a397eca47c07120f50a9fbf952",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "0467e27",
+          "subject": "feat(uppfoljning): send user confirmation email and hide empty submission fields"
+        },
+        {
+          "hash": "19abaab",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "api/form-notifications.ts",
+        "data/changelog.json",
+        "pages/Intranet.tsx",
+        "tests/formNotificationsApi.test.ts"
+      ],
+      "stats": {
+        "files": 4,
+        "insertions": 239,
+        "deletions": 82
+      }
+    },
     {
       "id": "2026-03-05T13:52:22.432Z-7f99b24",
       "date": "2026-03-05T13:52:22.433Z",
