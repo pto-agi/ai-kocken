@@ -142,6 +142,7 @@ describe('form notifications api', () => {
 
   it('posts email to Resend for uppfoljning payload', async () => {
     process.env.RESEND_API_KEY = 'test_key';
+    process.env.RESEND_FORM_TO = 'info@my,privatetrainingonline.se';
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({
         ok: true,

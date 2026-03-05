@@ -249,7 +249,7 @@ function getSectionConfig(source: FormSource): SectionConfig[] {
 }
 
 function getRecipientsForSource(source: FormSource): string[] {
-  if (source === 'forlangning') return [DEFAULT_TO];
+  if (source === 'forlangning' || source === 'uppfoljning') return [DEFAULT_TO];
   return parseRecipientList(process.env.RESEND_FORM_TO, DEFAULT_TO);
 }
 
