@@ -174,7 +174,7 @@ type BaseEmailLayoutParams = {
   preheader?: string;
   badge?: string;
   introHtml?: string;
-  bodyHtml: string;
+  bodyHtml?: string;
   ctaLabel?: string;
   ctaHref?: string;
   footerNote?: string;
@@ -433,6 +433,7 @@ function buildBaseEmailLayout(params: BaseEmailLayoutParams): string {
   const subtitle = params.subtitle ? escapeHtml(params.subtitle) : '';
   const badge = escapeHtml(params.badge || 'Private Training Online');
   const footerNote = escapeHtml(params.footerNote || 'Detta mejl skickades automatiskt från medlemssystemet.');
+  const bodyHtml = typeof params.bodyHtml === 'string' ? params.bodyHtml.trim() : '';
   const ctaBlock = params.ctaLabel && params.ctaHref
     ? `
       <table role="presentation" cellspacing="0" cellpadding="0" style="margin:22px 0 0;">
@@ -442,6 +443,16 @@ function buildBaseEmailLayout(params: BaseEmailLayoutParams): string {
           </td>
         </tr>
       </table>`
+    : '';
+  const bodyBlock = bodyHtml
+    ? `
+            <tr>
+              <td style="padding:10px 24px 18px;">
+                <div style="background:#F6F1E7;border:1px solid #E6E1D8;border-radius:14px;padding:16px;">
+                  ${bodyHtml}
+                </div>
+              </td>
+            </tr>`
     : '';
 
   return `<!doctype html>
@@ -482,13 +493,7 @@ function buildBaseEmailLayout(params: BaseEmailLayoutParams): string {
                 ${ctaBlock}
               </td>
             </tr>
-            <tr>
-              <td style="padding:10px 24px 18px;">
-                <div style="background:#F6F1E7;border:1px solid #E6E1D8;border-radius:14px;padding:16px;">
-                  ${params.bodyHtml}
-                </div>
-              </td>
-            </tr>
+            ${bodyBlock}
             <tr>
               <td style="padding:14px 24px;background:#F4F0E6;border-top:1px solid #E6E1D8;color:#6B6158;font-size:12px;line-height:1.5;">
                 ${footerNote}
@@ -590,20 +595,25 @@ function buildUserConfirmationHtml(source: FormSource, fullName: string): string
   const content = getUserConfirmationContent(source);
   const displayName = escapeHtml(fullName);
   const greeting = displayName ? `Hej ${displayName},` : 'Hej,';
+  const outroParagraph = content.outroText
+    ? `<p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.outroText)}</p>`
+    : '';
   return buildBaseEmailLayout({
     title: content.title,
     subtitle: content.subtitle,
     preheader: content.subject,
     badge: 'PTO Bekräftelse',
-    introHtml: `<p style="margin:0 0 10px;"><strong>${greeting}</strong></p>`,
-    bodyHtml: `
+    introHtml: `
+      <p style="margin:0 0 10px;"><strong>${greeting}</strong></p>
       <p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.introText)}</p>
-      <p style="margin:0 0 ${content.outroText ? '10px' : '0'};font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.detailText)}</p>
-      ${content.outroText ? `<p style="margin:0;font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.outroText)}</p>` : ''}
+      <p style="margin:0 0 10px;font-size:14px;line-height:1.65;color:#3D3D3D;">${escapeHtml(content.detailText)}</p>
+      ${outroParagraph}
+      <p style="margin:0;font-size:14px;line-height:1.65;color:#3D3D3D;">Med vänliga hälsningar,<br />Private Training Online</p>
     `,
+    bodyHtml: '',
     ctaLabel: content.ctaLabel,
     ctaHref: content.ctaHref,
-    footerNote: 'Vänliga hälsningar, Private Training Online',
+    footerNote: 'Du kan svara direkt på detta mejl om du vill komplettera något.',
   });
 }
 

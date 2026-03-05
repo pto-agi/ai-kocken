@@ -209,6 +209,8 @@ describe('form notifications api', () => {
     expect(confirmationBody.subject).toBe('Tack för din uppföljning!');
     expect(confirmationBody.text).toContain('Vi har mottagit din uppföljning');
     expect(confirmationBody.html).toContain('Tack för din uppföljning');
+    expect(confirmationBody.html).toContain('Vi har mottagit din uppföljning och går igenom den inför nästa planering.');
+    expect(confirmationBody.html).not.toContain('background:#F6F1E7;border:1px solid #E6E1D8;border-radius:14px;padding:16px;');
     expect(confirmationBody.reply_to).toBe('info@privatetrainingonline.se');
 
     expect(res.statusCode).toBe(200);
