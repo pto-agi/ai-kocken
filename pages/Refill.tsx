@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Minus, Plus, ShoppingBasket, Sparkles, X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
+import { buildRefillNotificationBody, sendRefillNotification } from '../utils/refillNotification';
 
 type Product = {
   id: string;
@@ -273,6 +274,17 @@ const Refill: React.FC = () => {
       }
 
       if (res && !res.ok) throw new Error('Webhook failed');
+
+      try {
+        const notificationPayload = buildRefillNotificationBody(payload);
+        const notificationRes = await sendRefillNotification(notificationPayload);
+        if (!notificationRes.ok) {
+          console.warn('Refill notification non-200:', notificationRes.status);
+        }
+      } catch (notificationErr) {
+        console.warn('Refill notification error:', notificationErr);
+      }
+
       setStatus('success');
       setShippingError(null);
       setQuantities({});

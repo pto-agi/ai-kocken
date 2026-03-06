@@ -233,4 +233,64 @@ describe('member actions api', () => {
       confirmation_id: null,
     });
   });
+
+  it('sends webhook and admin email for deactivation', async () => {
+    process.env.ZAPIER_DEACTIVATE_WEBHOOK_URL = 'https://hooks.example.com/deactivate';
+    process.env.RESEND_API_KEY = 'resend_test_key';
+    process.env.RESEND_MEMBER_ACTION_TO = 'ops@example.com';
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+        text: async () => '',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_deactivate_admin_123' }),
+        text: async () => '',
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req: MockReq = {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: {
+        action_type: 'deactivate_membership',
+        request_id: 'req_deactivate_1',
+        requested_at: '2026-03-06T09:00:00.000Z',
+        user_id: 'user_3',
+        email: 'member3@example.com',
+        name: 'Member Three',
+      },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [webhookUrl, webhookInit] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(webhookUrl).toBe('https://hooks.example.com/deactivate');
+    expect(webhookInit.method).toBe('POST');
+
+    const [adminResendUrl, adminResendInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+    expect(adminResendUrl).toBe('https://api.resend.com/emails');
+    const adminPayload = JSON.parse(String(adminResendInit.body));
+    expect(adminPayload.to).toEqual(['info@privatetrainingonline.se', 'ops@example.com']);
+    expect(adminPayload.subject).toContain('Avslut');
+    expect(adminPayload.reply_to).toBe('member3@example.com');
+    expect(adminPayload.text).toContain('Åtgärd: Avslut av medlemskap');
+
+    expect(res.statusCode).toBe(200);
+    expect(res.jsonBody).toEqual({
+      ok: true,
+      action_type: 'deactivate_membership',
+      request_id: 'req_deactivate_1',
+      email_status: 'sent',
+      email_id: 'email_deactivate_admin_123',
+      confirmation_id: null,
+    });
+  });
 });

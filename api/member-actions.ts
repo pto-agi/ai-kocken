@@ -482,7 +482,11 @@ export default async function handler(req: any, res: any) {
     let emailId: string | null = null;
     let confirmationId: string | null = null;
 
-    if (typedAction === 'pause_membership' || typedAction === 'reactivate_membership') {
+    if (
+      typedAction === 'pause_membership' ||
+      typedAction === 'reactivate_membership' ||
+      typedAction === 'deactivate_membership'
+    ) {
       const resendApiKey = (process.env.RESEND_API_KEY || '').trim();
       if (!resendApiKey) {
         emailStatus = 'skipped';

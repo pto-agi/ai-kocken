@@ -1,4 +1,4 @@
-type FormSource = 'startform' | 'uppfoljning' | 'forlangning';
+type FormSource = 'startform' | 'uppfoljning' | 'forlangning' | 'refill' | 'registrering';
 
 type SectionConfig = {
   title: string;
@@ -21,6 +21,8 @@ const SOURCE_LABEL: Record<FormSource, string> = {
   startform: 'Startformulär',
   uppfoljning: 'Uppföljning',
   forlangning: 'Förlängning',
+  refill: 'Refill',
+  registrering: 'Registrering',
 };
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
@@ -35,6 +37,7 @@ const FIELD_LABELS: Record<string, string> = {
   first_name: 'Förnamn',
   last_name: 'Efternamn',
   email: 'E-post',
+  membership_level: 'Medlemsnivå',
   desired_start_date: 'Önskat startdatum',
   weight_kg: 'Vikt (kg)',
   height_cm: 'Längd (cm)',
@@ -75,6 +78,20 @@ const FIELD_LABELS: Record<string, string> = {
   month_count: 'Månadsekvivalent',
   total_price: 'Pris (intern)',
   campaign_year: 'Kampanjår',
+  item_count: 'Antal produkter',
+  subtotal: 'Delsumma',
+  total: 'Total',
+  currency: 'Valuta',
+  items: 'Produkter',
+  created_at: 'Skapad',
+  address_line1: 'Adressrad 1',
+  address_line2: 'Adressrad 2',
+  postal_code: 'Postnummer',
+  city: 'Ort',
+  country: 'Land',
+  phone: 'Telefon',
+  user_id: 'Användar-ID',
+  registration_source: 'Källa',
 };
 
 const STARTFORM_SECTIONS: SectionConfig[] = [
@@ -156,6 +173,32 @@ const FORLANGNING_SECTIONS: SectionConfig[] = [
   {
     title: 'Intern data',
     keys: ['campaign_year', 'month_count', 'total_price'],
+  },
+];
+
+const REFILL_SECTIONS: SectionConfig[] = [
+  {
+    title: 'Kontaktuppgifter',
+    keys: ['submitted_at', 'first_name', 'last_name', 'email', 'membership_level'],
+  },
+  {
+    title: 'Beställning',
+    keys: ['created_at', 'item_count', 'subtotal', 'total', 'currency', 'items'],
+  },
+  {
+    title: 'Leverans',
+    keys: ['address_line1', 'address_line2', 'postal_code', 'city', 'country', 'phone'],
+  },
+];
+
+const REGISTRERING_SECTIONS: SectionConfig[] = [
+  {
+    title: 'Kontaktuppgifter',
+    keys: ['submitted_at', 'first_name', 'last_name', 'email'],
+  },
+  {
+    title: 'System',
+    keys: ['user_id', 'registration_source'],
   },
 ];
 
@@ -271,12 +314,16 @@ function getFieldLabel(key: string): string {
 function getSectionConfig(source: FormSource): SectionConfig[] {
   if (source === 'startform') return STARTFORM_SECTIONS;
   if (source === 'uppfoljning') return UPPFOLJNING_SECTIONS;
-  return FORLANGNING_SECTIONS;
+  if (source === 'forlangning') return FORLANGNING_SECTIONS;
+  if (source === 'refill') return REFILL_SECTIONS;
+  return REGISTRERING_SECTIONS;
 }
 
 function getRecipientsForSource(source: FormSource): string[] {
-  if (source === 'forlangning' || source === 'uppfoljning') return [DEFAULT_TO];
-  return dedupeRecipients([DEFAULT_TO, ...parseRecipientList(process.env.RESEND_FORM_TO)]);
+  if (source === 'startform') {
+    return dedupeRecipients([DEFAULT_TO, ...parseRecipientList(process.env.RESEND_FORM_TO)]);
+  }
+  return [DEFAULT_TO];
 }
 
 function getReplyToForSource(source: FormSource, payload: Record<string, unknown>): string | undefined {
@@ -573,6 +620,18 @@ function getUserConfirmationContent(source: FormSource): UserConfirmationContent
       ctaHref: `${appBaseUrl}/profile`,
     };
   }
+  if (source === 'refill') {
+    return {
+      subject: 'Tack för din refill-beställning!',
+      title: 'Tack för din refill-beställning',
+      subtitle: 'Din beställning är mottagen.',
+      introText: 'Vi har mottagit din refill-beställning och hanterar den så snart som möjligt.',
+      detailText: 'Om vi behöver kompletterande uppgifter hör vi av oss till dig.',
+      outroText: 'Tack för att du handlar via medlemsshoppen.',
+      ctaLabel: 'Öppna Mina sidor',
+      ctaHref: `${appBaseUrl}/refill`,
+    };
+  }
   return {
     subject: 'Tack för din uppföljning!',
     title: 'Tack för din uppföljning',
@@ -583,6 +642,10 @@ function getUserConfirmationContent(source: FormSource): UserConfirmationContent
     ctaLabel: 'Öppna Mina sidor',
     ctaHref: `${appBaseUrl}/profile/inlamningar`,
   };
+}
+
+function shouldSendUserConfirmation(source: FormSource): boolean {
+  return source !== 'registrering';
 }
 
 function buildUserConfirmationText(source: FormSource, fullName: string): string {
@@ -658,7 +721,7 @@ export default async function handler(req: any, res: any) {
 
   const body = await readBody(req);
   const source = body.source;
-  if (source !== 'startform' && source !== 'uppfoljning' && source !== 'forlangning') {
+  if (source !== 'startform' && source !== 'uppfoljning' && source !== 'forlangning' && source !== 'refill' && source !== 'registrering') {
     setCors(res, origin);
     res.status(400).json({ error: 'Unsupported source' });
     return;
@@ -696,7 +759,7 @@ export default async function handler(req: any, res: any) {
     let confirmationId: string | null = null;
 
     const userEmail = typeof body.email === 'string' ? body.email.trim() : '';
-    if (userEmail) {
+    if (userEmail && shouldSendUserConfirmation(source)) {
       const userContent = getUserConfirmationContent(source);
       const confirmationPayload: ResendPayload = {
         from,

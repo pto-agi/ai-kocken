@@ -317,4 +317,109 @@ describe('form notifications api', () => {
     expect(res.statusCode).toBe(200);
     expect(res.jsonBody).toEqual({ ok: true, id: 'email_ext_123', channel: 'resend', confirmation_id: 'email_ext_confirm_123' });
   });
+
+  it('posts refill purchase notification to fixed admin inbox', async () => {
+    process.env.RESEND_API_KEY = 'test_key';
+    process.env.RESEND_FORM_TO = 'other-admin@example.com';
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_refill_123' }),
+        text: async () => '',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_refill_confirm_123' }),
+        text: async () => '',
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req: MockReq = {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: {
+        source: 'refill',
+        submitted_at: '2026-03-06T08:00:00.000Z',
+        first_name: 'Maja',
+        last_name: 'Test',
+        email: 'maja@example.com',
+        item_count: '2',
+        subtotal: '1294',
+        currency: 'SEK',
+        items: '[{"id":"bcaa","qty":2}]',
+        address_line1: 'Testvägen 1',
+        postal_code: '12345',
+        city: 'Stockholm',
+      },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [, adminInit] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const adminBody = JSON.parse(String(adminInit.body));
+    expect(adminBody.subject).toContain('Refill');
+    expect(adminBody.to).toEqual(['info@privatetrainingonline.se']);
+    expect(adminBody.text).toContain('[Beställning]');
+    expect(adminBody.text).toContain('Antal produkter: 2');
+    expect(adminBody.text).toContain('[Leverans]');
+    expect(adminBody.html).toContain('Refill inkommet');
+    expect(adminBody.html).toContain('Beställning');
+    expect(adminBody.reply_to).toBe('maja@example.com');
+
+    const [, confirmationInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+    const confirmationBody = JSON.parse(String(confirmationInit.body));
+    expect(confirmationBody.to).toEqual(['maja@example.com']);
+    expect(confirmationBody.subject).toBe('Tack för din refill-beställning!');
+    expect(confirmationBody.reply_to).toBe('info@privatetrainingonline.se');
+
+    expect(res.statusCode).toBe(200);
+    expect(res.jsonBody).toEqual({ ok: true, id: 'email_refill_123', channel: 'resend', confirmation_id: 'email_refill_confirm_123' });
+  });
+
+  it('posts registration notification to fixed admin inbox without customer confirmation', async () => {
+    process.env.RESEND_API_KEY = 'test_key';
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'email_registration_123' }),
+        text: async () => '',
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req: MockReq = {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: {
+        source: 'registrering',
+        submitted_at: '2026-03-06T09:10:00.000Z',
+        first_name: 'Anna',
+        last_name: 'Ny',
+        email: 'anna@example.com',
+        user_id: 'user_new_1',
+        registration_source: 'supabase_auth_signup',
+      },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, adminInit] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const adminBody = JSON.parse(String(adminInit.body));
+    expect(adminBody.subject).toContain('Registrering');
+    expect(adminBody.to).toEqual(['info@privatetrainingonline.se']);
+    expect(adminBody.text).toContain('[Kontaktuppgifter]');
+    expect(adminBody.text).toContain('E-post: anna@example.com');
+    expect(adminBody.text).toContain('[System]');
+    expect(adminBody.text).toContain('Källa: supabase_auth_signup');
+    expect(adminBody.reply_to).toBe('anna@example.com');
+
+    expect(res.statusCode).toBe(200);
+    expect(res.jsonBody).toEqual({ ok: true, id: 'email_registration_123', channel: 'resend', confirmation_id: null });
+  });
 });

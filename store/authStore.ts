@@ -185,6 +185,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     });
 
+    if (!error && data.user) {
+      const normalizedName = String(name || '').trim();
+      const [firstName = '', ...lastNameParts] = normalizedName.split(' ').filter(Boolean);
+      const notificationPayload = {
+        source: 'registrering',
+        submitted_at: new Date().toISOString(),
+        first_name: firstName || normalizedName,
+        last_name: lastNameParts.join(' '),
+        email: email.trim(),
+        user_id: data.user.id,
+        registration_source: 'supabase_auth_signup',
+      };
+
+      try {
+        const response = await fetch('/api/form-notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(notificationPayload),
+        });
+        if (!response.ok) {
+          console.warn('Registration notification non-200:', response.status);
+        }
+      } catch (notificationError) {
+        console.warn('Registration notification error:', notificationError);
+      }
+    }
+
     // Vi gör ingen manuell insert här längre. Databasen sköter det.
     return { user: data.user, error };
   },
