@@ -1,6 +1,35 @@
 {
-  "last_commit": "8f4c12e9ca8764444437b8880dc83e87019aef42",
+  "last_commit": "3c3b577cf977a97a061576c3fd8cd76d38b40137",
   "entries": [
+    {
+      "id": "2026-03-09T12:52:23.161Z-3c3b577",
+      "date": "2026-03-09T12:52:23.161Z",
+      "range": "8f4c12e9ca8764444437b8880dc83e87019aef42..3c3b577cf977a97a061576c3fd8cd76d38b40137",
+      "head": "3c3b577cf977a97a061576c3fd8cd76d38b40137",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "3c3b577",
+          "subject": "Allow guest submissions for start form"
+        },
+        {
+          "hash": "b33a7c9",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "App.tsx",
+        "data/changelog.json",
+        "pages/Start.tsx",
+        "supabase/forms.sql",
+        "tests/startGuestAccess.test.ts"
+      ],
+      "stats": {
+        "files": 5,
+        "insertions": 104,
+        "deletions": 21
+      }
+    },
     {
       "id": "2026-03-06T13:28:43.199Z-8f4c12e",
       "date": "2026-03-06T13:28:43.199Z",
