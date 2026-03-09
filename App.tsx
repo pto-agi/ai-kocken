@@ -265,19 +265,11 @@ function App() {
 
             <Route
               path="/start"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <Start />
-                </AuthGuard>
-              }
+              element={<Start />}
             />
             <Route
               path="/start/tack"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <StartTack />
-                </AuthGuard>
-              }
+              element={<StartTack />}
             />
 
             <Route
