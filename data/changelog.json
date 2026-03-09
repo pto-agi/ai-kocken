@@ -1,6 +1,35 @@
 {
-  "last_commit": "3c3b577cf977a97a061576c3fd8cd76d38b40137",
+  "last_commit": "eeb53b0651f8e63426c8518796d6444ebc7f4c51",
   "entries": [
+    {
+      "id": "2026-03-09T16:35:02.953Z-eeb53b0",
+      "date": "2026-03-09T16:35:02.953Z",
+      "range": "3c3b577cf977a97a061576c3fd8cd76d38b40137..eeb53b0651f8e63426c8518796d6444ebc7f4c51",
+      "head": "eeb53b0651f8e63426c8518796d6444ebc7f4c51",
+      "commit_count": 2,
+      "commits": [
+        {
+          "hash": "eeb53b0",
+          "subject": "Allow guest submissions for uppfoljning"
+        },
+        {
+          "hash": "7ea123d",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "App.tsx",
+        "data/changelog.json",
+        "pages/Uppfoljning.tsx",
+        "supabase/forms.sql",
+        "tests/startGuestAccess.test.ts"
+      ],
+      "stats": {
+        "files": 5,
+        "insertions": 94,
+        "deletions": 21
+      }
+    },
     {
       "id": "2026-03-09T12:52:23.161Z-3c3b577",
       "date": "2026-03-09T12:52:23.161Z",
