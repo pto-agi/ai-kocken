@@ -4,7 +4,7 @@ create extension if not exists "pgcrypto";
 
 create table if not exists public.startformular (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),
   is_done boolean not null default false,
   done_at timestamptz,
@@ -69,7 +69,10 @@ alter table public.uppfoljningar enable row level security;
 drop policy if exists "startformular_insert_own" on public.startformular;
 create policy "startformular_insert_own" on public.startformular
   for insert
-  with check (auth.uid() = user_id);
+  with check (
+    (auth.uid() is not null and auth.uid() = user_id)
+    or (auth.uid() is null and user_id is null)
+  );
 
 drop policy if exists "startformular_select_own" on public.startformular;
 create policy "startformular_select_own" on public.startformular
@@ -151,6 +154,7 @@ create policy "uppfoljningar_update_staff" on public.uppfoljningar
   );
 
 alter table public.startformular
+  alter column user_id drop not null,
   add column if not exists is_done boolean not null default false,
   add column if not exists done_at timestamptz,
   add column if not exists done_by uuid;

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, ClipboardList, Loader2, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
@@ -249,12 +249,6 @@ const Start: React.FC = () => {
       return;
     }
 
-    if (!session?.user?.id) {
-      setErrorMessage('Du behöver vara inloggad för att skicka in formuläret.');
-      setStatus('error');
-      return;
-    }
-
     const validationError = validate();
     if (validationError) {
       setErrorMessage(validationError);
@@ -267,7 +261,7 @@ const Start: React.FC = () => {
     const sessionsLabel = sessionsOptions.find((option) => option.value === form.sessionsPerWeek)?.label || form.sessionsPerWeek;
 
     const payload = {
-      user_id: session.user.id,
+      user_id: session?.user?.id ?? null,
       first_name: form.firstName.trim(),
       last_name: form.lastName.trim(),
       email: form.email.trim(),
@@ -366,6 +360,30 @@ const Start: React.FC = () => {
             </p>
           )}
         </div>
+
+        {!session?.user?.id ? (
+          <div className="mb-4 rounded-2xl border border-[#DAD1C5] bg-white/90 p-4 sm:p-5 shadow-sm">
+            <p className="text-sm text-[#6B6158]">
+              Du kan skicka in formuläret direkt utan konto, eller skapa konto först för att koppla inlämningen till din profil.
+            </p>
+            <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <span className="inline-flex items-center rounded-full border border-[#a0c81d]/40 bg-[#E8F1D5] px-3 py-1 text-[11px] font-black uppercase tracking-widest text-[#5C7A12]">
+                Lämna in som gäst
+              </span>
+              <Link
+                to="/auth"
+                className="inline-flex items-center rounded-xl border border-[#DAD1C5] bg-[#F6F1E7] px-4 py-2 text-[11px] font-black uppercase tracking-widest text-[#3D3D3D] hover:border-[#a0c81d]/40 hover:text-[#5C7A12] transition"
+              >
+                Skapa konto och spara dina uppgifter
+              </Link>
+            </div>
+            <p className="mt-3 text-xs text-[#8A8177]">Vid uppföljning behöver du vara inloggad.</p>
+          </div>
+        ) : (
+          <div className="mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-50 p-4 text-sm text-emerald-900">
+            Inloggad: din startinlämning kopplas automatiskt till ditt konto.
+          </div>
+        )}
 
         <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[1.75rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-10 border border-[#E6E1D8] shadow-2xl">
           {!isConfigured && (
