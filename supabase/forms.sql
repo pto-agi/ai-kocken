@@ -41,7 +41,7 @@ create table if not exists public.startformular (
 
 create table if not exists public.uppfoljningar (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),
   is_done boolean not null default false,
   done_at timestamptz,
@@ -114,7 +114,10 @@ create policy "startformular_update_staff" on public.startformular
 drop policy if exists "uppfoljningar_insert_own" on public.uppfoljningar;
 create policy "uppfoljningar_insert_own" on public.uppfoljningar
   for insert
-  with check (auth.uid() = user_id);
+  with check (
+    (auth.uid() is not null and auth.uid() = user_id)
+    or (auth.uid() is null and user_id is null)
+  );
 
 drop policy if exists "uppfoljningar_select_own" on public.uppfoljningar;
 create policy "uppfoljningar_select_own" on public.uppfoljningar
@@ -160,6 +163,7 @@ alter table public.startformular
   add column if not exists done_by uuid;
 
 alter table public.uppfoljningar
+  alter column user_id drop not null,
   add column if not exists is_done boolean not null default false,
   add column if not exists done_at timestamptz,
   add column if not exists done_by uuid;

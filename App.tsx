@@ -274,19 +274,11 @@ function App() {
 
             <Route
               path="/uppfoljning"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <Uppfoljning />
-                </AuthGuard>
-              }
+              element={<Uppfoljning />}
             />
             <Route
               path="/uppfoljning/tack"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <UppfoljningTack />
-                </AuthGuard>
-              }
+              element={<UppfoljningTack />}
             />
 
             <Route
