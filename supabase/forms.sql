@@ -26,6 +26,8 @@ create table if not exists public.startformular (
   training_forms_other text,
   training_places text[] default '{}',
   training_places_other text,
+  home_equipment text[] default '{}',
+  home_equipment_other text,
   sessions_per_week text not null,
   sessions_per_week_other text,
   measurement_chest_back numeric,
@@ -160,7 +162,9 @@ alter table public.startformular
   alter column user_id drop not null,
   add column if not exists is_done boolean not null default false,
   add column if not exists done_at timestamptz,
-  add column if not exists done_by uuid;
+  add column if not exists done_by uuid,
+  add column if not exists home_equipment text[] default '{}',
+  add column if not exists home_equipment_other text;
 
 alter table public.uppfoljningar
   alter column user_id drop not null,

@@ -112,6 +112,9 @@ describe('form notifications api', () => {
         last_name: 'Lovelace',
         email: 'ada@example.com',
         sessions_per_week: '3 pass per vecka',
+        training_places: ['Hemma'],
+        home_equipment: ['Hantlar', 'Träningsmatta'],
+        home_equipment_other: 'Pull-up stång',
       },
     };
     const res = createRes();
@@ -134,6 +137,11 @@ describe('form notifications api', () => {
     expect(parsedBody.html).toContain('Kontaktuppgifter');
     expect(parsedBody.html).not.toContain('Kroppsmått');
     expect(parsedBody.html).not.toContain('Mått midja');
+    expect(parsedBody.text).toContain('Utrustning hemma: Hantlar, Träningsmatta');
+    expect(parsedBody.text).toContain('Utrustning hemma (annat): Pull-up stång');
+    expect(parsedBody.text).not.toContain('[Övriga uppgifter]');
+    expect(parsedBody.html).toContain('Utrustning hemma');
+    expect(parsedBody.html).toContain('Hantlar, Träningsmatta');
     expect(parsedBody.html).not.toContain('>—<');
     expect(parsedBody.to).toEqual(['info@privatetrainingonline.se', 'admin1@example.com', 'admin2@example.com']);
 

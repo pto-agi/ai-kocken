@@ -23,6 +23,8 @@ type StartFormState = {
   trainingFormsOther: string;
   trainingPlaces: string[];
   trainingPlacesOther: string;
+  homeEquipment: string[];
+  homeEquipmentOther: string;
   sessionsPerWeek: string;
   sessionsPerWeekOther: string;
   showMeasurements: boolean;
@@ -61,6 +63,20 @@ const trainingPlaceOptions = [
   'Annat'
 ];
 
+const homeEquipmentOptions = [
+  'Hantlar',
+  'Kettlebell',
+  'Gummiband',
+  'Träningsmatta',
+  'Bänk',
+  'Skivstång',
+  'Pull-up bar',
+  'TRX/Slings',
+  'Löpband',
+  'Cykel/Spinning',
+  'Roddmaskin'
+];
+
 const sessionsOptions = [
   { value: '1', label: '1 pass per vecka' },
   { value: '2', label: '2 pass per vecka' },
@@ -89,6 +105,8 @@ const emptyState: StartFormState = {
   trainingFormsOther: '',
   trainingPlaces: [],
   trainingPlacesOther: '',
+  homeEquipment: [],
+  homeEquipmentOther: '',
   sessionsPerWeek: '',
   sessionsPerWeekOther: '',
   showMeasurements: false,
@@ -279,6 +297,8 @@ const Start: React.FC = () => {
       training_forms_other: form.trainingForms.includes('Annat') ? (form.trainingFormsOther.trim() || null) : null,
       training_places: form.trainingPlaces,
       training_places_other: form.trainingPlaces.includes('Annat') ? (form.trainingPlacesOther.trim() || null) : null,
+      home_equipment: form.trainingPlaces.includes('Hemma') ? form.homeEquipment : [],
+      home_equipment_other: form.trainingPlaces.includes('Hemma') ? (form.homeEquipmentOther.trim() || null) : null,
       sessions_per_week: sessionsLabel,
       sessions_per_week_other: form.sessionsPerWeek === 'other' ? (form.sessionsPerWeekOther.trim() || null) : null,
       measurement_chest_back: parseNumber(form.bodyMeasurements.chestBack),
@@ -650,6 +670,34 @@ const Start: React.FC = () => {
                       className={inputClass}
                       placeholder="Ange annan träningsplats"
                     />
+                  )}
+                  {form.trainingPlaces.includes('Hemma') && (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-sm text-[#6B6158]">Vilken utrustning har du hemma?</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {homeEquipmentOptions.map((option) => (
+                          <label
+                            key={option}
+                            className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.homeEquipment.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={form.homeEquipment.includes(option)}
+                              onChange={() => setForm((prev) => ({ ...prev, homeEquipment: toggleArrayValue(prev.homeEquipment, option) }))}
+                              className="accent-[#a0c81d]"
+                            />
+                            <span className="text-sm font-semibold text-[#3D3D3D]">{option}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <input
+                        type="text"
+                        value={form.homeEquipmentOther}
+                        onChange={(e) => setForm((prev) => ({ ...prev, homeEquipmentOther: e.target.value }))}
+                        className={inputClass}
+                        placeholder="Saknar du något i listan? Skriv här."
+                      />
+                    </div>
                   )}
                 </div>
 
