@@ -645,7 +645,7 @@ function getUserConfirmationContent(source: FormSource): UserConfirmationContent
 }
 
 function shouldSendUserConfirmation(source: FormSource): boolean {
-  return source !== 'registrering';
+  return source !== 'registrering' && source !== 'startform';
 }
 
 function buildUserConfirmationText(source: FormSource, fullName: string): string {
