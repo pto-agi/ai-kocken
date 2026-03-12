@@ -39,6 +39,8 @@ type StartFormEntry = BaseSubmission & {
   training_forms_other: string | null;
   training_places: string[] | null;
   training_places_other: string | null;
+  home_equipment: string[] | null;
+  home_equipment_other: string | null;
   sessions_per_week: string | null;
   sessions_per_week_other: string | null;
   measurement_chest_back: number | null;
@@ -1553,6 +1555,8 @@ const Intranet: React.FC = () => {
           training_forms_other,
           training_places,
           training_places_other,
+          home_equipment,
+          home_equipment_other,
           sessions_per_week,
           sessions_per_week_other,
           measurement_chest_back,
@@ -2202,6 +2206,8 @@ const Intranet: React.FC = () => {
             row('Träningsformer annat', submission.data.training_forms_other || '—', { hideIfEmpty: true }),
             row('Träningsplatser', formatList(submission.data.training_places), { hideIfEmpty: true }),
             row('Träningsplatser annat', submission.data.training_places_other || '—', { hideIfEmpty: true }),
+            row('Utrustning hemma', formatList(submission.data.home_equipment), { hideIfEmpty: true }),
+            row('Utrustning hemma (annat)', submission.data.home_equipment_other || '—', { hideIfEmpty: true }),
             row('Pass/vecka (detalj)', submission.data.sessions_per_week_other || '—', { hideIfEmpty: true }),
           ])}
 

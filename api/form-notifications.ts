@@ -118,6 +118,8 @@ const STARTFORM_SECTIONS: SectionConfig[] = [
       'training_forms_other',
       'training_places',
       'training_places_other',
+      'home_equipment',
+      'home_equipment_other',
       'sessions_per_week',
       'sessions_per_week_other',
     ],
