@@ -90,7 +90,7 @@ describe('form notifications api', () => {
     expect(res.jsonBody).toEqual({ error: 'Unsupported source' });
   });
 
-  it('posts email to Resend for startform payload', async () => {
+  it('posts email to Resend for startform payload without customer confirmation', async () => {
     process.env.RESEND_API_KEY = 'test_key';
     process.env.RESEND_FORM_TO = 'admin1@example.com, admin2@example.com';
     const fetchMock = vi.fn()
@@ -98,12 +98,6 @@ describe('form notifications api', () => {
         ok: true,
         status: 200,
         json: async () => ({ id: 'email_123' }),
-        text: async () => '',
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ id: 'email_123_confirm' }),
         text: async () => '',
       });
     vi.stubGlobal('fetch', fetchMock);
@@ -124,7 +118,7 @@ describe('form notifications api', () => {
 
     await handler(req, res);
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('https://api.resend.com/emails');
     expect(init.method).toBe('POST');
@@ -143,15 +137,8 @@ describe('form notifications api', () => {
     expect(parsedBody.html).not.toContain('>—<');
     expect(parsedBody.to).toEqual(['info@privatetrainingonline.se', 'admin1@example.com', 'admin2@example.com']);
 
-    const [, confirmationInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
-    const confirmationBody = JSON.parse(String(confirmationInit.body));
-    expect(confirmationBody.to).toEqual(['ada@example.com']);
-    expect(confirmationBody.subject).toBe('Tack för din inlämning!');
-    expect(confirmationBody.text).toContain('Vi har mottagit din startinlämning');
-    expect(confirmationBody.reply_to).toBe('info@privatetrainingonline.se');
-
     expect(res.statusCode).toBe(200);
-    expect(res.jsonBody).toEqual({ ok: true, id: 'email_123', channel: 'resend', confirmation_id: 'email_123_confirm' });
+    expect(res.jsonBody).toEqual({ ok: true, id: 'email_123', channel: 'resend', confirmation_id: null });
   });
 
   it('posts email to Resend for uppfoljning payload', async () => {
