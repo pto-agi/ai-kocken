@@ -1,6 +1,53 @@
 {
-  "last_commit": "eeb53b0651f8e63426c8518796d6444ebc7f4c51",
+  "last_commit": "ac3168d991f41ec68c75fcf72d25ffce6bd51089",
   "entries": [
+    {
+      "id": "2026-03-13T14:47:41.591Z-ac3168d",
+      "date": "2026-03-13T14:47:41.591Z",
+      "range": "eeb53b0651f8e63426c8518796d6444ebc7f4c51..ac3168d991f41ec68c75fcf72d25ffce6bd51089",
+      "head": "ac3168d991f41ec68c75fcf72d25ffce6bd51089",
+      "commit_count": 4,
+      "commits": [
+        {
+          "hash": "ac3168d",
+          "subject": "Harden weekly planner AI flow and split route bundles"
+        },
+        {
+          "hash": "cc7be47",
+          "subject": "feat(startform): persist home equipment selections"
+        },
+        {
+          "hash": "63bfa23",
+          "subject": "chore(email): disable startform confirmation emails"
+        },
+        {
+          "hash": "cd1b106",
+          "subject": "Update changelog"
+        }
+      ],
+      "files_changed": [
+        "App.tsx",
+        "api/form-notifications.ts",
+        "api/gemini.ts",
+        "components/WeeklyPlanner.tsx",
+        "data/changelog.json",
+        "package-lock.json",
+        "package.json",
+        "pages/Intranet.tsx",
+        "pages/Start.tsx",
+        "services/geminiService.ts",
+        "supabase/forms.sql",
+        "tests/formNotificationsApi.test.ts",
+        "tests/geminiApi.test.ts",
+        "tests/geminiService.test.ts",
+        "tests/startHomeEquipment.test.ts"
+      ],
+      "stats": {
+        "files": 15,
+        "insertions": 779,
+        "deletions": 126
+      }
+    },
     {
       "id": "2026-03-09T16:35:02.953Z-eeb53b0",
       "date": "2026-03-09T16:35:02.953Z",
