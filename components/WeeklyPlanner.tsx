@@ -39,6 +39,14 @@ const MACRO_PRESETS = [
   { id: 'highprotein', label: 'High Protein', p: 50, c: 30, f: 20 },
 ];
 
+const CUISINE_CATEGORIES = [
+  'Svensk husman',
+  'Medelhav',
+  'Asiatiskt',
+  'Mexikanskt',
+  'Snabblagat',
+  'Meal prep',
+];
 
 // --- HELPERS ---
 const n = (v: any, fallback = 0) => {
@@ -78,6 +86,22 @@ const macroLine = (meal: any) => {
 
   if (!p && !c && !f) return kcal ? `${kcal} kcal` : "";
   return `${kcal} kcal • P ${p}g • K ${c}g • F ${f}g`;
+};
+
+const computeDailyTotals = (meals: any[]) => {
+  const totals = (Array.isArray(meals) ? meals : []).reduce((acc, meal) => ({
+    kcal: acc.kcal + nDisplay(meal?.kcal),
+    protein: acc.protein + nDisplay(meal?.protein),
+    carbs: acc.carbs + nDisplay(meal?.carbs),
+    fat: acc.fat + nDisplay(meal?.fat),
+  }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+
+  return {
+    kcal: Math.max(0, Math.round(totals.kcal)),
+    protein: Math.max(0, Math.round(totals.protein)),
+    carbs: Math.max(0, Math.round(totals.carbs)),
+    fat: Math.max(0, Math.round(totals.fat)),
+  };
 };
 
 // Custom Markdown Components for consistent styling
@@ -205,40 +229,25 @@ const WeeklyPlanner: React.FC = () => {
     }
   };
 
-  const mapMealTypeToLegacyKey = (mealType: string): 'breakfast' | 'lunch' | 'dinner' | null => {
-    const t = mealType.toLowerCase();
-    if (t.includes('frukost')) return 'breakfast';
-    if (t.includes('lunch')) return 'lunch';
-    if (t.includes('middag')) return 'dinner';
-    return null;
-  };
-
-  const handleSwapMeal = async (dayIdx: number, mealType: string) => {
+  const handleSwapMeal = async (dayIdx: number, mealIdx: number) => {
     if (!currentPlan) return;
-    const legacyKey = mapMealTypeToLegacyKey(mealType);
-    const currentMeal =
-      currentPlan[dayIdx]?.meals?.find((m: any) => m.type?.toLowerCase().includes(mealType.toLowerCase())) ||
-      (legacyKey ? currentPlan[dayIdx]?.[legacyKey] : undefined);
-    
+    const currentMeal = currentPlan[dayIdx]?.meals?.[mealIdx];
     if (!currentMeal) return;
+    const mealType = String(currentMeal.type || 'Måltid');
 
-    const key = `${dayIdx}-${mealType}`;
+    const key = `${dayIdx}-${mealIdx}`;
     setSwappingMeals(prev => ({ ...prev, [key]: true }));
     try {
       const newMealData = await swapMeal(currentMeal.name, mealType, request);
       const newPlan = [...currentPlan];
-      
-      // Update logic for new array structure
-      if (newPlan[dayIdx].meals) {
-          const mIdx = newPlan[dayIdx].meals.findIndex((m: any) => m.type.toLowerCase().includes(mealType.toLowerCase()));
-          if (mIdx !== -1) newPlan[dayIdx].meals[mIdx] = newMealData;
-      } else {
-          // Fallback old structure
-          if (legacyKey) {
-            newPlan[dayIdx] = { ...newPlan[dayIdx], [legacyKey]: newMealData };
-          }
-      }
-      
+      const meals = Array.isArray(newPlan[dayIdx]?.meals) ? [...newPlan[dayIdx].meals] : [];
+      meals[mealIdx] = { ...newMealData, type: newMealData?.type || mealType };
+      newPlan[dayIdx] = {
+        ...newPlan[dayIdx],
+        meals,
+        dailyTotals: computeDailyTotals(meals),
+      };
+
       setCurrentPlan(newPlan);
     } catch {
       alert("Kunde inte byta ut rätten.");
@@ -327,7 +336,7 @@ ${meal.instructions}
     
     try {
         // 1. Generate full details (ingredients/instructions) for all meals
-        const detailedPlan = await generateFullWeeklyDetails(currentPlan, request.targets);
+        const detailedPlan = await generateFullWeeklyDetails(currentPlan, request);
         
         // 2. Save to DB if logged in
         if (userId) {
@@ -658,6 +667,37 @@ ${meal.instructions}
                         </div>
 
                         <div className="bg-[#F4F0E6] p-6 rounded-2xl border border-[#DAD1C5] space-y-5">
+                            <div>
+                                <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-2">Matstilar</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {CUISINE_CATEGORIES.map((category) => {
+                                        const selected = request.preferences.categories.includes(category);
+                                        return (
+                                            <button
+                                                key={category}
+                                                type="button"
+                                                onClick={() => setRequest((prev) => ({
+                                                    ...prev,
+                                                    preferences: {
+                                                        ...prev.preferences,
+                                                        categories: selected
+                                                            ? prev.preferences.categories.filter((item) => item !== category)
+                                                            : [...prev.preferences.categories, category],
+                                                    },
+                                                }))}
+                                                className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all ${
+                                                    selected
+                                                        ? 'bg-[#a0c81d] text-[#F6F1E7] border-[#a0c81d]'
+                                                        : 'bg-[#EAE2D5] text-[#6B6158] border-[#DAD1C5] hover:border-[#a0c81d]'
+                                                }`}
+                                            >
+                                                {category}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                                 <div>
                                     <label className="text-[10px] font-black text-[#8A8177] uppercase tracking-widest block mb-2">Kryddnivå</label>
@@ -770,11 +810,11 @@ ${meal.instructions}
                                                 <MealCard 
                                                     key={mIdx}
                                                     type={meal.type} 
-                                                    icon={meal.type.toLowerCase().includes('frukost') ? Coffee : meal.type.toLowerCase().includes('lunch') ? Sun : Moon} 
+                                                    icon={String(meal.type || '').toLowerCase().includes('frukost') ? Coffee : String(meal.type || '').toLowerCase().includes('lunch') ? Sun : Moon} 
                                                     meal={meal} 
                                                     onClick={() => handleViewRecipe(idx, mIdx)} 
-                                                    onSwap={() => handleSwapMeal(idx, meal.type)} 
-                                                    isSwapping={swappingMeals[`${idx}-${meal.type}`]} 
+                                                    onSwap={() => handleSwapMeal(idx, mIdx)} 
+                                                    isSwapping={swappingMeals[`${idx}-${mIdx}`]} 
                                                 />
                                             ))
                                         ) : (
@@ -911,7 +951,7 @@ ${meal.instructions}
 const MealCard = ({ type, icon: Icon, meal, onClick, onSwap, isSwapping }: any) => (
   <div onClick={onClick} className="group bg-[#F4F0E6] border border-[#DAD1C5] hover:border-[#a0c81d]/35 rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all hover:bg-[#EAE2D5]">
     <div className="flex items-center gap-4">
-      <div className={`p-2 rounded-lg ${type.toLowerCase().includes('frukost') ? 'bg-orange-500/10 text-orange-500' : type.toLowerCase().includes('lunch') ? 'bg-yellow-500/10 text-yellow-500' : 'bg-indigo-500/10 text-indigo-500'}`}><Icon className="w-4 h-4" /></div>
+      <div className={`p-2 rounded-lg ${String(type || '').toLowerCase().includes('frukost') ? 'bg-orange-500/10 text-orange-500' : String(type || '').toLowerCase().includes('lunch') ? 'bg-yellow-500/10 text-yellow-500' : 'bg-indigo-500/10 text-indigo-500'}`}><Icon className="w-4 h-4" /></div>
       <div className="min-w-0">
         <span className="text-[9px] font-bold text-[#6B6158] uppercase tracking-widest block mb-0.5">{type}</span>
         <h5 className="text-sm font-bold text-[#3D3D3D] group-hover:text-[#a0c81d] transition-colors line-clamp-1">{meal?.name || "Planeras..."}</h5>

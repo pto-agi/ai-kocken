@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import Navbar from './components/Navbar';
@@ -7,31 +7,30 @@ import Footer from './components/Footer';
 import { Loader2 } from 'lucide-react';
 import { AuthGuard } from './components/AuthGuard';
 
-// Sidor
-import { Home } from './pages/Home';
-import { Recipes } from './pages/Recipes';
-import { Profile } from './pages/Profile';
-import { Start } from './pages/Start';
-import { StartTack } from './pages/StartTack';
-import { Uppfoljning } from './pages/Uppfoljning';
-import { UppfoljningTack } from './pages/UppfoljningTack';
-import { Intranet } from './pages/Intranet';
-import { IntranetManager } from './pages/IntranetManager';
-import { IntranetTodoist } from './pages/IntranetTodoist';
-import { SalesCapital } from './pages/SalesCapital';
-import { Support } from './pages/Support';
-import { NpsSurvey } from './pages/NpsSurvey';
-import { ReferralPage } from './pages/Referral';
-import { ReferralRegister } from './pages/ReferralRegister';
-import { Forlangning } from './pages/Forlangning';
-import { ForlangningFriskvardTack } from './pages/ForlangningFriskvardTack';
-import { ForlangningTack } from './pages/ForlangningTack';
-import { Changelog } from './pages/Changelog';
-import Refill from './pages/Refill';
-import { RefillTack } from './pages/RefillTack';
-import { AuthRequired } from './pages/AuthRequired';
-import { Premium } from './pages/Premium';
-import AuthScreen from './components/AuthScreen';
+const Home = React.lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
+const Recipes = React.lazy(() => import('./pages/Recipes').then((module) => ({ default: module.Recipes })));
+const Profile = React.lazy(() => import('./pages/Profile').then((module) => ({ default: module.Profile })));
+const Start = React.lazy(() => import('./pages/Start').then((module) => ({ default: module.Start })));
+const StartTack = React.lazy(() => import('./pages/StartTack').then((module) => ({ default: module.StartTack })));
+const Uppfoljning = React.lazy(() => import('./pages/Uppfoljning').then((module) => ({ default: module.Uppfoljning })));
+const UppfoljningTack = React.lazy(() => import('./pages/UppfoljningTack').then((module) => ({ default: module.UppfoljningTack })));
+const Intranet = React.lazy(() => import('./pages/Intranet').then((module) => ({ default: module.Intranet })));
+const IntranetManager = React.lazy(() => import('./pages/IntranetManager').then((module) => ({ default: module.IntranetManager })));
+const IntranetTodoist = React.lazy(() => import('./pages/IntranetTodoist').then((module) => ({ default: module.IntranetTodoist })));
+const SalesCapital = React.lazy(() => import('./pages/SalesCapital').then((module) => ({ default: module.SalesCapital })));
+const Support = React.lazy(() => import('./pages/Support').then((module) => ({ default: module.Support })));
+const NpsSurvey = React.lazy(() => import('./pages/NpsSurvey').then((module) => ({ default: module.NpsSurvey })));
+const ReferralPage = React.lazy(() => import('./pages/Referral').then((module) => ({ default: module.ReferralPage })));
+const ReferralRegister = React.lazy(() => import('./pages/ReferralRegister').then((module) => ({ default: module.ReferralRegister })));
+const Forlangning = React.lazy(() => import('./pages/Forlangning').then((module) => ({ default: module.Forlangning })));
+const ForlangningFriskvardTack = React.lazy(() => import('./pages/ForlangningFriskvardTack').then((module) => ({ default: module.ForlangningFriskvardTack })));
+const ForlangningTack = React.lazy(() => import('./pages/ForlangningTack').then((module) => ({ default: module.ForlangningTack })));
+const Changelog = React.lazy(() => import('./pages/Changelog').then((module) => ({ default: module.Changelog })));
+const Refill = React.lazy(() => import('./pages/Refill'));
+const RefillTack = React.lazy(() => import('./pages/RefillTack').then((module) => ({ default: module.RefillTack })));
+const AuthRequired = React.lazy(() => import('./pages/AuthRequired').then((module) => ({ default: module.AuthRequired })));
+const Premium = React.lazy(() => import('./pages/Premium').then((module) => ({ default: module.Premium })));
+const AuthScreen = React.lazy(() => import('./components/AuthScreen'));
 
 const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/': {
@@ -180,6 +179,12 @@ const PageContainer: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   </div>
 );
 
+const RouteFallback: React.FC = () => (
+  <div className="min-h-[50vh] flex items-center justify-center">
+    <Loader2 className="w-10 h-10 animate-spin text-[#a0c81d]" />
+  </div>
+);
+
 function App() {
   const { initialize, isLoading } = useAuthStore();
 
@@ -204,7 +209,8 @@ function App() {
         <Navbar />
 
         <main className="pt-20 flex-grow flex flex-col">
-          <Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
             <Route
               path="/"
               element={
@@ -378,7 +384,8 @@ function App() {
               }
             />
 
-          </Routes>
+            </Routes>
+          </Suspense>
         </main>
 
         <Footer />

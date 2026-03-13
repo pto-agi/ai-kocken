@@ -1,6 +1,8 @@
 
 import { Type } from "@google/genai";
 
+import { supabase } from "../lib/supabase";
+
 // Interfaces
 export interface WeeklyPlanRequest {
   language: string;
@@ -20,17 +22,58 @@ export interface WeeklyPlanRequest {
 
 const GEMINI_ENDPOINT = '/api/gemini';
 
+const expectedMealTypes = (mealsPerDay: number): string[] => {
+  if (mealsPerDay === 3) return ['Frukost', 'Lunch', 'Middag'];
+  if (mealsPerDay === 4) return ['Frukost', 'Lunch', 'Mellanmål', 'Middag'];
+  if (mealsPerDay === 5) return ['Frukost', 'Mellanmål 1', 'Lunch', 'Mellanmål 2', 'Middag'];
+  return ['Frukost', 'Mellanmål 1', 'Lunch', 'Mellanmål 2', 'Middag', 'Kvällsmål'];
+};
+
+const buildDietConstraintsBlock = (request: WeeklyPlanRequest): string => `
+    ALLERGIER OCH BEGRÄNSNINGAR (MÅSTE FÖLJAS):
+    - Allergier: ${request.diet.allergies || 'Inga'}
+    - Uteslut ingredienser: ${request.diet.excludeIngredients || 'Inga'}
+    - Måste inkludera: ${request.diet.mustInclude || 'Inget'}
+    - Portioner: ${request.servings}
+`;
+
+const hasExactMealCount = (days: any[], mealsPerDay: number) => (
+  Array.isArray(days) &&
+  days.every((day) => Array.isArray(day?.meals) && day.meals.length === mealsPerDay)
+);
+
+const safeJsonParse = (value: string): any => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return [];
+  }
+};
+
+const computeTotalsFromMeals = (meals: any[]) => meals.reduce((acc, meal) => ({
+  kcal: acc.kcal + toNum(meal?.kcal, 0),
+  protein: acc.protein + toNum(meal?.protein, 0),
+  carbs: acc.carbs + toNum(meal?.carbs, 0),
+  fat: acc.fat + toNum(meal?.fat, 0),
+}), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+
 const callGemini = async (contents: string, config?: any): Promise<string> => {
+  const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } as any }));
+  const accessToken = data?.session?.access_token;
+
   const res = await fetch(GEMINI_ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
     body: JSON.stringify({ contents, config })
   });
   if (!res.ok) {
     throw new Error(`Gemini API error: ${res.status}`);
   }
-  const data = await res.json();
-  return data?.text || "";
+  const payloadData = await res.json();
+  return payloadData?.text || "";
 };
 
 // --- RECIPE GENERATION ---
@@ -75,21 +118,43 @@ const normalizeWeeklyMeal = (meal: any) => {
   return { ...(m as any), name, type, kcal, protein, carbs, fat };
 };
 
-const normalizeWeeklyDay = (day: any, idx: number) => {
+const createMealPlaceholder = (type: string) => ({
+  type,
+  name: `${type} (förslag saknas)`,
+  kcal: 0,
+  protein: 0,
+  carbs: 0,
+  fat: 0,
+});
+
+const normalizeWeeklyDay = (day: any, idx: number, expectedTypes: string[] = []) => {
   const d = day || {};
   const rawMeals = Array.isArray(d.meals) ? d.meals : [];
-  
-  // Map dynamic meals
-  const meals = rawMeals.map((m: any) => normalizeWeeklyMeal(m));
+
+  const baseMeals = rawMeals.map((m: any) => normalizeWeeklyMeal(m));
+  const meals = expectedTypes.length > 0
+    ? expectedTypes.map((type, mealIdx) => {
+      const existing = baseMeals[mealIdx];
+      if (!existing) return createMealPlaceholder(type);
+      return {
+        ...existing,
+        type,
+        name: existing.name && existing.name !== 'Maträtt' ? existing.name : `${type} (förslag saknas)`,
+      };
+    })
+    : baseMeals;
+
+  const fallbackTotals = computeTotalsFromMeals(meals);
+  const explicitTotals = (d as any).dailyTotals || {};
 
   return {
     ...(d as any),
     day: (d as any).day || `Dag ${idx + 1}`,
-    dailyTotals: (d as any).dailyTotals || {
-      kcal: toNum((d as any)?.dailyTotals?.kcal, 0),
-      protein: toNum((d as any)?.dailyTotals?.protein, 0),
-      carbs: toNum((d as any)?.dailyTotals?.carbs, 0),
-      fat: toNum((d as any)?.dailyTotals?.fat, 0),
+    dailyTotals: {
+      kcal: toNum(explicitTotals.kcal, fallbackTotals.kcal),
+      protein: toNum(explicitTotals.protein, fallbackTotals.protein),
+      carbs: toNum(explicitTotals.carbs, fallbackTotals.carbs),
+      fat: toNum(explicitTotals.fat, fallbackTotals.fat),
     },
     meals: meals
   };
@@ -113,6 +178,7 @@ const mergeWeeklyMeal = (overviewMeal: any, detailsMeal: any) => {
 // --- WEEKLY PLANNER ---
 
 export const generateWeeklyPlan = async (request: WeeklyPlanRequest): Promise<any[]> => {
+  const expectedTypes = expectedMealTypes(request.mealsPerDay);
   const varietyLabel =
     request.preferences.varietyLevel === 'low'
       ? 'Låg'
@@ -145,9 +211,7 @@ export const generateWeeklyPlan = async (request: WeeklyPlanRequest): Promise<an
     - Antal måltider per dag: ${request.mealsPerDay}
     - Totalt energimål per dag: ${request.targets.kcal} kcal
     - Kosthållning: ${request.diet.type}
-    - Allergier (VIKTIGT): ${request.diet.allergies || "Inga"}
-    - Uteslut ingredienser (VIKTIGT): ${request.diet.excludeIngredients || "Inga"}
-    - Måste inkludera: ${request.diet.mustInclude || "Inget"}
+${buildDietConstraintsBlock(request)}
     - Matstil: ${request.preferences.categories.join(', ') || "Ingen"}
     - Kryddnivå: ${request.preferences.spiceLevel}
     - Variation: ${varietyLabel}
@@ -215,38 +279,57 @@ export const generateWeeklyPlan = async (request: WeeklyPlanRequest): Promise<an
 
   const callModel = async (prompt: string) => {
     const text = await callGemini(prompt, requestConfig);
-    const parsed = JSON.parse(text || "[]");
+    const parsed = safeJsonParse(text || "[]");
     return Array.isArray(parsed) ? parsed : [];
   };
 
   let arr = await callModel(basePrompt);
-  if (arr.length !== request.days) {
-    console.warn(`Weekly plan length mismatch: got ${arr.length}, expected ${request.days}. Retrying once.`);
-    const retryPrompt = `${basePrompt}\n\nOBS: Din senaste output hade ${arr.length} dagar. Returnera exakt ${request.days} dagar.`;
+  const hasCorrectDays = arr.length === request.days;
+  const hasCorrectMeals = hasExactMealCount(arr, request.mealsPerDay);
+  if (!hasCorrectDays || !hasCorrectMeals) {
+    console.warn(
+      `Weekly plan shape mismatch. days=${arr.length}/${request.days}, exactMeals=${hasCorrectMeals}. Retrying once.`,
+    );
+    const retryPrompt = `${basePrompt}
+
+OBS:
+- Din senaste output hade ${arr.length} dagar (krav: ${request.days}).
+- Varje dag måste ha exakt ${request.mealsPerDay} måltider.
+- Följ exakt denna ordning: ${expectedTypes.join(', ')}.`;
     const retryArr = await callModel(retryPrompt);
-    if (retryArr.length === request.days) {
+    if (retryArr.length === request.days && hasExactMealCount(retryArr, request.mealsPerDay)) {
       arr = retryArr;
     }
   }
 
-  const normalized = arr.map((d: any, idx: number) => normalizeWeeklyDay(d, idx));
-  if (normalized.length > request.days) return normalized.slice(0, request.days);
-  if (normalized.length < request.days) {
-    const missing = request.days - normalized.length;
-    const filler = Array.from({ length: missing }, (_, i) => normalizeWeeklyDay({}, normalized.length + i));
-    return normalized.concat(filler);
-  }
-  return normalized;
+  return Array.from({ length: request.days }, (_, idx) => normalizeWeeklyDay(arr[idx], idx, expectedTypes));
 };
 
-export const generateFullWeeklyDetails = async (planOverview: any[], _targets: any): Promise<any[]> => {
+export const generateFullWeeklyDetails = async (
+  planOverview: any[],
+  requestLike: Partial<WeeklyPlanRequest> | Record<string, any> = {},
+): Promise<any[]> => {
+  const mealsPerDay = Number((requestLike as WeeklyPlanRequest)?.mealsPerDay || 0);
+  const expectedTypes = mealsPerDay >= 3 ? expectedMealTypes(mealsPerDay) : [];
+  const reqDiet = (requestLike as WeeklyPlanRequest)?.diet || { type: '', allergies: '', excludeIngredients: '', mustInclude: '' };
+  const reqServings = Number((requestLike as WeeklyPlanRequest)?.servings || 0) || 1;
+  const reqOptimize = Boolean((requestLike as WeeklyPlanRequest)?.preferences?.optimizeShopping);
+
   const overview = Array.isArray(planOverview) ? planOverview : [];
-  const overviewNormalized = overview.map((d: any, idx: number) => normalizeWeeklyDay(d, idx));
+  const overviewNormalized = overview.map((d: any, idx: number) => normalizeWeeklyDay(d, idx, expectedTypes));
 
   const planStr = JSON.stringify(overviewNormalized);
   const prompt = `
     Baserat på denna översikt, generera detaljerade ingredienslistor och korta instruktioner för varje måltid.
     Plan: ${planStr}
+
+    ALLERGIER OCH BEGRÄNSNINGAR (MÅSTE FÖLJAS):
+    - Allergier: ${reqDiet.allergies || 'Inga'}
+    - Uteslut ingredienser: ${reqDiet.excludeIngredients || 'Inga'}
+    - Måste inkludera: ${reqDiet.mustInclude || 'Inget'}
+    - Kosthållning: ${reqDiet.type || 'Ingen särskild'}
+    - Portioner: ${reqServings}
+    - Optimera inköp: ${reqOptimize ? 'Ja' : 'Nej'}
 
     VIKTIGT: Varje ingrediens MÅSTE ha mängd och enhet (t.ex. \"150 g kyckling\", \"2 dl ris\", \"1 msk olivolja\").
     Inkludera alltid mängder per råvara och håll det realistiskt för antal portioner.
@@ -271,15 +354,17 @@ export const generateFullWeeklyDetails = async (planOverview: any[], _targets: a
                 type: { type: Type.STRING },
                 ingredients: { type: Type.ARRAY, items: { type: Type.STRING, description: "Ingrediens med mängd och enhet" } },
                 instructions: { type: Type.STRING }
-              }
+              },
+              required: ['name', 'type', 'ingredients', 'instructions']
             }
           }
-        }
+        },
+        required: ['meals']
       }
     }
   });
 
-  const parsed = JSON.parse(detailsText || "[]");
+  const parsed = safeJsonParse(detailsText || "[]");
   const details = Array.isArray(parsed) ? parsed : [];
 
   return overviewNormalized.map((oDay: any, idx: number) => {
@@ -290,15 +375,19 @@ export const generateFullWeeklyDetails = async (planOverview: any[], _targets: a
         const merged = mergeWeeklyMeal(oMeal, dMeal);
         return {
           ...merged,
-          ingredients: Array.isArray(merged.ingredients) ? merged.ingredients : Array.isArray(dMeal.ingredients) ? dMeal.ingredients : [],
-          instructions: merged.instructions || dMeal.instructions || ""
+          ingredients: Array.isArray(merged.ingredients)
+            ? merged.ingredients
+            : Array.isArray(dMeal.ingredients)
+              ? dMeal.ingredients
+              : ['Mängdangivelser saknas - komplettera manuellt.'],
+          instructions: merged.instructions || dMeal.instructions || 'Instruktion saknas - komplettera manuellt.'
         };
     });
 
     return {
       ...oDay,
       day: oDay.day || dDay.day || `Dag ${idx + 1}`,
-      dailyTotals: oDay.dailyTotals || dDay.dailyTotals,
+      dailyTotals: oDay.dailyTotals || dDay.dailyTotals || computeTotalsFromMeals(mergedMeals),
       meals: mergedMeals
     };
   });
@@ -320,6 +409,10 @@ export const swapMeal = async (currentMealName: string, mealType: string, reques
     const prompt = `
       Byt ut maträtten "${currentMealName}" (${mealType}) mot något annat som passar:
       Diet: ${request.diet.type}
+      Allergier: ${request.diet.allergies || 'Inga'}
+      Uteslut ingredienser: ${request.diet.excludeIngredients || 'Inga'}
+      Måste inkludera: ${request.diet.mustInclude || 'Inget'}
+      Portioner: ${request.servings}
       Målkalorier för denna måltid: ca ${targetKcal} kcal (Var realistisk, dela inte bara totalen).
       Makromål: P ${request.targets.p}%, K ${request.targets.c}%, F ${request.targets.f}%
       
@@ -342,8 +435,8 @@ export const swapMeal = async (currentMealName: string, mealType: string, reques
       }
     });
     
-    const res = JSON.parse(swapText || "{}");
-    // Ensure type is preserved if AI forgets it
-    if (!res.type) res.type = mealType;
-    return res;
+    const res = safeJsonParse(swapText || "{}");
+    const normalized = normalizeWeeklyMeal(res);
+    if (!normalized.type || normalized.type === 'Måltid') normalized.type = mealType;
+    return normalized;
 };
