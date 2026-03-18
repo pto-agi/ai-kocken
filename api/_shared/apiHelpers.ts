@@ -69,12 +69,15 @@ export function getBearerToken(header: string | undefined): string | undefined {
 
 /**
  * Validate a shared secret sent via `x-api-secret` header.
- * Returns true if the secret matches the env variable, false otherwise.
- * If no secret is configured in env, validation is skipped (returns true).
+ * Returns true only if the secret is configured AND the provided header matches.
+ * If no secret is configured in env, validation fails (fail-closed).
  */
 export function validateApiSecret(req: any): boolean {
   const expected = (process.env.FORM_API_SECRET || '').trim();
-  if (!expected) return true; // not configured — skip validation
+  if (!expected) {
+    console.warn('[security] FORM_API_SECRET is not configured — denying request');
+    return false;
+  }
   const provided = String(req?.headers?.['x-api-secret'] || '').trim();
   return provided === expected;
 }
@@ -84,13 +87,19 @@ export function validateApiSecret(req: any): boolean {
 // ---------------------------------------------------------------------------
 
 export function isAllowedOrigin(origin: string | undefined, envKey?: string): boolean {
-  if (!origin) return true;
   const primaryKey = envKey || 'CHAT_ALLOWED_ORIGINS';
   const allowed = (process.env[primaryKey] || process.env.CHAT_ALLOWED_ORIGINS || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  if (allowed.length === 0) return true;
+  // No origin header → same-origin or non-browser request: allow when no
+  // allowlist is configured, deny when an allowlist IS configured (so that
+  // server-to-server callers can be locked down too).
+  if (!origin) return allowed.length === 0;
+  if (allowed.length === 0) {
+    console.warn(`[security] ${primaryKey} is not configured — denying cross-origin request`);
+    return false;
+  }
   return allowed.includes(origin);
 }
 

@@ -5,7 +5,6 @@ import {
   escapeHtml,
   isEmptyValue,
   formatValue,
-  validateApiSecret,
 } from './_shared/apiHelpers.js';
 import {
   sendResendEmail,
@@ -15,7 +14,6 @@ import {
   dedupeRecipients,
   DEFAULT_FROM,
   DEFAULT_TO,
-  type ResendPayload,
 } from './_shared/emailHelpers.js';
 
 type MemberAction = 'pause_membership' | 'deactivate_membership' | 'reactivate_membership';
@@ -235,11 +233,9 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  if (!validateApiSecret(req)) {
-    setCors(res, origin);
-    res.status(403).json({ error: 'Invalid API secret' });
-    return;
-  }
+  // Auth note: this endpoint is called directly from the frontend which
+  // cannot safely include an API secret. Origin validation above is the
+  // primary protection for browser-originated requests.
 
   const body = await readBody(req);
   const actionType = body.action_type;

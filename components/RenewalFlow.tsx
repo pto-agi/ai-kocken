@@ -19,8 +19,7 @@ const PORTAL_OPTIONS = [
   'Edenred',
 ];
 
-const FORLANGNING_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uc9x2zz/';
-const FORLANGNING_MONTHS_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/u0jqozb/';
+const WEBHOOK_PROXY_URL = '/api/webhook-proxy';
 
 type FlowStep = 'intro' | 'offer' | 'confirm';
 
@@ -153,26 +152,12 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
     ).toString();
 
     try {
-      let res: Response | null = null;
-
-      try {
-        res = await fetch(FORLANGNING_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body,
-        });
-      } catch (err) {
-        console.warn('Forlangning webhook primary failed, retrying no-cors:', err);
-        await fetch(FORLANGNING_WEBHOOK_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body,
-        });
-        res = null;
-      }
-
-      if (res && !res.ok) throw new Error('Webhook failed');
+      const webhookRes = await fetch(WEBHOOK_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: 'forlangning', ...Object.fromEntries(new URLSearchParams(body).entries()) }),
+      });
+      if (!webhookRes.ok) throw new Error('Webhook failed');
 
       const roundedMonthsExtended = Math.max(0, Math.round(offer.monthCount));
       const monthsPayload = new URLSearchParams({
@@ -181,26 +166,12 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
         months_extended: `${roundedMonthsExtended} månader`,
       }).toString();
 
-      let monthsRes: Response | null = null;
-
-      try {
-        monthsRes = await fetch(FORLANGNING_MONTHS_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: monthsPayload,
-        });
-      } catch (err) {
-        console.warn('Forlangning months webhook primary failed, retrying no-cors:', err);
-        await fetch(FORLANGNING_MONTHS_WEBHOOK_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: monthsPayload,
-        });
-        monthsRes = null;
-      }
-
-      if (monthsRes && !monthsRes.ok) throw new Error('Months webhook failed');
+      const monthsRes = await fetch(WEBHOOK_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: 'forlangning_months', ...Object.fromEntries(new URLSearchParams(monthsPayload).entries()) }),
+      });
+      if (!monthsRes.ok) throw new Error('Months webhook failed');
 
       const formNotificationPayload = {
         source: 'forlangning',

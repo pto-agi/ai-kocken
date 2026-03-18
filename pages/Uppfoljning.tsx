@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, MessageSquareText, Minus, Package, Plus } from 'lucide-react';
+import { ChevronDown, Loader2, MessageSquareText, Minus, Package, Plus } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { buildUppfoljningNotificationBody, sendUppfoljningNotification } from '../utils/uppfoljningNotification';
 import { buildRefillNotificationBody, sendRefillNotification } from '../utils/refillNotification';
-import { UPSELL_PRODUCTS, REFILL_WEBHOOK_URL } from '../utils/supplementProducts';
+import { UPSELL_PRODUCTS, EXPANDED_PRODUCTS, discountPercent } from '../utils/supplementProducts';
+import type { Product } from '../utils/supplementProducts';
+
+const WEBHOOK_PROXY_URL = '/api/webhook-proxy';
 
 type UppfoljningFormState = {
   firstName: string;
@@ -105,6 +108,8 @@ const Uppfoljning: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [refillQty, setRefillQty] = useState<Record<string, number>>({});
+  const [refillFlavors, setRefillFlavors] = useState<Record<string, string>>({});
+  const [showAllProducts, setShowAllProducts] = useState(false);
   const isConfigured = isSupabaseConfigured();
   const navigate = useNavigate();
 
@@ -115,14 +120,19 @@ const Uppfoljning: React.FC = () => {
     });
   };
 
+  const allVisibleProducts = useMemo(() =>
+    showAllProducts ? [...UPSELL_PRODUCTS, ...EXPANDED_PRODUCTS] : UPSELL_PRODUCTS,
+  [showAllProducts]);
+
   const refillItems = useMemo(() =>
-    UPSELL_PRODUCTS.filter((p) => (refillQty[p.id] || 0) > 0).map((p) => ({
+    allVisibleProducts.filter((p) => (refillQty[p.id] || 0) > 0).map((p) => ({
       id: p.id,
       title: p.title,
       qty: refillQty[p.id] || 0,
       price: p.memberPrice,
+      flavor: refillFlavors[p.id] || undefined,
     })),
-  [refillQty]);
+  [refillQty, refillFlavors, allVisibleProducts]);
 
   const refillTotal = useMemo(() =>
     refillItems.reduce((sum, item) => sum + item.qty * item.price, 0),
@@ -313,27 +323,13 @@ const Uppfoljning: React.FC = () => {
         source: 'uppfoljning_upsell',
       };
 
-      const refillBody = new URLSearchParams(refillPayload).toString();
-
       try {
-        let refillRes: Response | null = null;
-        try {
-          refillRes = await fetch(REFILL_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: refillBody,
-          });
-        } catch (webhookErr) {
-          console.warn('Upsell webhook primary failed, retrying no-cors:', webhookErr);
-          await fetch(REFILL_WEBHOOK_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: refillBody,
-          });
-          refillRes = null;
-        }
-        if (refillRes && !refillRes.ok) console.warn('Upsell webhook non-200:', refillRes.status);
+        const refillRes = await fetch(WEBHOOK_PROXY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: 'refill', ...refillPayload }),
+        });
+        if (!refillRes.ok) console.warn('Upsell webhook non-200:', refillRes.status);
       } catch (err) {
         console.warn('Upsell webhook error:', err);
       }
@@ -349,6 +345,89 @@ const Uppfoljning: React.FC = () => {
 
     setStatus('success');
     navigate('/uppfoljning/tack');
+  };
+  const renderProductCard = (product: Product) => {
+    const qty = refillQty[product.id] || 0;
+    const discount = discountPercent(product);
+    return (
+      <div
+        key={product.id}
+        className={`relative rounded-2xl border p-4 transition-all ${
+          qty > 0
+            ? 'border-[#a0c81d]/50 bg-[#a0c81d]/5 shadow-md'
+            : 'border-[#E6E1D8] bg-white/70 hover:border-[#DAD3C5]'
+        }`}
+      >
+        {discount > 0 && (
+          <span className="absolute top-2 right-2 rounded-full bg-[#F29B7B] text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5">
+            −{discount}%
+          </span>
+        )}
+        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1">
+          <Package className="w-3.5 h-3.5 text-[#F29B7B]" />
+          Tillskott
+        </div>
+        <h3 className="text-base font-black text-[#3D3D3D]">{product.title}</h3>
+        <p className="text-[11px] text-[#8A8177] mt-0.5 leading-relaxed line-clamp-2">{product.description}</p>
+        <div className="mt-2 flex items-end justify-between">
+          <div>
+            <span className="text-[10px] text-[#8A8177] line-through">{product.price} kr</span>
+            <span className="ml-1.5 text-lg font-black text-[#3D3D3D]">{product.memberPrice} kr</span>
+          </div>
+        </div>
+
+        {/* Flavor picker for products with flavor options */}
+        {product.flavors && product.flavors.length > 0 && (
+          <div className="mt-2 flex items-center gap-1.5">
+            {product.flavors.map((flavor) => (
+              <button
+                key={flavor}
+                type="button"
+                onClick={() => setRefillFlavors((prev) => ({ ...prev, [product.id]: flavor }))}
+                className={`rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-widest transition ${
+                  (refillFlavors[product.id] || product.flavors![0]) === flavor
+                    ? 'bg-[#3D3D3D] text-white'
+                    : 'bg-[#F6F1E7] border border-[#E6E1D8] text-[#6B6158] hover:border-[#DAD3C5]'
+                }`}
+              >
+                {flavor}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-2 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => updateRefillQty(product.id, -1)}
+              className="w-8 h-8 rounded-lg bg-[#F6F1E7] border border-[#E6E1D8] text-[#6B6158] hover:text-[#3D3D3D] transition"
+              aria-label={`Minska ${product.title}`}
+            >
+              <Minus className="w-3.5 h-3.5 mx-auto" />
+            </button>
+            <span className="text-sm font-black text-[#3D3D3D] w-5 text-center">{qty}</span>
+            <button
+              type="button"
+              onClick={() => updateRefillQty(product.id, 1)}
+              className="w-8 h-8 rounded-lg bg-[#F6F1E7] border border-[#E6E1D8] text-[#6B6158] hover:text-[#3D3D3D] transition"
+              aria-label={`Öka ${product.title}`}
+            >
+              <Plus className="w-3.5 h-3.5 mx-auto" />
+            </button>
+          </div>
+          {qty === 0 && (
+            <button
+              type="button"
+              onClick={() => updateRefillQty(product.id, 1)}
+              className="rounded-lg bg-[#a0c81d]/10 border border-[#a0c81d]/30 text-[#5C7A12] px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition hover:bg-[#a0c81d]/20"
+            >
+              Lägg till
+            </button>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -656,68 +735,25 @@ const Uppfoljning: React.FC = () => {
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {UPSELL_PRODUCTS.map((product) => {
-                    const qty = refillQty[product.id] || 0;
-                    return (
-                      <div
-                        key={product.id}
-                        className={`relative rounded-2xl border p-4 transition-all ${
-                          qty > 0
-                            ? 'border-[#a0c81d]/50 bg-[#a0c81d]/5 shadow-md'
-                            : 'border-[#E6E1D8] bg-white/70 hover:border-[#DAD3C5]'
-                        }`}
-                      >
-                        {product.tag && (
-                          <span className="absolute top-2 right-2 rounded-full bg-[#a0c81d] text-[#F6F1E7] text-[8px] font-black uppercase tracking-widest px-2 py-0.5">
-                            Populär
-                          </span>
-                        )}
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1">
-                          <Package className="w-3.5 h-3.5 text-[#F29B7B]" />
-                          Tillskott
-                        </div>
-                        <h3 className="text-base font-black text-[#3D3D3D]">{product.title}</h3>
-                        <p className="text-[11px] text-[#8A8177] mt-0.5 leading-relaxed line-clamp-2">{product.description}</p>
-                        <div className="mt-2 flex items-end justify-between">
-                          <div>
-                            <span className="text-[10px] text-[#8A8177] line-through">{product.price} kr</span>
-                            <span className="ml-1.5 text-lg font-black text-[#3D3D3D]">{product.memberPrice} kr</span>
-                          </div>
-                        </div>
-                        <div className="mt-2 flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => updateRefillQty(product.id, -1)}
-                              className="w-8 h-8 rounded-lg bg-[#F6F1E7] border border-[#E6E1D8] text-[#6B6158] hover:text-[#3D3D3D] transition"
-                              aria-label={`Minska ${product.title}`}
-                            >
-                              <Minus className="w-3.5 h-3.5 mx-auto" />
-                            </button>
-                            <span className="text-sm font-black text-[#3D3D3D] w-5 text-center">{qty}</span>
-                            <button
-                              type="button"
-                              onClick={() => updateRefillQty(product.id, 1)}
-                              className="w-8 h-8 rounded-lg bg-[#F6F1E7] border border-[#E6E1D8] text-[#6B6158] hover:text-[#3D3D3D] transition"
-                              aria-label={`Öka ${product.title}`}
-                            >
-                              <Plus className="w-3.5 h-3.5 mx-auto" />
-                            </button>
-                          </div>
-                          {qty === 0 && (
-                            <button
-                              type="button"
-                              onClick={() => updateRefillQty(product.id, 1)}
-                              className="rounded-lg bg-[#a0c81d]/10 border border-[#a0c81d]/30 text-[#5C7A12] px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition hover:bg-[#a0c81d]/20"
-                            >
-                              Lägg till
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {UPSELL_PRODUCTS.map((product) => renderProductCard(product))}
                 </div>
+
+                {!showAllProducts ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllProducts(true)}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#5C7A12] transition"
+                  >
+                    Se alla produkter
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-[#E6E1D8]">
+                      {EXPANDED_PRODUCTS.map((product) => renderProductCard(product))}
+                    </div>
+                  </>
+                )}
 
                 {refillItems.length > 0 && (
                   <div className="rounded-2xl border border-[#a0c81d]/30 bg-[#a0c81d]/5 p-4 space-y-2">
@@ -728,7 +764,7 @@ const Uppfoljning: React.FC = () => {
                     <div className="space-y-1">
                       {refillItems.map((item) => (
                         <div key={item.id} className="flex items-center justify-between text-sm text-[#6B6158]">
-                          <span>{item.title} × {item.qty}</span>
+                          <span>{item.title}{item.flavor ? ` (${item.flavor})` : ''} × {item.qty}</span>
                           <span className="font-bold text-[#3D3D3D]">{item.qty * item.price} kr</span>
                         </div>
                       ))}
@@ -744,7 +780,7 @@ const Uppfoljning: React.FC = () => {
                   to="/refill"
                   className="inline-flex items-center text-[11px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#5C7A12] transition"
                 >
-                  Se alla produkter →
+                  Gå till refill-sidan →
                 </Link>
               </section>
             )}

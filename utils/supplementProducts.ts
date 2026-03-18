@@ -5,6 +5,7 @@ export type Product = {
   price: number;
   memberPrice: number;
   tag?: string;
+  flavors?: string[];
 };
 
 export const PRODUCTS: Product[] = [
@@ -22,6 +23,7 @@ export const PRODUCTS: Product[] = [
     description: 'Protein av högsta kvalitet för återhämtning och resultat.',
     price: 399,
     memberPrice: 349,
+    flavors: ['Choklad', 'Jordgubb'],
   },
   {
     id: 'bcaa',
@@ -54,10 +56,21 @@ export const PRODUCTS: Product[] = [
 ];
 
 /** Top picks shown in compact upsell contexts (e.g. uppföljning form). */
-export const UPSELL_PRODUCT_IDS = ['klientpaket', 'hydro-pulse', 'bcaa'] as const;
+export const UPSELL_PRODUCT_IDS = ['hydro-pulse', 'bcaa', 'omega-3'] as const;
 
 export const UPSELL_PRODUCTS = PRODUCTS.filter((p) =>
   (UPSELL_PRODUCT_IDS as readonly string[]).includes(p.id),
 );
 
-export const REFILL_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uc4akmc/';
+/** Products revealed when the user clicks "Se alla produkter". */
+export const EXPANDED_PRODUCT_IDS = ['magnesium', 'multivitamin', 'klientpaket'] as const;
+
+export const EXPANDED_PRODUCTS = PRODUCTS.filter((p) =>
+  (EXPANDED_PRODUCT_IDS as readonly string[]).includes(p.id),
+);
+
+/** Calculate member discount percentage for a product. */
+export function discountPercent(product: Product): number {
+  if (product.price <= 0) return 0;
+  return Math.round(((product.price - product.memberPrice) / product.price) * 100);
+}

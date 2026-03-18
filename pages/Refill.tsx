@@ -4,9 +4,9 @@ import { CheckCircle2, Minus, Plus, ShoppingBasket, Sparkles, X } from 'lucide-r
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { buildRefillNotificationBody, sendRefillNotification } from '../utils/refillNotification';
-import { PRODUCTS, REFILL_WEBHOOK_URL } from '../utils/supplementProducts';
+import { PRODUCTS } from '../utils/supplementProducts';
 
-const WEBHOOK_URL = REFILL_WEBHOOK_URL;
+const WEBHOOK_PROXY_URL = '/api/webhook-proxy';
 
 const Refill: React.FC = () => {
   const { session, profile, refreshProfile } = useAuthStore();
@@ -198,28 +198,13 @@ const Refill: React.FC = () => {
       source: 'refill'
     };
 
-    const body = new URLSearchParams(payload).toString();
-
     try {
-      let res: Response | null = null;
-      try {
-        res = await fetch(WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body
-        });
-      } catch (err) {
-        console.warn('Refill webhook primary failed, retrying no-cors:', err);
-        await fetch(WEBHOOK_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body
-        });
-        res = null;
-      }
-
-      if (res && !res.ok) throw new Error('Webhook failed');
+      const res = await fetch(WEBHOOK_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: 'refill', ...payload }),
+      });
+      if (!res.ok) throw new Error('Webhook failed');
 
       try {
         const notificationPayload = buildRefillNotificationBody(payload);

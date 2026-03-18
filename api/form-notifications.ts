@@ -5,7 +5,6 @@ import {
   escapeHtml,
   isEmptyValue,
   formatValue,
-  validateApiSecret,
 } from './_shared/apiHelpers.js';
 import {
   sendResendEmail,
@@ -499,11 +498,9 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  if (!validateApiSecret(req)) {
-    setCors(res, origin);
-    res.status(403).json({ error: 'Invalid API secret' });
-    return;
-  }
+  // Auth note: this endpoint is called directly from the frontend which
+  // cannot safely include an API secret. Origin validation above is the
+  // primary protection for browser-originated requests.
 
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Copy, FileText, LayoutDashboard, Loader2, Package, RefreshCcw, Trash2, X, Circle, TrendingUp, ChevronLeft, ChevronRight, Search, Link as LinkIcon } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Copy, FileText, LayoutDashboard, Loader2, Package, RefreshCcw, Trash2, X, Circle, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { getEnv } from '../lib/env';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
@@ -121,8 +121,7 @@ type AgendaItem = {
 type FilterValue = 'uppfoljning' | 'start' | 'done';
 type StaffTab = 'OVERVIEW' | 'BASE' | 'REPORT' | 'SHIP' | 'AGENDA';
 
-const REPORT_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/ucizdpt/';
-const REPORT_OVERTIME_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/ucicwgs/';
+const WEBHOOK_PROXY_URL = '/api/webhook-proxy';
 const SHIPMENTS_STORAGE_KEY = 'staff-shipments';
 const AHEAD_ELIGIBLE_TASKS = ['E-Handel/Lager', 'Förbered etiketter', 'Follow-Ups', 'Sociala medier'];
 
@@ -1843,38 +1842,18 @@ const Intranet: React.FC = () => {
       Object.entries(payload).map(([key, value]) => [key, String(value ?? '')])
     ).toString();
 
-    const webhookUrl = reportForm.overtime ? REPORT_OVERTIME_WEBHOOK_URL : REPORT_WEBHOOK_URL;
-
-    if (!webhookUrl) {
-      setReportError(reportForm.overtime
-        ? 'Webhook saknas för övertid. Lägg in Zapier-URL för övertid.'
-        : 'Webhook saknas för ordinarie arbetstid. Lägg in Zapier-URL.');
-      setReportStatus('error');
-      return;
-    }
+    const webhookTarget = reportForm.overtime ? 'report_overtime' : 'report';
 
     setReportStatus('sending');
 
     try {
-      let res: Response | null = null;
-      try {
-        res = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body
-        });
-      } catch (err) {
-        console.warn('Report webhook primary failed, retrying no-cors:', err);
-        await fetch(webhookUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body
-        });
-        res = null;
-      }
+      const res = await fetch(WEBHOOK_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: webhookTarget, ...Object.fromEntries(new URLSearchParams(body).entries()) }),
+      });
 
-      if (res && !res.ok) throw new Error('Webhook failed');
+      if (!res.ok) throw new Error('Webhook failed');
 
       setReportStatus('success');
       try {
