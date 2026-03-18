@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { JWT } from 'google-auth-library';
+import { readJsonBody as readJsonBodyShared, getBearerToken, isAllowedOrigin, setCors } from './_shared/apiHelpers.js';
 
 type SheetLookupResult = {
   found: boolean;
@@ -127,45 +128,8 @@ async function lookupExpiry(email: string): Promise<SheetLookupResult> {
   return { found: false, debug: debugMeta };
 }
 
-function getBearerToken(header: string | undefined): string | undefined {
-  if (!header) return undefined;
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1].trim() : undefined;
-}
-
-function isAllowedOrigin(origin: string | undefined): boolean {
-  if (!origin) return true;
-  const allowed = (process.env.ACTION_ALLOWED_ORIGINS || process.env.CHAT_ALLOWED_ORIGINS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (allowed.length === 0) return true;
-  return allowed.includes(origin);
-}
-
-function setCors(res: any, origin: string | undefined) {
-  res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Vary', 'Origin');
-}
-
-async function readJsonBody(req: any): Promise<Record<string, unknown>> {
-  if (req?.body && typeof req.body === 'object') {
-    return req.body as Record<string, unknown>;
-  }
-  const chunks: Buffer[] = [];
-  if (req && req.readable) {
-    for await (const chunk of req) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    }
-  }
-  if (!chunks.length) return {};
-  try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-  } catch {
-    return {};
-  }
-}
+// getBearerToken, isAllowedOrigin, setCors, readJsonBody imported from _shared/apiHelpers
+const readJsonBody = readJsonBodyShared;
 
 export default async function handler(req: any, res: any) {
   const origin = req.headers?.origin as string | undefined;

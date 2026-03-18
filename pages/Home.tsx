@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { databaseService } from '../services/databaseService';
 import { computeOnboardingState } from '../utils/onboardingProgress';
 import { computeRenewalNudge } from '../utils/renewalNudge';
+import { RenewalFlow } from '../components/RenewalFlow';
 
 const quickLinks = [
   {
@@ -97,6 +98,18 @@ export const Home: React.FC = () => {
 
   const nudge = useMemo(() => computeRenewalNudge(profile), [profile]);
 
+  const expiresWithin5Months = useMemo(() => {
+    if (!profile?.coaching_expires_at) return false;
+    const expiresAt = new Date(profile.coaching_expires_at);
+    if (Number.isNaN(expiresAt.getTime())) return false;
+    const msPerDay = 86_400_000;
+    const now = new Date();
+    const utcExpires = Date.UTC(expiresAt.getFullYear(), expiresAt.getMonth(), expiresAt.getDate());
+    const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const daysLeft = Math.floor((utcExpires - utcNow) / msPerDay);
+    return daysLeft >= 0 && daysLeft <= 150;
+  }, [profile?.coaching_expires_at]);
+
   return (
     <div className="min-h-screen bg-[#F6F1E7] pb-20 animate-fade-in relative font-sans overflow-x-hidden text-[#3D3D3D]">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -122,17 +135,29 @@ export const Home: React.FC = () => {
                 {session ? `Välkommen tillbaka${firstName ? `, ${firstName}` : ''}.` : 'Välkommen till dina medlemssidor.'}
               </h1>
               <p className="mt-4 text-[#6B6158] text-sm md:text-base font-medium">
-                Här är en snabb översikt över det viktigaste du kan göra i appen.
+                {session && onboarding.allDone
+                  ? 'Här är vad som väntar dig — dina viktigaste verktyg och nästa steg.'
+                  : 'Här är en snabb översikt över det viktigaste du kan göra i appen.'}
               </p>
               <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-[#6B6158]">
-                {[
-                  'AI‑coach för träning, kost och snabba frågor',
-                  'Veckomeny med recept och inköpslista',
-                  'Uppföljning av mål och framsteg',
-                  'Chatt som öppnar i mars 2026',
-                  'Shop med medlemspris',
-                  'Förlängning av medlemskap'
-                ].map((text) => (
+                {(session && onboarding.allDone
+                  ? [
+                      'Gör din uppföljning så planerar vi nästa period',
+                      'Skapa en ny veckomeny med recept och inköpslista',
+                      'Beställ kosttillskott till medlemspris',
+                      'Förläng ditt medlemskap — säkra din plats',
+                      'Följ din utveckling under Uppföljning',
+                      'Chatt med ditt team — öppnar mars 2026',
+                    ]
+                  : [
+                      'AI‑coach för träning, kost och snabba frågor',
+                      'Veckomeny med recept och inköpslista',
+                      'Uppföljning av mål och framsteg',
+                      'Chatt som öppnar i mars 2026',
+                      'Shop med medlemspris',
+                      'Förlängning av medlemskap',
+                    ]
+                ).map((text) => (
                   <div key={text} className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-[#a0c81d] mt-0.5 shrink-0" />
                     <span>{text}</span>
@@ -140,18 +165,37 @@ export const Home: React.FC = () => {
                 ))}
               </div>
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Link
-                  to="/recept"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#a0c81d] px-6 py-3 text-xs font-black uppercase tracking-widest text-[#F6F1E7] transition-all hover:bg-[#5C7A12] shadow-[0_18px_40px_rgba(160,200,29,0.35)] hover:shadow-[0_22px_50px_rgba(92,122,18,0.45)]"
-                >
-                  Skapa veckomeny <ArrowRight className="w-4 h-4" />
-                </Link>
-                <Link
-                  to="/support"
-                  className="inline-flex items-center gap-2 rounded-full border border-[#E6E1D8] bg-white/80 px-6 py-3 text-xs font-black uppercase tracking-widest text-[#3D3D3D] transition-all hover:border-[#a0c81d]/40 hover:text-[#a0c81d] shadow-[0_10px_28px_rgba(61,61,61,0.12)] hover:shadow-[0_16px_36px_rgba(61,61,61,0.18)]"
-                >
-                  Öppna chatt
-                </Link>
+                {session && onboarding.allDone ? (
+                  <>
+                    <Link
+                      to="/uppfoljning"
+                      className="inline-flex items-center gap-2 rounded-full bg-[#a0c81d] px-6 py-3 text-xs font-black uppercase tracking-widest text-[#F6F1E7] transition-all hover:bg-[#5C7A12] shadow-[0_18px_40px_rgba(160,200,29,0.35)] hover:shadow-[0_22px_50px_rgba(92,122,18,0.45)]"
+                    >
+                      Gör uppföljning <ArrowRight className="w-4 h-4" />
+                    </Link>
+                    <Link
+                      to="/profile"
+                      className="inline-flex items-center gap-2 rounded-full border border-[#E6E1D8] bg-white/80 px-6 py-3 text-xs font-black uppercase tracking-widest text-[#3D3D3D] transition-all hover:border-[#a0c81d]/40 hover:text-[#a0c81d] shadow-[0_10px_28px_rgba(61,61,61,0.12)] hover:shadow-[0_16px_36px_rgba(61,61,61,0.18)]"
+                    >
+                      Mitt medlemskap
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/recept"
+                      className="inline-flex items-center gap-2 rounded-full bg-[#a0c81d] px-6 py-3 text-xs font-black uppercase tracking-widest text-[#F6F1E7] transition-all hover:bg-[#5C7A12] shadow-[0_18px_40px_rgba(160,200,29,0.35)] hover:shadow-[0_22px_50px_rgba(92,122,18,0.45)]"
+                    >
+                      Skapa veckomeny <ArrowRight className="w-4 h-4" />
+                    </Link>
+                    <Link
+                      to="/support"
+                      className="inline-flex items-center gap-2 rounded-full border border-[#E6E1D8] bg-white/80 px-6 py-3 text-xs font-black uppercase tracking-widest text-[#3D3D3D] transition-all hover:border-[#a0c81d]/40 hover:text-[#a0c81d] shadow-[0_10px_28px_rgba(61,61,61,0.12)] hover:shadow-[0_16px_36px_rgba(61,61,61,0.18)]"
+                    >
+                      Öppna chatt
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -190,6 +234,12 @@ export const Home: React.FC = () => {
                 </div>
               </div>
             </div>
+          </section>
+        )}
+
+        {session && onboarding.allDone && expiresWithin5Months && (
+          <section className="mt-8">
+            <RenewalFlow profile={profile} session={session} compact />
           </section>
         )}
 

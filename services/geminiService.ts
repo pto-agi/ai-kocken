@@ -58,8 +58,11 @@ const computeTotalsFromMeals = (meals: any[]) => meals.reduce((acc, meal) => ({
 }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
 
 const callGemini = async (contents: string, config?: any): Promise<string> => {
-  const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } as any }));
+  const { data } = await supabase.auth.getSession();
   const accessToken = data?.session?.access_token;
+  if (!accessToken) {
+    throw new Error('Ingen aktiv session — logga in igen.');
+  }
 
   const res = await fetch(GEMINI_ENDPOINT, {
     method: 'POST',
@@ -77,7 +80,7 @@ const callGemini = async (contents: string, config?: any): Promise<string> => {
 };
 
 // --- RECIPE GENERATION ---
-export const generateRecipe = async (title: string, description: string, tags: string[]): Promise<string> => {
+const generateRecipe = async (title: string, description: string, tags: string[]): Promise<string> => {
   const prompt = `
     Skapa ett detaljerat recept för "${title}".
     Beskrivning: ${description}
@@ -437,6 +440,8 @@ export const swapMeal = async (currentMealName: string, mealType: string, reques
     
     const res = safeJsonParse(swapText || "{}");
     const normalized = normalizeWeeklyMeal(res);
-    if (!normalized.type || normalized.type === 'Måltid') normalized.type = mealType;
+    if (!normalized.type || normalized.type === 'Måltid') {
+      return { ...normalized, type: mealType };
+    }
     return normalized;
 };

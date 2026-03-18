@@ -1,5 +1,6 @@
 import { runWorkflowStream } from '../services/agentWorkflow.js';
 import { createClient } from '@supabase/supabase-js';
+import { readJsonBody, getBearerToken, isAllowedOrigin, setCors } from './_shared/apiHelpers.js';
 
 type UIMessage = {
   id?: string;
@@ -7,48 +8,6 @@ type UIMessage = {
   content?: string;
   parts?: Array<{ type: string; text?: string }>;
 };
-
-async function readJsonBody(req: any): Promise<Record<string, unknown>> {
-  if (req?.body && typeof req.body === 'object') {
-    return req.body as Record<string, unknown>;
-  }
-
-  const chunks: Buffer[] = [];
-  if (req && req.readable) {
-    for await (const chunk of req) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    }
-  }
-
-  if (!chunks.length) return {};
-  try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-  } catch {
-    return {};
-  }
-}
-
-function getBearerToken(header: string | undefined): string | undefined {
-  if (!header) return undefined;
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1].trim() : undefined;
-}
-
-function isAllowedOrigin(origin: string | undefined): boolean {
-  if (!origin) return true;
-  const allowed = (process.env.CHAT_ALLOWED_ORIGINS || process.env.CHATKIT_ALLOWED_ORIGINS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (allowed.length === 0) return true;
-  return allowed.includes(origin);
-}
-
-function setCors(res: any, origin: string | undefined) {
-  res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Vary', 'Origin');
-}
 
 function createRequestId(): string {
   const cryptoObj = (globalThis as any)?.crypto;

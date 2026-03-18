@@ -34,7 +34,7 @@ export function computeOnboardingState(input: OnboardingInput): OnboardingState 
             title: 'Fyll i startformulär',
             description: 'Berätta om dina mål och förutsättningar.',
             completed: input.hasStartForm,
-            href: '/startformular',
+            href: '/start',
         },
         {
             id: 'weeklyplan',

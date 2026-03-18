@@ -158,6 +158,7 @@ const WeeklyPlanner: React.FC = () => {
   
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [saveOutcome, setSaveOutcome] = useState<'saved' | 'skipped' | 'error' | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'info' | 'success' } | null>(null);
 
   const macroSum = request.targets.p + request.targets.c + request.targets.f;
   const isMacroSumValid = macroSum === 100;
@@ -206,9 +207,10 @@ const WeeklyPlanner: React.FC = () => {
 
   const handleGenerateDraft = async () => {
     if (!isMacroSumValid) {
-      alert("Makrofördelningen måste summera till 100%.");
+      setToast({ message: 'Makrofördelningen måste summera till 100%.', type: 'error' });
       return;
     }
+    setToast(null);
     setIsGenerating(true);
     setStep(2); // Go to results view to show loading
     setCurrentPlan(null);
@@ -222,7 +224,7 @@ const WeeklyPlanner: React.FC = () => {
       setCurrentPlan(plan);
     } catch (error) {
       console.error(error);
-      alert("Kunde inte generera planen just nu. Försök igen.");
+      setToast({ message: 'Kunde inte generera planen just nu. Försök igen.', type: 'error' });
       setStep(1); // Go back on error
     } finally {
       setIsGenerating(false);
@@ -250,7 +252,7 @@ const WeeklyPlanner: React.FC = () => {
 
       setCurrentPlan(newPlan);
     } catch {
-      alert("Kunde inte byta ut rätten.");
+      setToast({ message: 'Kunde inte byta ut rätten.', type: 'error' });
     } finally {
       setSwappingMeals(prev => ({ ...prev, [key]: false }));
     }
@@ -343,16 +345,13 @@ ${meal.instructions}
             const saved = await databaseService.saveWeeklyPlan(userId, detailedPlan, `Veckomeny (${new Date().toLocaleDateString()})`);
             if (!saved) {
                 setSaveOutcome('error');
-                alert("Kunde inte spara veckomenyn. Kontrollera inloggning eller rättigheter.");
+                setToast({ message: 'Kunde inte spara veckomenyn. Kontrollera inloggning eller rättigheter.', type: 'error' });
             } else {
                 setSaveOutcome('saved');
                 queryClient.invalidateQueries({ queryKey: ['weeklyPlans', userId] });
             }
         } else {
             setSaveOutcome('skipped');
-            if (window.confirm("Logga in för att spara veckomenyn i din profil. Vill du logga in nu?")) {
-                navigate('/auth');
-            }
         }
 
         // 3. Create PDF
@@ -360,7 +359,7 @@ ${meal.instructions}
 
     } catch (e) {
         console.error(e);
-        alert("Något gick fel vid genereringen. Försök igen.");
+        setToast({ message: 'Något gick fel vid genereringen. Försök igen.', type: 'error' });
         setStep(2); // Go back on error
     } finally {
         setIsFinalizing(false);
@@ -395,6 +394,20 @@ ${meal.instructions}
 
   return (
     <div className="animate-fade-in pb-20 max-w-6xl mx-auto px-4 md:px-6" ref={topRef}>
+
+      {/* Toast Banner */}
+      {toast && (
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[200] max-w-md w-full px-5 py-3 rounded-xl shadow-lg border text-sm font-bold animate-fade-in flex items-center justify-between gap-3 ${
+          toast.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+          toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+          'bg-amber-50 border-amber-200 text-amber-800'
+        }`}>
+          <span>{toast.message}</span>
+          <button onClick={() => setToast(null)} className="p-1 hover:opacity-70 transition" aria-label="Stäng">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       
       {/* Header */}
       <div className="mb-8 pt-8 md:pt-12 text-center">
@@ -487,6 +500,7 @@ ${meal.instructions}
                                         <button
                                             type="button"
                                             onClick={() => adjustKcal(-kcalStep)}
+                                            aria-label="Minska kalorimål"
                                             className="w-7 h-7 flex items-center justify-center bg-[#F4F0E6] rounded-lg text-[#6B6158] hover:text-[#3D3D3D] hover:bg-[#ffffff]/95 transition-colors border border-[#DAD1C5]"
                                         >
                                             <Minus className="w-3.5 h-3.5" />
@@ -495,6 +509,7 @@ ${meal.instructions}
                                         <button
                                             type="button"
                                             onClick={() => adjustKcal(kcalStep)}
+                                            aria-label="Öka kalorimål"
                                             className="w-7 h-7 flex items-center justify-center bg-[#F4F0E6] rounded-lg text-[#6B6158] hover:text-[#3D3D3D] hover:bg-[#ffffff]/95 transition-colors border border-[#DAD1C5]"
                                         >
                                             <Plus className="w-3.5 h-3.5" />
@@ -934,7 +949,7 @@ ${meal.instructions}
                   AI-genererat innehåll
                </div>
                <button 
-                 onClick={() => { if (!userId) { if (window.confirm("Konto krävs. Skapa konto?")) navigate('/auth'); return; } saveRecipeMutation.mutate(); }} 
+                 onClick={() => { if (!userId) { setToast({ message: 'Logga in för att spara recept.', type: 'info' }); navigate('/auth'); return; } saveRecipeMutation.mutate(); }} 
                  disabled={!recipeContent} 
                  className="w-full md:w-auto bg-[#a0c81d] text-[#F6F1E7] px-8 py-4 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-[#a0c81d]/20 transition-all flex items-center justify-center gap-2"
                >

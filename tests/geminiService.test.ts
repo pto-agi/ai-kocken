@@ -1,5 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: { access_token: 'test-token' } },
+        error: null,
+      }),
+    },
+  },
+}));
+
 import {
   generateFullWeeklyDetails,
   generateWeeklyPlan,

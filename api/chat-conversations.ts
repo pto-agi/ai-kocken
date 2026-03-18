@@ -1,34 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-
-async function readJsonBody(req: any): Promise<Record<string, unknown>> {
-    if (req?.body && typeof req.body === 'object') {
-        return req.body as Record<string, unknown>;
-    }
-    const chunks: Buffer[] = [];
-    if (req && req.readable) {
-        for await (const chunk of req) {
-            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        }
-    }
-    if (!chunks.length) return {};
-    try {
-        return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-    } catch {
-        return {};
-    }
-}
-
-function getBearerToken(header: string | undefined): string | undefined {
-    if (!header) return undefined;
-    const match = header.match(/^Bearer\s+(.+)$/i);
-    return match ? match[1].trim() : undefined;
-}
-
-function setCors(res: any, origin: string | undefined) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin');
-}
+import { readJsonBody, getBearerToken, setCors } from './_shared/apiHelpers.js';
 
 function getSupabaseForUser(accessToken: string) {
     const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;

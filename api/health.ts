@@ -7,7 +7,6 @@ export default function handler(req: any, res: any) {
   const envStatus = {
     OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY),
     OPENAI_CHAT_MODEL: Boolean(process.env.OPENAI_CHAT_MODEL),
-    MCP_SERVER_URL: Boolean(process.env.MCP_SERVER_URL),
   };
 
   res.status(200).json({

@@ -4,63 +4,9 @@ import { CheckCircle2, Minus, Plus, ShoppingBasket, Sparkles, X } from 'lucide-r
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { buildRefillNotificationBody, sendRefillNotification } from '../utils/refillNotification';
+import { PRODUCTS, REFILL_WEBHOOK_URL } from '../utils/supplementProducts';
 
-type Product = {
-  id: string;
-  title: string;
-  description: string;
-  price: number;
-  memberPrice: number;
-  tag?: string;
-};
-
-const PRODUCTS: Product[] = [
-  {
-    id: 'klientpaket',
-    title: 'Klientpaket',
-    description: 'Samtliga kosttillskott som ingår i vårt klientpaket.',
-    price: 1375,
-    memberPrice: 995,
-    tag: 'Mest valt'
-  },
-  {
-    id: 'hydro-pulse',
-    title: 'Hydro Pulse',
-    description: 'Protein av högsta kvalitet för återhämtning och resultat.',
-    price: 399,
-    memberPrice: 349
-  },
-  {
-    id: 'bcaa',
-    title: 'BCAA',
-    description: 'Aminosyror som stödjer återhämtning och muskler.',
-    price: 379,
-    memberPrice: 349
-  },
-  {
-    id: 'omega-3',
-    title: 'Omega 3',
-    description: 'Högkvalitativt omega-3 för hjärta och fokus.',
-    price: 199,
-    memberPrice: 179
-  },
-  {
-    id: 'magnesium',
-    title: 'Magnesium',
-    description: 'Stödjer återhämtning, sömn och nervsystem.',
-    price: 199,
-    memberPrice: 179
-  },
-  {
-    id: 'multivitamin',
-    title: 'Multivitamin',
-    description: 'Dagligt basstöd för viktiga mikronutrienter.',
-    price: 199,
-    memberPrice: 179
-  },
-];
-
-const WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/uc4akmc/';
+const WEBHOOK_URL = REFILL_WEBHOOK_URL;
 
 const Refill: React.FC = () => {
   const { session, profile, refreshProfile } = useAuthStore();

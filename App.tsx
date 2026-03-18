@@ -25,7 +25,7 @@ const ReferralRegister = React.lazy(() => import('./pages/ReferralRegister').the
 const Forlangning = React.lazy(() => import('./pages/Forlangning').then((module) => ({ default: module.Forlangning })));
 const ForlangningFriskvardTack = React.lazy(() => import('./pages/ForlangningFriskvardTack').then((module) => ({ default: module.ForlangningFriskvardTack })));
 const ForlangningTack = React.lazy(() => import('./pages/ForlangningTack').then((module) => ({ default: module.ForlangningTack })));
-const Changelog = React.lazy(() => import('./pages/Changelog').then((module) => ({ default: module.Changelog })));
+
 const Refill = React.lazy(() => import('./pages/Refill'));
 const RefillTack = React.lazy(() => import('./pages/RefillTack').then((module) => ({ default: module.RefillTack })));
 const AuthRequired = React.lazy(() => import('./pages/AuthRequired').then((module) => ({ default: module.AuthRequired })));
@@ -136,10 +136,6 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/sales-capital': {
     title: 'Sälj & Kapital',
     description: 'Power dashboard för försäljning, kapital och teamets momentum. Följ månadsmål, tillväxt och nyckeltal som driver fokus och avslut.'
-  },
-  '/changelog': {
-    title: 'Changelog',
-    description: 'Samlad ändringslogg för appen, automatiskt uppdaterad vid push till GitHub.'
   }
 };
 
@@ -362,14 +358,6 @@ function App() {
               }
             />
 
-            <Route
-              path="/changelog"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <Changelog />
-                </AuthGuard>
-              }
-            />
 
             <Route path="/auth" element={<AuthScreen />} />
             <Route path="/register" element={<ReferralRegister />} />

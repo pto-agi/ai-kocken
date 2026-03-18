@@ -44,7 +44,7 @@ describe('computeOnboardingState', () => {
             hasWeeklyPlan: false,
             hasVisitedChat: false,
         });
-        expect(result.steps.find((s) => s.id === 'startform')?.href).toBe('/startformular');
+        expect(result.steps.find((s) => s.id === 'startform')?.href).toBe('/start');
         expect(result.steps.find((s) => s.id === 'weeklyplan')?.href).toBe('/recept');
         expect(result.steps.find((s) => s.id === 'chat')?.href).toBe('/support');
     });

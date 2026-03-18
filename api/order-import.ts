@@ -1,4 +1,6 @@
 import { OpenAI } from 'openai';
+import { createClient } from '@supabase/supabase-js';
+import { readJsonBody, getBearerToken, isAllowedOrigin, setCors } from './_shared/apiHelpers.js';
 
 type ProductHint = {
   id?: string;
@@ -260,23 +262,71 @@ function finalizeResult(data: any, products: ProductHint[], defaultCountry: stri
 }
 
 export default async function handler(req: any, res: any) {
+  const origin = req.headers?.origin as string | undefined;
+
+  if (!isAllowedOrigin(origin, 'ACTION_ALLOWED_ORIGINS')) {
+    setCors(res, origin);
+    res.status(403).json({ error: 'Forbidden origin' });
+    return;
+  }
+
+  if (req.method === 'OPTIONS') {
+    setCors(res, origin);
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.status(204).end();
+    return;
+  }
+
   if (req.method !== 'POST') {
+    setCors(res, origin);
     res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  // Authenticate via Supabase JWT
+  const accessToken = getBearerToken(req.headers?.authorization);
+  if (!accessToken) {
+    setCors(res, origin);
+    res.status(401).json({ error: 'Missing access token' });
+    return;
+  }
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    setCors(res, origin);
+    res.status(500).json({ error: 'Supabase not configured' });
+    return;
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+  });
+  const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+  if (authError || !user) {
+    setCors(res, origin);
+    res.status(401).json({ error: 'Invalid access token' });
     return;
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
+    setCors(res, origin);
     res.status(500).json({ error: 'Missing OPENAI_API_KEY' });
     return;
   }
 
-  const { text, products, defaultCountry } = req.body || {};
+  const body = await readJsonBody(req);
+  const text = body.text;
   if (!text || typeof text !== 'string') {
+    setCors(res, origin);
     res.status(400).json({ error: 'Invalid payload: text is required' });
     return;
   }
 
+  const products = body.products;
+  const defaultCountry = body.defaultCountry;
   const productHints: ProductHint[] = Array.isArray(products) ? products : [];
 
   const client = new OpenAI({ apiKey });
@@ -296,13 +346,16 @@ export default async function handler(req: any, res: any) {
     const parsed = parseJsonSafe(raw);
 
     if (!parsed) {
+      setCors(res, origin);
       res.status(502).json({ error: 'Failed to parse model output', raw });
       return;
     }
 
     const result = finalizeResult(parsed, productHints, typeof defaultCountry === 'string' ? defaultCountry : null);
+    setCors(res, origin);
     res.status(200).json(result);
   } catch (err: any) {
+    setCors(res, origin);
     res.status(500).json({ error: String(err?.message || err) });
   }
 }

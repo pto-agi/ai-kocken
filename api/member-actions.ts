@@ -1,13 +1,24 @@
-type MemberAction = 'pause_membership' | 'deactivate_membership' | 'reactivate_membership';
+import {
+  readBody,
+  isAllowedOrigin,
+  setCors,
+  escapeHtml,
+  isEmptyValue,
+  formatValue,
+  validateApiSecret,
+} from './_shared/apiHelpers.js';
+import {
+  sendResendEmail,
+  buildBaseEmailLayout,
+  getAppBaseUrl,
+  parseRecipientList,
+  dedupeRecipients,
+  DEFAULT_FROM,
+  DEFAULT_TO,
+  type ResendPayload,
+} from './_shared/emailHelpers.js';
 
-type ResendPayload = {
-  from: string;
-  to: string[];
-  subject: string;
-  text: string;
-  html: string;
-  reply_to?: string;
-};
+type MemberAction = 'pause_membership' | 'deactivate_membership' | 'reactivate_membership';
 
 type CustomerContent = {
   subject: string;
@@ -19,12 +30,6 @@ type CustomerContent = {
   ctaLabel: string;
   ctaHref: string;
 };
-
-const RESEND_API_URL = 'https://api.resend.com/emails';
-const DEFAULT_FROM = 'onboarding@resend.dev';
-const DEFAULT_TO = 'info@privatetrainingonline.se';
-const DEFAULT_APP_BASE_URL = 'https://my.privatetrainingonline.se';
-const DEFAULT_LOGO_PATH = '/pto-logotyp-2026.png';
 
 const ACTION_LABELS: Record<MemberAction, string> = {
   pause_membership: 'Paus av medlemskap',
@@ -51,151 +56,12 @@ function getActionWebhooks(): Record<MemberAction, string> {
   };
 }
 
-function parseRecipientList(raw: string | undefined): string[] {
-  return (raw || '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function dedupeRecipients(recipients: string[]): string[] {
-  const seen = new Set<string>();
-  const output: string[] = [];
-  recipients.forEach((recipient) => {
-    const normalized = recipient.trim();
-    if (!normalized) return;
-    const key = normalized.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    output.push(normalized);
-  });
-  return output;
-}
-
 function getActionRecipients(): string[] {
   return dedupeRecipients([DEFAULT_TO, ...parseRecipientList(process.env.RESEND_MEMBER_ACTION_TO)]);
 }
 
-function getAppBaseUrl(): string {
-  return (process.env.MAIL_APP_BASE_URL || process.env.PUBLIC_APP_URL || DEFAULT_APP_BASE_URL).trim().replace(/\/+$/, '');
-}
-
-function getBrandLogoUrl(): string {
-  const configured = (process.env.MAIL_LOGO_URL || '').trim();
-  if (configured) return configured;
-  return `${getAppBaseUrl()}${DEFAULT_LOGO_PATH}`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function isEmptyValue(value: unknown): boolean {
-  return value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
-}
-
-function formatValue(value: unknown): string {
-  if (isEmptyValue(value)) return '—';
-  if (typeof value === 'boolean') return value ? 'Ja' : 'Nej';
-  if (Array.isArray(value)) return value.length ? value.join(', ') : '—';
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
-}
-
 function getFieldLabel(key: string): string {
   return ACTION_FIELD_LABELS[key] || key;
-}
-
-function buildBaseEmailLayout(params: {
-  title: string;
-  subtitle?: string;
-  preheader?: string;
-  badge?: string;
-  introHtml?: string;
-  bodyHtml: string;
-  ctaLabel?: string;
-  ctaHref?: string;
-  footerNote?: string;
-}): string {
-  const appBaseUrl = getAppBaseUrl();
-  const logoUrl = getBrandLogoUrl();
-  const preheader = escapeHtml(params.preheader || params.title);
-  const title = escapeHtml(params.title);
-  const subtitle = params.subtitle ? escapeHtml(params.subtitle) : '';
-  const badge = escapeHtml(params.badge || 'Private Training Online');
-  const footerNote = escapeHtml(params.footerNote || 'Detta mejl skickades automatiskt från medlemssystemet.');
-  const ctaBlock = params.ctaLabel && params.ctaHref
-    ? `
-      <table role="presentation" cellspacing="0" cellpadding="0" style="margin:22px 0 0;">
-        <tr>
-          <td style="border-radius:12px;background:#a0c81d;">
-            <a href="${escapeHtml(params.ctaHref)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 18px;color:#2A241F;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">${escapeHtml(params.ctaLabel)}</a>
-          </td>
-        </tr>
-      </table>`
-    : '';
-
-  return `<!doctype html>
-<html lang="sv">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${title}</title>
-  </head>
-  <body style="margin:0;padding:0;background:#F6F1E7;font-family:'Helvetica Neue',Arial,sans-serif;color:#2A241F;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preheader}</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F6F1E7;padding:24px 10px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;background:#ffffff;border:1px solid #E6E1D8;border-radius:20px;overflow:hidden;">
-            <tr>
-              <td style="padding:18px 24px;background:#3D3D3D;border-bottom:3px solid #a0c81d;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                  <tr>
-                    <td style="vertical-align:middle;">
-                      <img src="${escapeHtml(logoUrl)}" alt="PTO" width="34" height="34" style="display:block;border:0;outline:none;text-decoration:none;" />
-                    </td>
-                    <td style="padding-left:10px;vertical-align:middle;">
-                      <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#E6E1D8;font-weight:700;">${badge}</div>
-                    </td>
-                    <td align="right" style="vertical-align:middle;">
-                      <a href="${escapeHtml(appBaseUrl)}" target="_blank" rel="noopener noreferrer" style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a0c81d;text-decoration:none;">Öppna appen</a>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:26px 24px 8px;background:#fff;">
-                <h1 style="margin:0;font-size:26px;line-height:1.2;color:#2A241F;font-weight:900;">${title}</h1>
-                ${subtitle ? `<p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:#6B6158;">${subtitle}</p>` : ''}
-                ${params.introHtml ? `<div style="margin:14px 0 0;font-size:14px;line-height:1.65;color:#3D3D3D;">${params.introHtml}</div>` : ''}
-                ${ctaBlock}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:10px 24px 18px;">
-                <div style="background:#F6F1E7;border:1px solid #E6E1D8;border-radius:14px;padding:16px;">
-                  ${params.bodyHtml}
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:14px 24px;background:#F4F0E6;border-top:1px solid #E6E1D8;color:#6B6158;font-size:12px;line-height:1.5;">
-                ${footerNote}
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
 }
 
 function buildActionRows(payload: Record<string, unknown>): Array<{ label: string; value: string }> {
@@ -329,71 +195,6 @@ function buildCustomerConfirmationHtml(content: CustomerContent, fullName: strin
   });
 }
 
-async function sendResendEmail(apiKey: string, payload: ResendPayload): Promise<{ id?: string | null }> {
-  const upstream = await fetch(RESEND_API_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!upstream.ok) {
-    const details = await upstream.text().catch(() => '');
-    const err: any = new Error('Resend request failed');
-    err.status = upstream.status;
-    err.details = details;
-    throw err;
-  }
-
-  return await upstream.json().catch(() => ({}));
-}
-
-async function readBody(req: any): Promise<Record<string, unknown>> {
-  if (req?.body && typeof req.body === 'object') {
-    return req.body as Record<string, unknown>;
-  }
-
-  const chunks: Buffer[] = [];
-  if (req && req.readable) {
-    for await (const chunk of req) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    }
-  }
-
-  if (!chunks.length) return {};
-  const raw = Buffer.concat(chunks).toString('utf8');
-  if (!raw) return {};
-
-  const contentType = String(req?.headers?.['content-type'] || '');
-  if (contentType.includes('application/x-www-form-urlencoded')) {
-    return Object.fromEntries(new URLSearchParams(raw).entries());
-  }
-
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
-function isAllowedOrigin(origin: string | undefined): boolean {
-  if (!origin) return true;
-  const allowed = (process.env.ACTION_ALLOWED_ORIGINS || process.env.CHAT_ALLOWED_ORIGINS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (allowed.length === 0) return true;
-  return allowed.includes(origin);
-}
-
-function setCors(res: any, origin: string | undefined) {
-  res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Vary', 'Origin');
-}
-
 function ensureRequestId(value: unknown): string {
   if (typeof value === 'string' && value.trim().length > 0) return value.trim();
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -414,7 +215,7 @@ function toFormBody(payload: Record<string, unknown>): string {
 export default async function handler(req: any, res: any) {
   const origin = req.headers?.origin as string | undefined;
 
-  if (!isAllowedOrigin(origin)) {
+  if (!isAllowedOrigin(origin, 'ACTION_ALLOWED_ORIGINS')) {
     setCors(res, origin);
     res.status(403).json({ error: 'Forbidden origin' });
     return;
@@ -423,7 +224,7 @@ export default async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') {
     setCors(res, origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-secret');
     res.status(204).end();
     return;
   }
@@ -431,6 +232,12 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     setCors(res, origin);
     res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  if (!validateApiSecret(req)) {
+    setCors(res, origin);
+    res.status(403).json({ error: 'Invalid API secret' });
     return;
   }
 

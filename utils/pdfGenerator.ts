@@ -1,6 +1,5 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { CalculationResult, UserData } from '../types';
 
 const COLORS = {
   primary: [160, 200, 29] as [number, number, number],
@@ -46,45 +45,16 @@ const formatStat = (n: number, suffix = '') => {
 
 // Dynamisk uträkning av totaler från måltiderna
 const getDayTotals = (day: any) => {
-  if (Array.isArray(day.meals) && day.meals.length > 0) {
-    let kcal = 0, protein = 0, carbs = 0, fat = 0;
-    day.meals.forEach((m: any) => {
-      const data = m.data || m;
-      kcal += getVal(data, ['kcal', 'calories', 'energi']);
-      protein += getVal(data, ['protein', 'p', 'proteinGrams']);
-      carbs += getVal(data, ['carbs', 'c', 'kolhydrater']);
-      fat += getVal(data, ['fat', 'f', 'fett']);
-    });
-    if (kcal > 0) return { kcal, protein, carbs, fat };
-  }
-
-  const b = day.breakfast?.data || day.breakfast;
-  const l = day.lunch?.data || day.lunch;
-  const d = day.dinner?.data || day.dinner;
-
-  let kcal =
-    getVal(b, ['kcal', 'calories', 'energi']) +
-    getVal(l, ['kcal', 'calories', 'energi']) +
-    getVal(d, ['kcal', 'calories', 'energi']);
-
-  if (kcal > 100) {
-    const protein =
-      getVal(b, ['protein', 'p', 'proteinGrams']) +
-      getVal(l, ['protein', 'p', 'proteinGrams']) +
-      getVal(d, ['protein', 'p', 'proteinGrams']);
-
-    const carbs =
-      getVal(b, ['carbs', 'c', 'kolhydrater']) +
-      getVal(l, ['carbs', 'c', 'kolhydrater']) +
-      getVal(d, ['carbs', 'c', 'kolhydrater']);
-
-    const fat =
-      getVal(b, ['fat', 'f', 'fett']) +
-      getVal(l, ['fat', 'f', 'fett']) +
-      getVal(d, ['fat', 'f', 'fett']);
-
-    return { kcal, protein, carbs, fat };
-  }
+  const meals = Array.isArray(day.meals) ? day.meals : [];
+  let kcal = 0, protein = 0, carbs = 0, fat = 0;
+  meals.forEach((m: any) => {
+    const data = m.data || m;
+    kcal += getVal(data, ['kcal', 'calories', 'energi']);
+    protein += getVal(data, ['protein', 'p', 'proteinGrams']);
+    carbs += getVal(data, ['carbs', 'c', 'kolhydrater']);
+    fat += getVal(data, ['fat', 'f', 'fett']);
+  });
+  if (kcal > 0) return { kcal, protein, carbs, fat };
 
   return {
     kcal: getVal(day.dailyTotals, ['kcal', 'calories', 'totalCalories']),
@@ -243,20 +213,15 @@ export const generateWeeklySchedulePDF = (fullPlan: any[], targets: any) => {
     const tableData = fullPlan.map((day) => {
       const totals = getDayTotals(day);
       let bText = "-", lText = "-", dText = "-";
+      const meals = Array.isArray(day.meals) ? day.meals : [];
 
-      if (Array.isArray(day.meals) && day.meals.length > 0) {
-        const b = day.meals.find((m: any) => m.type?.toLowerCase().includes('frukost')) || day.meals[0];
-        const l = day.meals.find((m: any) => m.type?.toLowerCase().includes('lunch')) || (day.meals.length >= 2 ? day.meals[1] : null);
-        const d = day.meals.find((m: any) => m.type?.toLowerCase().includes('middag')) || day.meals[day.meals.length - 1];
+      const b = meals.find((m: any) => m.type?.toLowerCase().includes('frukost')) || meals[0];
+      const l = meals.find((m: any) => m.type?.toLowerCase().includes('lunch')) || (meals.length >= 2 ? meals[1] : null);
+      const d = meals.find((m: any) => m.type?.toLowerCase().includes('middag')) || meals[meals.length - 1];
 
-        bText = b?.name || b?.title || "-";
-        if (l && l !== b) lText = l?.name || l?.title || "-";
-        if (d && d !== l && d !== b) dText = d?.name || d?.title || "-";
-      } else {
-        bText = day.breakfast?.title || day.breakfast?.name || "-";
-        lText = day.lunch?.title || day.lunch?.name || "-";
-        dText = day.dinner?.title || day.dinner?.name || "-";
-      }
+      bText = b?.name || b?.title || "-";
+      if (l && l !== b) lText = l?.name || l?.title || "-";
+      if (d && d !== l && d !== b) dText = d?.name || d?.title || "-";
 
       return [
         safeText(day.day, "Dag"),
@@ -318,17 +283,10 @@ export const generateWeeklySchedulePDF = (fullPlan: any[], targets: any) => {
 
       yPos += 18;
 
-      let mealsToRender = [] as any[];
-      if (Array.isArray(day.meals) && day.meals.length > 0) {
-        mealsToRender = day.meals.map((m: any) => ({
-          label: m.type || "Måltid",
-          data: m
-        }));
-      } else {
-        if (day.breakfast) mealsToRender.push({ label: "Frukost", data: day.breakfast });
-        if (day.lunch) mealsToRender.push({ label: "Lunch", data: day.lunch });
-        if (day.dinner) mealsToRender.push({ label: "Middag", data: day.dinner });
-      }
+      const mealsToRender = (Array.isArray(day.meals) ? day.meals : []).map((m: any) => ({
+        label: m.type || "Måltid",
+        data: m
+      }));
 
       mealsToRender.forEach((meal) => {
         const data = meal.data || meal;
@@ -515,12 +473,4 @@ export const generateWeeklySchedulePDF = (fullPlan: any[], targets: any) => {
     console.error("PDF error:", err);
     throw err;
   }
-};
-
-export const generateRecipePDF = (_title: string, _content: string, _tags: string[]) => {
-  throw new Error("generateRecipePDF används inte i denna build.");
-};
-
-export const generateMealPlanPDF = (_results: CalculationResult, _userData: UserData) => {
-  throw new Error("generateMealPlanPDF används inte i denna build.");
 };

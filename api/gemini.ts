@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import { getBearerToken } from './_shared/apiHelpers.js';
 
 const DEFAULT_MODEL = 'gemini-3-flash-preview';
 const DEFAULT_RATE_LIMIT_MAX = 20;
@@ -52,11 +53,7 @@ function isRateLimited(key: string): boolean {
   return false;
 }
 
-function getBearerToken(header: string | undefined): string | undefined {
-  if (!header) return undefined;
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1].trim() : undefined;
-}
+// getBearerToken imported from _shared/apiHelpers
 
 async function verifyUserFromToken(accessToken: string): Promise<string | null> {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;

@@ -11,7 +11,7 @@ import { buildLatestTaskNoteMap } from '../utils/agendaTaskNotes';
 import { resolveCopyText } from '../utils/copyValue';
 import { resolveOrderImportEndpoint, resolveShipmentsTableFallback, resolveShipmentsTableFromEnv, type ShipmentsTable } from '../utils/intranetShippingConfig';
 import { resolveIntranetMirrorUserId } from '../utils/intranetMirrorUser';
-import { buildStaffFaqInsertPayload, searchStaffFaqEntries, STAFF_FAQ_CATEGORIES, STAFF_FAQ_ENTRIES, toStaffFaqEntries, type StaffFaqEntry } from '../utils/staffFaq';
+
 
 type BaseSubmission = {
   id: string;
@@ -119,7 +119,7 @@ type AgendaItem = {
 };
 
 type FilterValue = 'uppfoljning' | 'start' | 'done';
-type StaffTab = 'OVERVIEW' | 'BASE' | 'REPORT' | 'SHIP' | 'FAQ' | 'AGENDA';
+type StaffTab = 'OVERVIEW' | 'BASE' | 'REPORT' | 'SHIP' | 'AGENDA';
 
 const REPORT_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/ucizdpt/';
 const REPORT_OVERTIME_WEBHOOK_URL = 'https://hooks.zapier.com/hooks/catch/1514319/ucicwgs/';
@@ -640,21 +640,7 @@ const Intranet: React.FC = () => {
   const [copiedShipmentId, setCopiedShipmentId] = useState<string | null>(null);
   const [showHandledShipments, setShowHandledShipments] = useState(false);
   const [copiedFieldKey, setCopiedFieldKey] = useState<string | null>(null);
-  const [faqQuery, setFaqQuery] = useState('');
-  const [faqEntries, setFaqEntries] = useState<StaffFaqEntry[]>(STAFF_FAQ_ENTRIES);
-  const [faqStatus, setFaqStatus] = useState<'idle' | 'loading' | 'saving' | 'error'>('idle');
-  const [faqError, setFaqError] = useState<string | null>(null);
-  const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
-  const [faqForm, setFaqForm] = useState({
-    question: '',
-    answer: '',
-    howTo: '',
-    tags: '',
-    category: 'Policy',
-    linkLabel: '',
-    linkHref: '',
-    showOnIntranet: false
-  });
+
   const [staffMirrorCandidates, setStaffMirrorCandidates] = useState<Array<{
     id: string;
     is_staff?: boolean | null;
@@ -913,48 +899,7 @@ const Intranet: React.FC = () => {
     };
   }, [session?.user?.id, canUseStaffIntranet, isConfigured, agendaRefreshToken]);
 
-  const loadFaqEntries = useCallback(async () => {
-    if (!canUseStaffIntranet || !isConfigured) {
-      setFaqEntries(STAFF_FAQ_ENTRIES);
-      return;
-    }
 
-    setFaqStatus('loading');
-    setFaqError(null);
-    try {
-      const { data, error } = await supabase
-        .from('staff_faq_entries')
-        .select('id, question, answer, how_to, category, tags, link_label, link_href, show_on_intranet')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      const mapped = toStaffFaqEntries((data || []) as Array<{
-        id: string;
-        question: string;
-        answer: string;
-        how_to?: string | null;
-        category?: string | null;
-        tags?: unknown;
-        link_label?: string | null;
-        link_href?: string | null;
-        show_on_intranet?: boolean | null;
-      }>);
-      setFaqEntries(mapped.length > 0 ? mapped : STAFF_FAQ_ENTRIES);
-      setFaqStatus('idle');
-    } catch (err) {
-      console.warn('Failed to load staff FAQ entries', err);
-      setFaqEntries(STAFF_FAQ_ENTRIES);
-      setFaqStatus('error');
-      setFaqError('Kunde inte läsa FAQ från databasen. Visar fallback-data.');
-    }
-  }, [canUseStaffIntranet, isConfigured]);
-
-  useEffect(() => {
-    if (!canUseStaffIntranet) return;
-    loadFaqEntries();
-  }, [canUseStaffIntranet, loadFaqEntries]);
 
   useEffect(() => {
     if (!canUseStaffIntranet) return;
@@ -1276,167 +1221,9 @@ const Intranet: React.FC = () => {
       .filter((entry) => entry.tasks.length > 0);
   }, [getTasksForDate, selectedDate, showAhead]);
 
-  const faqResults = useMemo(() => searchStaffFaqEntries(faqQuery, faqEntries), [faqEntries, faqQuery]);
-  const intranetFaqHighlights = useMemo(() => (
-    faqEntries.filter((entry) => entry.showOnIntranet).slice(0, 6)
-  ), [faqEntries]);
 
-  const handleCreateFaqEntry = useCallback(async () => {
-    const payload = buildStaffFaqInsertPayload({
-      question: faqForm.question,
-      answer: faqForm.answer,
-      howTo: faqForm.howTo,
-      tagsInput: faqForm.tags,
-      category: faqForm.category,
-      linkLabel: faqForm.linkLabel,
-      linkHref: faqForm.linkHref,
-      showOnIntranet: faqForm.showOnIntranet
-    });
-    if (!payload.question || !payload.answer) {
-      setFaqError('Rubrik och svar krävs för att spara FAQ.');
-      return;
-    }
-    if (!isConfigured || !canUseStaffIntranet) {
-      setFaqError('Supabase saknas. FAQ kan inte sparas just nu.');
-      return;
-    }
 
-    setFaqStatus('saving');
-    setFaqError(null);
-    try {
-      const { error } = await supabase.from('staff_faq_entries').insert({
-        question: payload.question,
-        answer: payload.answer,
-        how_to: payload.how_to,
-        tags: payload.tags,
-        category: payload.category,
-        link_label: payload.link_label,
-        link_href: payload.link_href,
-        show_on_intranet: payload.show_on_intranet,
-        created_by: session?.user?.id || null
-      });
-      if (error) throw error;
-      setFaqForm({
-        question: '',
-        answer: '',
-        howTo: '',
-        tags: '',
-        category: 'Policy',
-        linkLabel: '',
-        linkHref: '',
-        showOnIntranet: false
-      });
-      await loadFaqEntries();
-      setFaqStatus('idle');
-    } catch (err) {
-      console.warn('Failed to create faq entry', err);
-      setFaqStatus('error');
-      setFaqError('Kunde inte spara FAQ. Kontrollera rättigheter i Supabase.');
-    }
-  }, [canUseStaffIntranet, faqForm, isConfigured, loadFaqEntries, session?.user?.id]);
 
-  const startEditFaqEntry = useCallback((entry: StaffFaqEntry) => {
-    setEditingFaqId(entry.id);
-    setFaqForm({
-      question: entry.question,
-      answer: entry.answer,
-      howTo: entry.howTo || '',
-      tags: entry.tags.join(', '),
-      category: entry.category || 'Policy',
-      linkLabel: entry.links?.[0]?.label || '',
-      linkHref: entry.links?.[0]?.href || '',
-      showOnIntranet: entry.showOnIntranet === true
-    });
-    setFaqError(null);
-  }, []);
-
-  const cancelEditFaqEntry = useCallback(() => {
-    setEditingFaqId(null);
-    setFaqForm({
-      question: '',
-      answer: '',
-      howTo: '',
-      tags: '',
-      category: 'Policy',
-      linkLabel: '',
-      linkHref: '',
-      showOnIntranet: false
-    });
-    setFaqError(null);
-  }, []);
-
-  const handleSaveEditedFaqEntry = useCallback(async () => {
-    if (!editingFaqId) return;
-    const payload = buildStaffFaqInsertPayload({
-      question: faqForm.question,
-      answer: faqForm.answer,
-      howTo: faqForm.howTo,
-      tagsInput: faqForm.tags,
-      category: faqForm.category,
-      linkLabel: faqForm.linkLabel,
-      linkHref: faqForm.linkHref,
-      showOnIntranet: faqForm.showOnIntranet
-    });
-    if (!payload.question || !payload.answer) {
-      setFaqError('Rubrik och svar krävs för att uppdatera FAQ.');
-      return;
-    }
-    if (!isConfigured) {
-      setFaqError('Supabase saknas. FAQ kan inte uppdateras just nu.');
-      return;
-    }
-
-    setFaqStatus('saving');
-    setFaqError(null);
-    try {
-      const { error } = await supabase
-        .from('staff_faq_entries')
-        .update({
-          question: payload.question,
-          answer: payload.answer,
-          how_to: payload.how_to,
-          tags: payload.tags,
-          category: payload.category,
-          link_label: payload.link_label,
-          link_href: payload.link_href,
-          show_on_intranet: payload.show_on_intranet
-        })
-        .eq('id', editingFaqId);
-      if (error) throw error;
-      cancelEditFaqEntry();
-      await loadFaqEntries();
-      setFaqStatus('idle');
-    } catch (err) {
-      console.warn('Failed to update faq entry', err);
-      setFaqStatus('error');
-      setFaqError('Kunde inte uppdatera FAQ-posten.');
-    }
-  }, [cancelEditFaqEntry, editingFaqId, faqForm, isConfigured, loadFaqEntries]);
-
-  const handleArchiveFaqEntry = useCallback(async (entryId: string) => {
-    if (!isConfigured) {
-      setFaqError('Supabase saknas. FAQ kan inte arkiveras just nu.');
-      return;
-    }
-    setFaqStatus('saving');
-    setFaqError(null);
-    try {
-      const { error } = await supabase
-        .from('staff_faq_entries')
-        .update({ is_active: false })
-        .eq('id', entryId);
-      if (error) throw error;
-      if (editingFaqId === entryId) {
-        cancelEditFaqEntry();
-      }
-      await loadFaqEntries();
-      setFaqStatus('idle');
-    } catch (err) {
-      console.warn('Failed to archive faq entry', err);
-      setFaqStatus('error');
-      setFaqError('Kunde inte arkivera FAQ-posten.');
-    }
-  }, [cancelEditFaqEntry, editingFaqId, isConfigured, loadFaqEntries]);
 
   const performToggleAgendaTaskForDate = useCallback(async (dateKey: string, taskId: string) => {
     const current = new Set(agendaCompletionByDate[dateKey] || []);
@@ -2681,20 +2468,7 @@ const Intranet: React.FC = () => {
                   )}
                 </span>
               </button>
-              <button
-                type="button"
-                onClick={() => { setActiveTab('FAQ'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                  activeTab === 'FAQ'
-                    ? 'bg-[#E8F1D5] text-[#3D3D3D] border border-[#a0c81d]/40 shadow-[0_0_20px_rgba(160,200,29,0.12)]'
-                    : 'text-[#6B6158] hover:bg-[#E8F1D5]/50 border border-transparent'
-                }`}
-              >
-                <span className={`p-2 rounded-xl ${activeTab === 'FAQ' ? 'bg-[#a0c81d] text-[#F6F1E7]' : 'bg-[#F6F1E7] text-[#8A8177]'}`}>
-                  <Search className="w-4 h-4" />
-                </span>
-                FAQ
-              </button>
+
             </div>
           </div>
 
@@ -3064,32 +2838,7 @@ const Intranet: React.FC = () => {
                   </div>
                 )}
 
-                {intranetFaqHighlights.length > 0 && (
-                  <div className="bg-white rounded-2xl p-5 md:p-6 border border-[#DAD1C5] shadow-[0_16px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
-                    <div className="flex items-center justify-between gap-4 mb-4">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Snabbfakta</p>
-                        <h3 className="text-lg md:text-xl font-black text-[#3D3D3D] mt-1">Relevant FAQ på intranätet</h3>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => { setActiveTab('FAQ'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                        className="px-3 py-2 rounded-xl border border-[#DAD1C5] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition"
-                      >
-                        Öppna FAQ
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {intranetFaqHighlights.map((entry) => (
-                        <article key={`quick-${entry.id}`} className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-3">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">{entry.category}</div>
-                          <h4 className="mt-1 text-sm font-black text-[#3D3D3D]">{entry.question}</h4>
-                          <p className="mt-1 text-xs text-[#6B6158] line-clamp-3">{entry.answer}</p>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
 
                 <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
                     <div className="flex items-center justify-between gap-4 mb-4">
@@ -3201,226 +2950,6 @@ const Intranet: React.FC = () => {
               </div>
             )}
 
-            {activeTab === 'FAQ' && (
-              <div className="space-y-6 animate-fade-in">
-                <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_20px_60px_rgba(61,61,61,0.18)] ring-1 ring-black/5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-11 h-11 rounded-2xl bg-[#a0c81d]/10 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
-                      <Search className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Intern kunskapsbank</p>
-                      <h2 className="text-2xl font-black text-[#3D3D3D]">FAQ för personal</h2>
-                    </div>
-                  </div>
-                  <p className="text-sm text-[#6B6158] mb-5 max-w-2xl">
-                    Sök på nyckelord som till exempel "Swish", "Todoist" eller "changelog" för att hitta rätt svar direkt.
-                  </p>
-                  <div className="relative">
-                    <Search className="w-4 h-4 text-[#8A8177] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      value={faqQuery}
-                      onChange={(event) => setFaqQuery(event.target.value)}
-                      placeholder="Sök i FAQ..."
-                      className="w-full rounded-xl border border-[#DAD1C5] bg-[#F6F1E7]/70 pl-10 pr-4 py-3 text-sm text-[#3D3D3D] placeholder:text-[#8A8177] focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/40"
-                    />
-                  </div>
-                  {faqError && (
-                    <div className="mt-4 rounded-xl border border-amber-400/40 bg-amber-100/60 px-4 py-3 text-sm text-amber-900">
-                      {faqError}
-                    </div>
-                  )}
-                  {faqStatus === 'loading' && (
-                    <div className="mt-4 text-xs font-black uppercase tracking-widest text-[#8A8177]">Laddar FAQ från databasen...</div>
-                  )}
-                </div>
-
-                <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-[#DAD1C5] shadow-[0_18px_45px_rgba(61,61,61,0.14)] ring-1 ring-black/5">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Admin</p>
-                      <h3 className="text-xl font-black text-[#3D3D3D]">{editingFaqId ? 'Redigera FAQ' : 'Lägg till FAQ'}</h3>
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">
-                      Enkel inmatning
-                    </span>
-                  </div>
-                  <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <label className="flex flex-col gap-2 text-xs font-black uppercase tracking-widest text-[#8A8177]">
-                      Rubrik
-                      <input
-                        value={faqForm.question}
-                        onChange={(event) => setFaqForm((prev) => ({ ...prev, question: event.target.value }))}
-                        placeholder="T.ex. Vilket Swish-nummer använder vi?"
-                        className="rounded-xl border border-[#DAD1C5] bg-[#F6F1E7]/70 px-3 py-2.5 text-sm font-semibold normal-case tracking-normal text-[#3D3D3D] focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/40"
-                      />
-                    </label>
-                    <label className="flex flex-col gap-2 text-xs font-black uppercase tracking-widest text-[#8A8177]">
-                      Kategori
-                      <select
-                        value={faqForm.category}
-                        onChange={(event) => setFaqForm((prev) => ({ ...prev, category: event.target.value as StaffFaqEntry['category'] }))}
-                        className="rounded-xl border border-[#DAD1C5] bg-[#F6F1E7]/70 px-3 py-2.5 text-sm font-semibold normal-case tracking-normal text-[#3D3D3D] focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/40"
-                      >
-                        {STAFF_FAQ_CATEGORIES.map((category) => (
-                          <option key={category} value={category}>{category}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="md:col-span-2 flex flex-col gap-2 text-xs font-black uppercase tracking-widest text-[#8A8177]">
-                      Svar
-                      <textarea
-                        value={faqForm.answer}
-                        onChange={(event) => setFaqForm((prev) => ({ ...prev, answer: event.target.value }))}
-                        placeholder="Kort och tydligt svar..."
-                        rows={3}
-                        className="rounded-xl border border-[#DAD1C5] bg-[#F6F1E7]/70 px-3 py-2.5 text-sm normal-case tracking-normal text-[#3D3D3D] focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/40"
-                      />
-                    </label>
-                    <label className="md:col-span-2 flex flex-col gap-2 text-xs font-black uppercase tracking-widest text-[#8A8177]">
-                      Hur det görs (valfritt)
-                      <textarea
-                        value={faqForm.howTo}
-                        onChange={(event) => setFaqForm((prev) => ({ ...prev, howTo: event.target.value }))}
-                        placeholder="Steg-för-steg instruktion..."
-                        rows={3}
-                        className="rounded-xl border border-[#DAD1C5] bg-[#F6F1E7]/70 px-3 py-2.5 text-sm normal-case tracking-normal text-[#3D3D3D] focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/40"
-                      />
-                    </label>
-                    <label className="flex flex-col gap-2 text-xs font-black uppercase tracking-widest text-[#8A8177]">
-                      Taggar (komma-separerat)
-                      <input
-                        value={faqForm.tags}
-                        onChange={(event) => setFaqForm((prev) => ({ ...prev, tags: event.target.value }))}
-                        placeholder="swish, betalning, nummer"
-                        className="rounded-xl border border-[#DAD1C5] bg-[#F6F1E7]/70 px-3 py-2.5 text-sm font-semibold normal-case tracking-normal text-[#3D3D3D] focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/40"
-                      />
-                    </label>
-                    <label className="flex flex-col gap-2 text-xs font-black uppercase tracking-widest text-[#8A8177]">
-                      Länktext (valfritt)
-                      <input
-                        value={faqForm.linkLabel}
-                        onChange={(event) => setFaqForm((prev) => ({ ...prev, linkLabel: event.target.value }))}
-                        placeholder="T.ex. Changelog"
-                        className="rounded-xl border border-[#DAD1C5] bg-[#F6F1E7]/70 px-3 py-2.5 text-sm font-semibold normal-case tracking-normal text-[#3D3D3D] focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/40"
-                      />
-                    </label>
-                    <label className="md:col-span-2 flex flex-col gap-2 text-xs font-black uppercase tracking-widest text-[#8A8177]">
-                      Länk-URL (valfritt)
-                      <input
-                        value={faqForm.linkHref}
-                        onChange={(event) => setFaqForm((prev) => ({ ...prev, linkHref: event.target.value }))}
-                        placeholder="/intranet eller https://..."
-                        className="rounded-xl border border-[#DAD1C5] bg-[#F6F1E7]/70 px-3 py-2.5 text-sm font-semibold normal-case tracking-normal text-[#3D3D3D] focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/40"
-                      />
-                    </label>
-                    <label className="md:col-span-2 inline-flex items-center gap-3 rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-3 py-2 text-xs font-black uppercase tracking-widest text-[#8A8177]">
-                      <input
-                        type="checkbox"
-                        checked={faqForm.showOnIntranet}
-                        onChange={(event) => setFaqForm((prev) => ({ ...prev, showOnIntranet: event.target.checked }))}
-                        className="accent-[#a0c81d]"
-                      />
-                      Visa även i Snabbfakta på intranätet
-                    </label>
-                  </div>
-                  <div className="mt-5 flex flex-wrap items-center gap-3">
-                    {editingFaqId ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={handleSaveEditedFaqEntry}
-                          disabled={faqStatus === 'saving'}
-                          className="px-5 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition disabled:opacity-60"
-                        >
-                          {faqStatus === 'saving' ? 'Sparar...' : 'Spara ändring'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelEditFaqEntry}
-                          className="px-4 py-3 rounded-xl border border-[#DAD1C5] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] transition"
-                        >
-                          Avbryt
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleCreateFaqEntry}
-                        disabled={faqStatus === 'saving'}
-                        className="px-5 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] font-black uppercase tracking-widest text-xs hover:bg-[#5C7A12] transition disabled:opacity-60"
-                      >
-                        {faqStatus === 'saving' ? 'Sparar...' : 'Lägg till FAQ'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {faqResults.length === 0 ? (
-                    <div className="md:col-span-2 rounded-2xl border border-[#DAD1C5] bg-white p-6 text-sm text-[#6B6158]">
-                      Inga träffar. Testa ett annat nyckelord.
-                    </div>
-                  ) : faqResults.map((entry) => (
-                    <article key={entry.id} className="rounded-2xl border border-[#DAD1C5] bg-white p-5 shadow-[0_12px_30px_rgba(61,61,61,0.08)]">
-                      <div className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8A8177]">{entry.category}</div>
-                      <h3 className="mt-2 text-lg font-black text-[#3D3D3D]">{entry.question}</h3>
-                      <p className="mt-2 text-sm text-[#6B6158]">{entry.answer}</p>
-                      {entry.howTo && (
-                        <div className="mt-3 rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/60 p-3">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Hur det görs</div>
-                          <p className="mt-1 text-sm text-[#6B6158] whitespace-pre-line">{entry.howTo}</p>
-                        </div>
-                      )}
-                      {entry.links && entry.links.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                          {entry.links.map((link) => (
-                            <a
-                              key={`${entry.id}-${link.href}`}
-                              href={link.href}
-                              target={link.external ? '_blank' : undefined}
-                              rel={link.external ? 'noreferrer' : undefined}
-                              className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#5C7A12] hover:text-[#3D3D3D] transition"
-                            >
-                              <LinkIcon className="w-3.5 h-3.5" />
-                              {link.label}
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {entry.tags.map((tag) => (
-                          <button
-                            key={`${entry.id}-${tag}`}
-                            type="button"
-                            onClick={() => setFaqQuery(tag)}
-                            className="rounded-full border border-[#E6E1D8] px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-[#8A8177] hover:border-[#a0c81d]/40 hover:text-[#3D3D3D] transition"
-                          >
-                            {tag}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-4 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => startEditFaqEntry(entry)}
-                          className="px-3 py-2 rounded-xl border border-[#DAD1C5] text-[10px] font-black uppercase tracking-widest text-[#6B6158] hover:text-[#3D3D3D] hover:border-[#a0c81d]/40 transition"
-                        >
-                          Redigera FAQ
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleArchiveFaqEntry(entry.id)}
-                          className="px-3 py-2 rounded-xl border border-rose-200 text-[10px] font-black uppercase tracking-widest text-rose-700 hover:bg-rose-50 transition"
-                        >
-                          Arkivera FAQ
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {activeTab === 'SHIP' && (
               <div className="space-y-8 animate-fade-in">
