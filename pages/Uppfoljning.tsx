@@ -8,7 +8,7 @@ import { buildRefillNotificationBody, sendRefillNotification } from '../utils/re
 import { UPSELL_PRODUCTS, EXPANDED_PRODUCTS, discountPercent } from '../utils/supplementProducts';
 import type { Product } from '../utils/supplementProducts';
 
-const WEBHOOK_PROXY_URL = '/api/webhook-proxy';
+
 
 type UppfoljningFormState = {
   firstName: string;
@@ -323,16 +323,6 @@ const Uppfoljning: React.FC = () => {
         source: 'uppfoljning_upsell',
       };
 
-      try {
-        const refillRes = await fetch(WEBHOOK_PROXY_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target: 'refill', ...refillPayload }),
-        });
-        if (!refillRes.ok) console.warn('Upsell webhook non-200:', refillRes.status);
-      } catch (err) {
-        console.warn('Upsell webhook error:', err);
-      }
 
       try {
         const refillNotification = buildRefillNotificationBody(refillPayload);
