@@ -199,10 +199,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       };
 
       try {
-        const response = await fetch('/api/form-notifications', {
+        const response = await fetch('https://cghnlrinjtexhvetngbe.supabase.co/functions/v1/email-trigger', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(notificationPayload),
+          body: JSON.stringify({ source: 'registrering', data: notificationPayload }),
         });
         if (!response.ok) {
           console.warn('Registration notification non-200:', response.status);

@@ -191,10 +191,10 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
       };
 
       try {
-        const notificationRes = await fetch('/api/form-notifications', {
+        const notificationRes = await fetch('https://cghnlrinjtexhvetngbe.supabase.co/functions/v1/email-trigger', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formNotificationPayload),
+          body: JSON.stringify({ source: 'forlangning', data: formNotificationPayload }),
         });
         if (!notificationRes.ok) {
           console.warn('Forlangning notification non-200:', notificationRes.status);

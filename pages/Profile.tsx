@@ -319,10 +319,10 @@ export const Profile: React.FC = () => {
       ...extra
     };
 
-    const response = await fetch('/api/member-actions', {
+    const response = await fetch('https://cghnlrinjtexhvetngbe.supabase.co/functions/v1/email-trigger', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ action: actionType, data: payload })
     });
 
     if (!response.ok) {

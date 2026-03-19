@@ -1,18 +1,19 @@
-export const START_NOTIFICATION_ENDPOINT = '/api/form-notifications';
+const EDGE_FUNCTION_URL = 'https://cghnlrinjtexhvetngbe.supabase.co/functions/v1/email-trigger';
 
-export type StartNotificationBody = Record<string, unknown> & {
+export const START_NOTIFICATION_ENDPOINT = EDGE_FUNCTION_URL;
+
+export type StartNotificationBody = {
   source: 'startform';
-  submitted_at: string;
+  data: Record<string, unknown>;
 };
 
 export function buildStartNotificationBody(
   payload: Record<string, unknown>,
-  submittedAt: Date = new Date(),
+  _submittedAt: Date = new Date(),
 ): StartNotificationBody {
   return {
-    ...payload,
     source: 'startform',
-    submitted_at: submittedAt.toISOString(),
+    data: payload,
   };
 }
 
@@ -20,7 +21,7 @@ export async function sendStartNotification(
   body: StartNotificationBody,
   fetchFn: typeof fetch = fetch,
 ): Promise<Response> {
-  return fetchFn(START_NOTIFICATION_ENDPOINT, {
+  return fetchFn(EDGE_FUNCTION_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
