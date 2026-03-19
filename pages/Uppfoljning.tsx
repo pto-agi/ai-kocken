@@ -299,8 +299,32 @@ const Uppfoljning: React.FC = () => {
       console.warn('Uppfoljning notification error:', err);
     }
 
-    // Send parallel refill order if user added supplements
+    // Save order + send notification if user added supplements
     if (refillItems.length > 0 && session?.user?.id && session.user.email) {
+      // 1. Save order to DB
+      const orderRow = {
+        user_id: session.user.id,
+        email: session.user.email,
+        customer_name: profile?.full_name || '',
+        source: 'uppfoljning_upsell',
+        status: 'pending',
+        items: refillItems,
+        item_count: refillItems.reduce((sum, item) => sum + item.qty, 0),
+        subtotal: refillTotal,
+        currency: 'SEK',
+        shipping_name: profile?.full_name || '',
+        shipping_line1: profile?.address_line1?.trim() || '',
+        shipping_line2: profile?.address_line2?.trim() || '',
+        shipping_postal_code: profile?.postal_code?.trim() || '',
+        shipping_city: profile?.city?.trim() || '',
+        shipping_country: profile?.country?.trim() || 'Sverige',
+        shipping_phone: profile?.phone?.trim() || '',
+      };
+
+      const { error: orderError } = await supabase.from('orders').insert([orderRow]);
+      if (orderError) console.warn('Order insert error:', orderError);
+
+      // 2. Send notification email
       const refillPayload = {
         user_id: session.user.id,
         email: session.user.email,
@@ -322,7 +346,6 @@ const Uppfoljning: React.FC = () => {
         total: String(refillTotal),
         source: 'uppfoljning_upsell',
       };
-
 
       try {
         const refillNotification = buildRefillNotificationBody(refillPayload);

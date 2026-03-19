@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { buildRefillNotificationBody, sendRefillNotification } from '../utils/refillNotification';
 import { PRODUCTS } from '../utils/supplementProducts';
 
-const WEBHOOK_PROXY_URL = '/api/webhook-proxy';
+
 
 const Refill: React.FC = () => {
   const { session, profile, refreshProfile } = useAuthStore();
@@ -159,22 +159,32 @@ const Refill: React.FC = () => {
       return;
     }
 
-    setStatus('sending');
-
-    const orderSnapshot = {
+    const orderRow = {
+      user_id: session.user.id,
+      email: session.user.email,
+      customer_name: profile?.full_name || '',
+      source: 'refill',
+      status: 'pending',
       items: selectedItems,
-      total,
-      createdAt: new Date().toISOString(),
-      shipping: {
-        name: profile?.full_name || '',
-        line1: profileShipping.line1,
-        line2: profileShipping.line2,
-        postalCode: profileShipping.postalCode,
-        city: profileShipping.city,
-        country: profileShipping.country,
-        phone: profileShipping.phone
-      }
+      item_count: selectedItems.reduce((sum, item) => sum + item.qty, 0),
+      subtotal: total,
+      currency: 'SEK',
+      shipping_name: profile?.full_name || '',
+      shipping_line1: profileShipping.line1,
+      shipping_line2: profileShipping.line2,
+      shipping_postal_code: profileShipping.postalCode,
+      shipping_city: profileShipping.city,
+      shipping_country: profileShipping.country,
+      shipping_phone: profileShipping.phone,
     };
+
+    const { error: insertError } = await supabase.from('orders').insert([orderRow]);
+    if (insertError) {
+      console.error('Order insert error:', insertError);
+      setStatus('error');
+      setError('Kunde inte spara beställningen. Försök igen.');
+      return;
+    }
 
     const payload = {
       user_id: session.user.id,
@@ -199,32 +209,19 @@ const Refill: React.FC = () => {
     };
 
     try {
-      const res = await fetch(WEBHOOK_PROXY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target: 'refill', ...payload }),
-      });
-      if (!res.ok) throw new Error('Webhook failed');
-
-      try {
-        const notificationPayload = buildRefillNotificationBody(payload);
-        const notificationRes = await sendRefillNotification(notificationPayload);
-        if (!notificationRes.ok) {
-          console.warn('Refill notification non-200:', notificationRes.status);
-        }
-      } catch (notificationErr) {
-        console.warn('Refill notification error:', notificationErr);
+      const notificationPayload = buildRefillNotificationBody(payload);
+      const notificationRes = await sendRefillNotification(notificationPayload);
+      if (!notificationRes.ok) {
+        console.warn('Refill notification non-200:', notificationRes.status);
       }
-
-      setStatus('success');
-      setShippingError(null);
-      setQuantities({});
-      navigate('/refill/tack', { state: orderSnapshot });
-    } catch (err) {
-      console.error('Refill webhook error:', err);
-      setStatus('error');
-      setError('Kunde inte skicka beställningen. Försök igen.');
+    } catch (notificationErr) {
+      console.warn('Refill notification error:', notificationErr);
     }
+
+    setStatus('success');
+    setShippingError(null);
+    setQuantities({});
+    navigate('/refill/tack', { state: { items: selectedItems, total, createdAt: new Date().toISOString(), shipping: { name: orderRow.shipping_name, line1: orderRow.shipping_line1, line2: orderRow.shipping_line2, postalCode: orderRow.shipping_postal_code, city: orderRow.shipping_city, country: orderRow.shipping_country, phone: orderRow.shipping_phone } } });
   };
 
   return (
