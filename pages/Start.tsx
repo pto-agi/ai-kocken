@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, ClipboardList, Loader2, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { buildStartNotificationBody, sendStartNotification, type StartNotificationBody } from '../utils/startNotification';
+// Email notifications for startformulär are handled by DB trigger → Edge Function.
+// import { buildStartNotificationBody, sendStartNotification, type StartNotificationBody } from '../utils/startNotification';
 
 type StartFormState = {
   firstName: string;
@@ -194,7 +195,7 @@ const Start: React.FC = () => {
   const [status, setStatus] = useState<StartSubmitStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
-  const [pendingNotificationBody, setPendingNotificationBody] = useState<StartNotificationBody | null>(null);
+  // Pending notification body removed — DB trigger handles email automatically
   const isConfigured = isSupabaseConfigured();
   const navigate = useNavigate();
 
@@ -283,25 +284,8 @@ const Start: React.FC = () => {
     setErrorMessage(null);
     setNotificationMessage(null);
 
-    if (pendingNotificationBody) {
-      setStatus('resending_notification');
-      try {
-        const retryResponse = await sendStartNotification(pendingNotificationBody);
-        if (!retryResponse.ok) {
-          throw new Error(`Notification failed with status ${retryResponse.status}`);
-        }
-      } catch (err) {
-        console.warn('Startform notification retry error:', err);
-        setStatus('notification_error');
-        setNotificationMessage('Formuläret är redan sparat, men bekräftelsemail kunde inte skickas ännu. Försök igen.');
-        return;
-      }
-
-      setPendingNotificationBody(null);
-      setStatus('success');
-      navigate('/start/tack');
-      return;
-    }
+    // Email notification retry removed — DB trigger on startformular handles email automatically.
+    // If form is already saved, just navigate to thank-you page.
 
     if (!isConfigured) {
       setErrorMessage('Supabase är inte konfigurerat. Kontrollera VITE_SUPABASE_URL och VITE_SUPABASE_ANON_KEY.');
@@ -372,19 +356,9 @@ const Start: React.FC = () => {
       return;
     }
 
-    const notificationBody = buildStartNotificationBody(payload);
-    try {
-      const response = await sendStartNotification(notificationBody);
-      if (!response.ok) {
-        throw new Error(`Notification failed with status ${response.status}`);
-      }
-    } catch (err) {
-      console.warn('Startform notification error:', err);
-      setPendingNotificationBody(notificationBody);
-      setStatus('notification_error');
-      setNotificationMessage('Formuläret är sparat, men bekräftelsemail kunde inte skickas. Klicka på knappen för att försöka skicka igen.');
-      return;
-    }
+    // Email notification is handled automatically by DB trigger on the startformular table.
+    // Do NOT call email-trigger directly from the frontend — it causes duplicate emails.
+    console.debug('Startformulär submitted — email handled by DB trigger → AntiGravity Agent');
 
     setStatus('success');
     navigate('/start/tack');
@@ -1040,7 +1014,7 @@ const Start: React.FC = () => {
                     <Loader2 className="w-4 h-4 animate-spin" /> Skickar...
                   </>
                 ) : (
-                  pendingNotificationBody ? 'Skicka bekräftelse igen' : 'Skicka in startformulär'
+                  'Skicka in startformulär'
                 )}
               </button>
             </div>

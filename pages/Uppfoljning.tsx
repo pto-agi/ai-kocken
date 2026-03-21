@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, Loader2, MessageSquareText, Minus, Package, Plus } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { buildUppfoljningNotificationBody, sendUppfoljningNotification } from '../utils/uppfoljningNotification';
+// Email notifications for uppföljning are handled by DB trigger → Edge Function.
+// import { buildUppfoljningNotificationBody, sendUppfoljningNotification } from '../utils/uppfoljningNotification';
 import { buildRefillNotificationBody, sendRefillNotification } from '../utils/refillNotification';
 import { UPSELL_PRODUCTS, EXPANDED_PRODUCTS, discountPercent } from '../utils/supplementProducts';
 import type { Product } from '../utils/supplementProducts';
@@ -289,15 +290,9 @@ const Uppfoljning: React.FC = () => {
       return;
     }
 
-    try {
-      const notificationBody = buildUppfoljningNotificationBody(payload);
-      const response = await sendUppfoljningNotification(notificationBody);
-      if (!response.ok) {
-        console.warn('Uppfoljning notification non-200:', response.status);
-      }
-    } catch (err) {
-      console.warn('Uppfoljning notification error:', err);
-    }
+    // Email notifications are handled automatically by the DB trigger
+    // on the uppfoljningar table → Edge Function (email-trigger).
+    // Do NOT call email-trigger directly here — it causes duplicate emails.
 
     // Save order + send notification if user added supplements
     if (refillItems.length > 0 && session?.user?.id && session.user.email) {
