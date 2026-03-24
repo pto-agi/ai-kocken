@@ -1,5 +1,5 @@
-import { isAllowedOrigin, readJsonBody, setCors } from '../_shared/apiHelpers.js';
-import { getStripeClient } from '../_shared/paymentHelpers.js';
+import { isAllowedOrigin, readJsonBody, setCors } from '../../api/_shared/apiHelpers.js';
+import { getStripeClient } from '../../api/_shared/paymentHelpers.js';
 
 function getSessionIdFromReq(req: any, body: Record<string, unknown>): string {
   const fromQuery = typeof req?.query?.session_id === 'string' ? req.query.session_id : '';
