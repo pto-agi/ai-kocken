@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/payments/:action*", "destination": "/api/payments" },
+    { "source": "/api/payments/:action*", "destination": "/api/payments?action=:action*" },
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/api-proxy/:path*", "destination": "https://generativelanguage.googleapis.com/:path*" },
     { "source": "/((?!api/|api-proxy/|@vite/|@react-refresh|src/|node_modules/|.*\\..*).*)", "destination": "/index.html" }
