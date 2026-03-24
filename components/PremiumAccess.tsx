@@ -1,11 +1,19 @@
 import React from 'react';
 import { ArrowRight, CheckCircle2, Crown, Sparkles, ShieldCheck, Timer, UserCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import EmbeddedCheckoutCard from './EmbeddedCheckoutCard';
+import { isPaymentsV2Enabled } from '../utils/paymentFeatureFlags';
 
 interface PremiumAccessProps {
   mode?: 'locked' | 'logged_out';
   title?: string;
   description?: string;
+  paymentContext?: {
+    accessToken?: string | null;
+    userId?: string;
+    email?: string;
+    fullName?: string;
+  };
 }
 
 const PAYMENT_URL = 'https://betalning.privatetrainingonline.se/b/cNi00i4bN9lBaqO4sDcfK0v?locale=sv';
@@ -13,9 +21,11 @@ const PAYMENT_URL = 'https://betalning.privatetrainingonline.se/b/cNi00i4bN9lBaq
 const PremiumAccess: React.FC<PremiumAccessProps> = ({
   mode = 'locked',
   title,
-  description
+  description,
+  paymentContext,
 }) => {
   const isLoggedOut = mode === 'logged_out';
+  const paymentsV2 = isPaymentsV2Enabled();
 
   const copy = {
     locked: {
@@ -65,15 +75,33 @@ const PremiumAccess: React.FC<PremiumAccessProps> = ({
             </div>
 
             <div className="mt-10 flex flex-col sm:flex-row gap-3">
-              <a
-                href={PAYMENT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#a0c81d] text-[#F6F1E7] px-6 py-4 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#5C7A12]"
-              >
-                Aktivera Premium
-                <ArrowRight className="w-4 h-4" />
-              </a>
+              {paymentsV2 ? (
+                <div className="flex-1">
+                  <EmbeddedCheckoutCard
+                    accessToken={paymentContext?.accessToken}
+                    payload={{
+                      flow: 'premium',
+                      mode: 'subscription',
+                      userId: paymentContext?.userId,
+                      email: paymentContext?.email,
+                      fullName: paymentContext?.fullName,
+                      successPath: '/premium',
+                      cancelPath: '/premium',
+                    }}
+                    buttonLabel="Aktivera Premium"
+                  />
+                </div>
+              ) : (
+                <a
+                  href={PAYMENT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#a0c81d] text-[#F6F1E7] px-6 py-4 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#5C7A12]"
+                >
+                  Aktivera Premium
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              )}
               <Link
                 to="/auth"
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-[#E6E1D8] bg-[#ffffff]/70 text-[#3D3D3D] px-6 py-4 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#ffffff]/95"
@@ -83,7 +111,7 @@ const PremiumAccess: React.FC<PremiumAccessProps> = ({
             </div>
 
             <div className="mt-6 text-[10px] text-[#8A8177] font-bold uppercase tracking-widest">
-              Betalning sker säkert via Stripe Checkout
+              Betalning sker säkert via Stripe
             </div>
           </div>
 

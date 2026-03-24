@@ -29,16 +29,16 @@ export const StartTack: React.FC = () => {
             </div>
             <div className="flex flex-col gap-3 w-full md:w-auto">
               <Link
-                to="/profile"
+                to="/forlangning"
                 className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition flex items-center justify-center gap-2"
               >
-                Mina sidor <ArrowRight className="w-4 h-4" />
+                Mitt utgångsdatum <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
-                to="/support"
+                to="/recept"
                 className="px-6 py-3 rounded-xl bg-[#F6F1E7] border border-[#E6E1D8] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:border-[#a0c81d]/40 hover:text-[#a0c81d] transition flex items-center justify-center gap-2"
               >
-                Kontakta support
+                <Sparkles className="w-4 h-4" /> Skapa veckomeny
               </Link>
             </div>
           </div>

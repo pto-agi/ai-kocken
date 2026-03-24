@@ -1,20 +1,76 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import PremiumAccess from '../components/PremiumAccess';
+import { fetchCheckoutSessionStatus } from '../utils/paymentsClient';
 
 export const Premium: React.FC = () => {
-  const { profile } = useAuthStore();
+  const { session, profile, refreshProfile } = useAuthStore();
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+  const [checkoutStatus, setCheckoutStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const search = typeof window !== 'undefined' ? window.location.search : '';
+  const sessionId = new URLSearchParams(search).get('session_id');
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let active = true;
+    setCheckoutStatus('loading');
+
+    (async () => {
+      try {
+        const data = await fetchCheckoutSessionStatus(sessionId);
+        if (!active) return;
+        const paymentStatus = String(data.payment_status || '');
+        const checkoutState = String(data.status || '');
+        if (paymentStatus === 'paid' || checkoutState === 'complete') {
+          setCheckoutMessage('Betalningen är bekräftad. Vi aktiverar Premium nu.');
+          setCheckoutStatus('done');
+          await refreshProfile();
+          return;
+        }
+        setCheckoutMessage('Checkout är startad men ännu inte färdig. Slutför betalningen i checkout-fönstret.');
+        setCheckoutStatus('done');
+      } catch (error) {
+        if (!active) return;
+        setCheckoutStatus('error');
+        setCheckoutMessage(error instanceof Error ? error.message : 'Kunde inte verifiera checkout.');
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [sessionId, refreshProfile]);
+
   const isPremium = profile?.membership_level === 'premium';
 
   if (!isPremium) {
     return (
-      <PremiumAccess
-        mode="locked"
-        title="Premiuminnehåll"
-        description="Denna funktion är exklusiv för våra Premium-medlemmar. Uppgradera för att få tillgång."
-      />
+      <div className="space-y-4">
+        {checkoutMessage && (
+          <div
+            className={`rounded-xl border px-4 py-3 text-sm ${
+              checkoutStatus === 'error'
+                ? 'border-red-300 bg-red-50 text-red-800'
+                : 'border-[#E6E1D8] bg-[#F6F1E7] text-[#6B6158]'
+            }`}
+          >
+            {checkoutMessage}
+          </div>
+        )}
+        <PremiumAccess
+          mode={session ? 'locked' : 'logged_out'}
+          title="Premiuminnehåll"
+          description="Denna funktion är exklusiv för våra Premium-medlemmar. Uppgradera för att få tillgång."
+          paymentContext={{
+            accessToken: session?.access_token || null,
+            userId: session?.user?.id,
+            email: session?.user?.email || undefined,
+            fullName: profile?.full_name || undefined,
+          }}
+        />
+      </div>
     );
   }
 

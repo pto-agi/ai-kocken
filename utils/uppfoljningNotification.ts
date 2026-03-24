@@ -1,19 +1,18 @@
-const EDGE_FUNCTION_URL = 'https://cghnlrinjtexhvetngbe.supabase.co/functions/v1/email-trigger';
+export const UPPFOLJNING_NOTIFICATION_ENDPOINT = '/api/form-notifications';
 
-export const UPPFOLJNING_NOTIFICATION_ENDPOINT = EDGE_FUNCTION_URL;
-
-export type UppfoljningNotificationBody = {
+export type UppfoljningNotificationBody = Record<string, unknown> & {
   source: 'uppfoljning';
-  data: Record<string, unknown>;
+  submitted_at: string;
 };
 
 export function buildUppfoljningNotificationBody(
   payload: Record<string, unknown>,
-  _submittedAt: Date = new Date(),
+  submittedAt: Date = new Date(),
 ): UppfoljningNotificationBody {
   return {
+    ...payload,
     source: 'uppfoljning',
-    data: payload,
+    submitted_at: submittedAt.toISOString(),
   };
 }
 
@@ -21,7 +20,7 @@ export async function sendUppfoljningNotification(
   body: UppfoljningNotificationBody,
   fetchFn: typeof fetch = fetch,
 ): Promise<Response> {
-  return fetchFn(EDGE_FUNCTION_URL, {
+  return fetchFn(UPPFOLJNING_NOTIFICATION_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

@@ -1,19 +1,18 @@
-const EDGE_FUNCTION_URL = 'https://cghnlrinjtexhvetngbe.supabase.co/functions/v1/email-trigger';
+export const REFILL_NOTIFICATION_ENDPOINT = '/api/form-notifications';
 
-export const REFILL_NOTIFICATION_ENDPOINT = EDGE_FUNCTION_URL;
-
-export type RefillNotificationBody = {
+export type RefillNotificationBody = Record<string, unknown> & {
   source: 'refill';
-  data: Record<string, unknown>;
+  submitted_at: string;
 };
 
 export function buildRefillNotificationBody(
   payload: Record<string, unknown>,
-  _submittedAt: Date = new Date(),
+  submittedAt: Date = new Date(),
 ): RefillNotificationBody {
   return {
+    ...payload,
     source: 'refill',
-    data: payload,
+    submitted_at: submittedAt.toISOString(),
   };
 }
 
@@ -21,7 +20,7 @@ export async function sendRefillNotification(
   body: RefillNotificationBody,
   fetchFn: typeof fetch = fetch,
 ): Promise<Response> {
-  return fetchFn(EDGE_FUNCTION_URL, {
+  return fetchFn(REFILL_NOTIFICATION_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

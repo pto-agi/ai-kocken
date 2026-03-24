@@ -12,6 +12,7 @@ describe('startform home equipment', () => {
     expect(start).toContain('form.trainingPlaces.includes(\'Hemma\')');
     expect(start).toContain('Vilken utrustning har du hemma?');
     expect(start).toMatch(/const payload = \{[\s\S]*home_equipment: form\.trainingPlaces\.includes\('Hemma'\) \? form\.homeEquipment : \[\],[\s\S]*home_equipment_other: form\.trainingPlaces\.includes\('Hemma'\) \? \(form\.homeEquipmentOther\.trim\(\) \|\| null\) : null,[\s\S]*\};\n\n\s{4}const \{\s+error\s+\} = await supabase/);
-    expect(start).toContain('const notificationBody = buildStartNotificationBody(payload);');
+    expect(start).toContain('Email notification is handled automatically by DB trigger');
+    expect(start).not.toContain('buildStartNotificationBody(payload)');
   });
 });

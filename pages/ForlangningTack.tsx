@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2, ArrowRight, Sparkles, ShieldCheck } from 'lucide-react';
+import { fetchCheckoutSessionStatus } from '../utils/paymentsClient';
 
 type ForlangningTackState = {
   fullName?: string;
@@ -15,8 +16,47 @@ type ForlangningTackState = {
 export const ForlangningTack: React.FC = () => {
   const location = useLocation();
   const state = location.state as ForlangningTackState | null;
+  const params = new URLSearchParams(location.search);
+  const checkoutSessionId = params.get('session_id');
+  const [checkoutStatus, setCheckoutStatus] = useState<'idle' | 'loading' | 'success' | 'pending' | 'error'>('idle');
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+  const [checkoutEmail, setCheckoutEmail] = useState<string | null>(null);
 
-  const hasSummary = Boolean(state && (state.newExpiresAt || state.paymentMethod));
+  useEffect(() => {
+    if (!checkoutSessionId) return;
+    let active = true;
+    setCheckoutStatus('loading');
+    setCheckoutMessage('Verifierar betalning...');
+
+    (async () => {
+      try {
+        const data = await fetchCheckoutSessionStatus(checkoutSessionId);
+        if (!active) return;
+        const paymentStatus = String(data.payment_status || '');
+        const status = String(data.status || '');
+        setCheckoutEmail((data.customer_email as string) || null);
+
+        if (paymentStatus === 'paid' || status === 'complete') {
+          setCheckoutStatus('success');
+          setCheckoutMessage('Betalningen är bekräftad och din förlängning aktiveras automatiskt.');
+          return;
+        }
+
+        setCheckoutStatus('pending');
+        setCheckoutMessage('Checkout är påbörjad men ännu inte slutförd.');
+      } catch (error) {
+        if (!active) return;
+        setCheckoutStatus('error');
+        setCheckoutMessage(error instanceof Error ? error.message : 'Kunde inte verifiera betalning.');
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [checkoutSessionId]);
+
+  const hasSummary = Boolean(state && (state.newExpiresAt || state.paymentMethod)) || Boolean(checkoutEmail);
 
   return (
     <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-12 md:pb-24 pt-24 px-4 overflow-x-hidden">
@@ -39,7 +79,9 @@ export const ForlangningTack: React.FC = () => {
                 Tack! Din förlängning är registrerad.
               </h1>
               <p className="text-[#6B6158] mt-3 max-w-2xl">
-                Vi hanterar nu betalningen separat med dig och uppdaterar medlemskapet enligt din bekräftelse.
+                {checkoutSessionId
+                  ? 'Vi har mottagit din checkout och verifierar betalningsstatus.'
+                  : 'Vi hanterar nu betalningen separat med dig och uppdaterar medlemskapet enligt din bekräftelse.'}
               </p>
             </div>
             <div className="flex flex-col gap-3 w-full md:w-auto">
@@ -58,13 +100,27 @@ export const ForlangningTack: React.FC = () => {
             </div>
           </div>
 
+          {checkoutMessage && (
+            <div
+              className={`mt-6 rounded-xl border px-4 py-3 text-sm ${
+                checkoutStatus === 'error'
+                  ? 'border-red-300 bg-red-50 text-red-800'
+                  : checkoutStatus === 'success'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                    : 'border-[#E6E1D8] bg-[#F6F1E7]/80 text-[#6B6158]'
+              }`}
+            >
+              {checkoutMessage}
+            </div>
+          )}
+
           <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/80 p-6">
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">
                 <Sparkles className="w-4 h-4" /> Nästa steg
               </div>
               <ul className="space-y-3 text-sm text-[#6B6158]">
-                <li>Vi bekräftar betalning och uppdaterar medlemskapet.</li>
+                <li>{checkoutSessionId ? 'Vi synkar betalning mot din profil automatiskt.' : 'Vi bekräftar betalning och uppdaterar medlemskapet.'}</li>
                 <li>Nytt utgångsdatum aktiveras enligt bekräftelsen.</li>
                 <li>Vid frågor hjälper vi dig direkt via support.</li>
               </ul>
@@ -78,11 +134,14 @@ export const ForlangningTack: React.FC = () => {
                 {hasSummary ? (
                   <div className="space-y-2 text-sm text-[#6B6158]">
                     {state?.fullName && <div><span className="font-black text-[#3D3D3D]">Namn:</span> {state.fullName}</div>}
-                    {state?.email && <div><span className="font-black text-[#3D3D3D]">E-post:</span> {state.email}</div>}
+                    {(state?.email || checkoutEmail) && <div><span className="font-black text-[#3D3D3D]">E-post:</span> {state?.email || checkoutEmail}</div>}
                     {state?.paymentMethod && <div><span className="font-black text-[#3D3D3D]">Betalning:</span> {state.paymentMethod}</div>}
                     {state?.portal && <div><span className="font-black text-[#3D3D3D]">Portal:</span> {state.portal}</div>}
                     {state?.newExpiresAt && (
                       <div><span className="font-black text-[#3D3D3D]">Nytt utgångsdatum:</span> {state.newExpiresAt}</div>
+                    )}
+                    {checkoutSessionId && (
+                      <div><span className="font-black text-[#3D3D3D]">Checkout-ID:</span> {checkoutSessionId}</div>
                     )}
                   </div>
                 ) : (

@@ -310,19 +310,11 @@ function App() {
 
             <Route
               path="/refill"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <Refill />
-                </AuthGuard>
-              }
+              element={<Refill />}
             />
             <Route
               path="/refill/tack"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <RefillTack />
-                </AuthGuard>
-              }
+              element={<RefillTack />}
             />
 
             <Route
@@ -365,11 +357,7 @@ function App() {
 
             <Route
               path="/premium"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <PageContainer><Premium /></PageContainer>
-                </AuthGuard>
-              }
+              element={<PageContainer><Premium /></PageContainer>}
             />
 
             </Routes>

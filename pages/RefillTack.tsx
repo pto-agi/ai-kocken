@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2, ShoppingBasket, ArrowRight, Sparkles, Truck } from 'lucide-react';
+import { fetchCheckoutSessionStatus } from '../utils/paymentsClient';
 
 type OrderItem = {
   id: string;
@@ -27,8 +28,42 @@ type OrderState = {
 export const RefillTack: React.FC = () => {
   const location = useLocation();
   const state = location.state as OrderState | null;
+  const sessionId = new URLSearchParams(location.search).get('session_id');
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusTone, setStatusTone] = useState<'neutral' | 'success' | 'error'>('neutral');
 
-  if (!state || !state.items?.length) {
+  useEffect(() => {
+    if (!sessionId) return;
+    let active = true;
+    setStatusMessage('Verifierar betalning...');
+    setStatusTone('neutral');
+
+    (async () => {
+      try {
+        const data = await fetchCheckoutSessionStatus(sessionId);
+        if (!active) return;
+        const paymentStatus = String(data.payment_status || '');
+        const checkoutStatus = String(data.status || '');
+        if (paymentStatus === 'paid' || checkoutStatus === 'complete') {
+          setStatusMessage('Betalningen är bekräftad och beställningen är registrerad.');
+          setStatusTone('success');
+          return;
+        }
+        setStatusMessage('Checkout är registrerad men ännu inte slutförd.');
+        setStatusTone('neutral');
+      } catch (error) {
+        if (!active) return;
+        setStatusMessage(error instanceof Error ? error.message : 'Kunde inte verifiera checkout.');
+        setStatusTone('error');
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [sessionId]);
+
+  if ((!state || !state.items?.length) && !sessionId) {
     return (
       <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-12 md:pb-24 pt-24 px-4">
         <div className="max-w-4xl mx-auto">
@@ -60,6 +95,20 @@ export const RefillTack: React.FC = () => {
         <div className="bg-white rounded-[2.5rem] p-8 md:p-12 border border-[#DAD1C5] shadow-[0_35px_90px_rgba(61,61,61,0.2)] ring-1 ring-black/5">
           <div className="absolute inset-0 bg-gradient-to-br from-[#E8F1D5] via-[#F6F1E7] to-white opacity-90 rounded-[2.5rem]" />
           <div className="relative">
+            {statusMessage && (
+              <div
+                className={`mb-6 rounded-xl border px-4 py-3 text-sm ${
+                  statusTone === 'success'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                    : statusTone === 'error'
+                      ? 'border-red-300 bg-red-50 text-red-800'
+                      : 'border-[#DAD1C5] bg-white/80 text-[#6B6158]'
+                }`}
+              >
+                {statusMessage}
+              </div>
+            )}
+
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
               <div>
                 <div className="flex items-center gap-3 mb-4">
@@ -72,7 +121,8 @@ export const RefillTack: React.FC = () => {
                   Tack! Din beställning är mottagen.
                 </h1>
                 <p className="text-[#6B6158] mt-3 max-w-2xl">
-                  Vi återkommer med leveransinformation. Här är en summering av din beställning.
+                  Vi återkommer med leveransinformation.
+                  {state?.items?.length ? ' Här är en summering av din beställning.' : ''}
                 </p>
               </div>
               <div className="flex flex-col gap-3 w-full md:w-auto">
@@ -97,20 +147,28 @@ export const RefillTack: React.FC = () => {
                   <ShoppingBasket className="w-4 h-4" /> Beställningsrader
                 </div>
                 <div className="space-y-3">
-                  {state.items.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] px-4 py-3">
-                      <div>
-                        <p className="text-sm font-bold text-[#3D3D3D]">{item.title}</p>
-                        <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">Antal: {item.qty}</p>
+                  {state?.items?.length ? (
+                    state.items.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between rounded-2xl border border-[#DAD1C5] bg-[#F4F0E6] px-4 py-3">
+                        <div>
+                          <p className="text-sm font-bold text-[#3D3D3D]">{item.title}</p>
+                          <p className="text-[10px] text-[#8A8177] font-bold uppercase tracking-widest mt-1">Antal: {item.qty}</p>
+                        </div>
+                        <div className="text-sm font-black text-[#3D3D3D]">{item.qty * item.price} kr</div>
                       </div>
-                      <div className="text-sm font-black text-[#3D3D3D]">{item.qty * item.price} kr</div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-[#DAD1C5] bg-[#F4F0E6] px-4 py-3 text-sm text-[#6B6158]">
+                      Beställningen är registrerad. Detaljer synkas in automatiskt.
                     </div>
-                  ))}
+                  )}
                 </div>
-                <div className="mt-6 border-t border-[#DAD1C5] pt-4 flex items-center justify-between text-sm font-bold text-[#6B6158]">
-                  <span>Total</span>
-                  <span className="text-[#3D3D3D] text-lg">{state.total} kr</span>
-                </div>
+                {state?.items?.length && (
+                  <div className="mt-6 border-t border-[#DAD1C5] pt-4 flex items-center justify-between text-sm font-bold text-[#6B6158]">
+                    <span>Total</span>
+                    <span className="text-[#3D3D3D] text-lg">{state.total} kr</span>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-2xl border border-[#DAD1C5] bg-white/90 p-6 space-y-4">
@@ -118,12 +176,18 @@ export const RefillTack: React.FC = () => {
                   <Truck className="w-4 h-4" /> Leverans
                 </div>
                 <div className="text-sm text-[#6B6158] space-y-1">
-                  <div className="font-bold text-[#3D3D3D]">{state.shipping.name || 'Kund'}</div>
-                  <div>{state.shipping.line1}</div>
-                  {state.shipping.line2 && <div>{state.shipping.line2}</div>}
-                  <div>{state.shipping.postalCode} {state.shipping.city}</div>
-                  <div>{state.shipping.country}</div>
-                  <div>{state.shipping.phone}</div>
+                  {state?.shipping ? (
+                    <>
+                      <div className="font-bold text-[#3D3D3D]">{state.shipping.name || 'Kund'}</div>
+                      <div>{state.shipping.line1}</div>
+                      {state.shipping.line2 && <div>{state.shipping.line2}</div>}
+                      <div>{state.shipping.postalCode} {state.shipping.city}</div>
+                      <div>{state.shipping.country}</div>
+                      <div>{state.shipping.phone}</div>
+                    </>
+                  ) : (
+                    <div>Leveransuppgifter synkas från checkout.</div>
+                  )}
                 </div>
                 <div className="rounded-xl bg-[#F4F0E6] border border-[#DAD1C5] p-4 text-xs text-[#6B6158]">
                   Vi kontaktar dig om leveransdetaljer eller om något behöver bekräftas.

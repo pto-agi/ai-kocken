@@ -5,16 +5,21 @@ import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { buildRefillNotificationBody, sendRefillNotification } from '../utils/refillNotification';
 import { PRODUCTS } from '../utils/supplementProducts';
+import EmbeddedCheckoutCard from '../components/EmbeddedCheckoutCard';
+import { isPaymentsV2Enabled, isPaymentsV2RefillEnabled } from '../utils/paymentFeatureFlags';
+import type { RefillShipping } from '../lib/paymentTypes';
 
 
 
 const Refill: React.FC = () => {
   const { session, profile, refreshProfile } = useAuthStore();
+  const paymentsV2 = isPaymentsV2Enabled() && isPaymentsV2RefillEnabled();
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [shippingError, setShippingError] = useState<string | null>(null);
   const [shippingAttention, setShippingAttention] = useState(false);
+  const [guestEmail, setGuestEmail] = useState('');
   const [addressLine1, setAddressLine1] = useState('');
   const [addressLine2, setAddressLine2] = useState('');
   const [postalCode, setPostalCode] = useState('');
@@ -93,6 +98,19 @@ const Refill: React.FC = () => {
     isFormPhoneValid
   );
 
+  const activeEmail = (session?.user?.email || guestEmail || '').trim();
+  const hasCheckoutShipping = hasProfileShipping || hasFormShipping;
+
+  const checkoutShipping: RefillShipping = {
+    name: profile?.full_name || '',
+    line1: hasProfileShipping ? profileShipping.line1 : shipping.line1,
+    line2: hasProfileShipping ? profileShipping.line2 : shipping.line2,
+    postalCode: hasProfileShipping ? profileShipping.postalCode : shipping.postalCode,
+    city: hasProfileShipping ? profileShipping.city : shipping.city,
+    country: hasProfileShipping ? profileShipping.country : shipping.country,
+    phone: hasProfileShipping ? profileShipping.phone : shipping.phone,
+  };
+
   const updateQty = (id: string, delta: number) => {
     setQuantities((prev) => {
       const next = Math.max(0, (prev[id] || 0) + delta);
@@ -135,6 +153,7 @@ const Refill: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    if (paymentsV2) return;
     setError(null);
     setShippingError(null);
     setStatus('idle');
@@ -328,7 +347,7 @@ const Refill: React.FC = () => {
                   </button>
                 </div>
                 <p className="mt-2 text-[10px] text-[#8A8177] font-bold uppercase tracking-widest">
-                  Snabb hantering • Faktura, Delbetalning, Kort eller Swish
+                  Snabb hantering • {paymentsV2 ? 'Kort, Wallet, Link eller Klarna' : 'Faktura, Delbetalning, Kort eller Swish'}
                 </p>
               </div>
             ))}
@@ -381,6 +400,17 @@ const Refill: React.FC = () => {
               shippingAttention ? 'border-red-400/60 ring-1 ring-red-400/30' : 'border-[#DAD1C5]'
             }`}>
               <div className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Leveransuppgifter</div>
+              {!session?.user?.id && (
+                <div className="mb-3">
+                  <input
+                    type="email"
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                    placeholder="E-post (för orderbekräftelse)"
+                    className="w-full bg-[#F4F0E6] border border-[#DAD1C5] rounded-xl px-3 py-3 text-sm text-[#3D3D3D] focus:border-[#a0c81d] outline-none placeholder-slate-600"
+                  />
+                </div>
+              )}
               {hasProfileShipping ? (
                 <div className="space-y-1">
                   <div className="text-sm font-semibold text-[#3D3D3D]">{profile?.full_name || 'Kund'}</div>
@@ -399,7 +429,9 @@ const Refill: React.FC = () => {
               ) : (
                 <div className="space-y-3">
                   <p className="text-[#6B6158] text-xs">
-                    Lägg till adress och telefon för att kunna beställa.
+                    {session?.user?.id
+                      ? 'Lägg till adress och telefon för att kunna beställa.'
+                      : 'Fyll i adress och telefon för att gå vidare till checkout.'}
                   </p>
                   <div className="space-y-2">
                     <input
@@ -445,16 +477,20 @@ const Refill: React.FC = () => {
                         <p className="text-xs text-red-400 font-bold">Ange ett giltigt telefonnummer.</p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleSaveShipping}
-                      disabled={addressStatus === 'loading'}
-                      className="mt-2 w-full rounded-xl bg-white/90 border border-[#DAD1C5] text-[10px] font-black uppercase tracking-widest text-[#3D3D3D] py-2.5 hover:border-[#a0c81d]/40 hover:text-[#a0c81d] transition disabled:opacity-60"
-                    >
-                      {addressStatus === 'loading' ? 'Sparar...' : addressStatus === 'success' ? 'Sparat' : 'Spara uppgifter'}
-                    </button>
-                    {addressStatus === 'error' && (
-                      <p className="text-xs text-red-400 font-bold">Kunde inte spara uppgifterna.</p>
+                    {session?.user?.id && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleSaveShipping}
+                          disabled={addressStatus === 'loading'}
+                          className="mt-2 w-full rounded-xl bg-white/90 border border-[#DAD1C5] text-[10px] font-black uppercase tracking-widest text-[#3D3D3D] py-2.5 hover:border-[#a0c81d]/40 hover:text-[#a0c81d] transition disabled:opacity-60"
+                        >
+                          {addressStatus === 'loading' ? 'Sparar...' : addressStatus === 'success' ? 'Sparat' : 'Spara uppgifter'}
+                        </button>
+                        {addressStatus === 'error' && (
+                          <p className="text-xs text-red-400 font-bold">Kunde inte spara uppgifterna.</p>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -479,19 +515,44 @@ const Refill: React.FC = () => {
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={status === 'sending' || !hasProfileShipping}
-              className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl bg-[#a0c81d] text-[#F6F1E7] px-5 py-3.5 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#5C7A12] disabled:opacity-70"
-            >
-              {status === 'sending' ? 'Skickar...' : 'Skicka beställning'}
-            </button>
+            {paymentsV2 ? (
+              <div className="mt-5">
+                <EmbeddedCheckoutCard
+                  accessToken={session?.access_token || null}
+                  disabled={
+                    selectedItems.length === 0 ||
+                    !hasCheckoutShipping ||
+                    (!session?.user?.id && !activeEmail)
+                  }
+                  payload={{
+                    flow: 'refill',
+                    mode: 'payment',
+                    userId: session?.user?.id,
+                    email: activeEmail || undefined,
+                    fullName: profile?.full_name || undefined,
+                    refillItems: selectedItems.map((item) => ({ id: item.id, qty: item.qty })),
+                    refillShipping: checkoutShipping,
+                    successPath: '/refill/tack',
+                    cancelPath: '/refill',
+                  }}
+                  buttonLabel="Gå till säker betalning"
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={status === 'sending' || !hasProfileShipping}
+                className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl bg-[#a0c81d] text-[#F6F1E7] px-5 py-3.5 text-xs font-black uppercase tracking-widest transition-all hover:bg-[#5C7A12] disabled:opacity-70"
+              >
+                {status === 'sending' ? 'Skickar...' : 'Skicka beställning'}
+              </button>
+            )}
 
             <div className="mt-3 grid grid-cols-1 gap-1 text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">
               <span>Snabb hantering</span>
               <span>Säker beställning</span>
-              <span>Faktura, Delbetalning, Kort eller Swish</span>
+              <span>{paymentsV2 ? 'Kort, Wallet, Link eller Klarna' : 'Faktura, Delbetalning, Kort eller Swish'}</span>
             </div>
 
             <p className="mt-3 text-[10px] text-[#6B6158] font-bold uppercase tracking-widest">

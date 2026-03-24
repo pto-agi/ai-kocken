@@ -2,8 +2,24 @@ import { create } from 'zustand';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { UserProfile } from '../types';
+import { claimPendingEntitlements } from '../utils/paymentsClient';
 
 const EXPIRY_SYNC_TTL_MS = 12 * 60 * 60 * 1000;
+
+const maybeClaimPendingEntitlements = async (
+  session: Session | null,
+  refreshProfile: () => Promise<void>,
+) => {
+  if (!session?.access_token) return;
+  try {
+    const result = await claimPendingEntitlements(session.access_token);
+    if (result.ok && (result.resolved_count || 0) > 0) {
+      await refreshProfile();
+    }
+  } catch (error) {
+    console.warn('Pending entitlements claim error', error);
+  }
+};
 
 const maybeSyncMembershipExpiry = async (
   profile: any,
@@ -112,6 +128,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (profile) {
           await maybeSyncMembershipExpiry(profile, session, get().refreshProfile, set);
         }
+        await maybeClaimPendingEntitlements(session, get().refreshProfile);
       } else {
         set({ session: null, profile: null, profileError: null });
       }
@@ -147,6 +164,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             if (profile) {
               await maybeSyncMembershipExpiry(profile, session, get().refreshProfile, set);
             }
+            await maybeClaimPendingEntitlements(session, get().refreshProfile);
           }
         }
       }
