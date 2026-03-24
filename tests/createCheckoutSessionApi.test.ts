@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import handler from '../api/payments/create-checkout-session';
+import handler from '../api/_payments/create-checkout-session';
 
 type MockReq = {
   method: string;

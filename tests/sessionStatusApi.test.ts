@@ -12,7 +12,7 @@ vi.mock('../api/_shared/paymentHelpers.js', () => ({
   }),
 }));
 
-import handler from '../api/payments/session-status';
+import handler from '../api/_payments/session-status';
 
 type MockReq = {
   method: string;
