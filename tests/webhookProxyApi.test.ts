@@ -126,4 +126,61 @@ describe('webhook proxy api', () => {
       status: 500,
     });
   });
+
+  it('allows same-origin POST even when WEBHOOK_PROXY_ALLOWED_ORIGINS is unset', async () => {
+    process.env.ZAPIER_FORLANGNING_WEBHOOK_URL = 'https://example.com/forlangning';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req: MockReq = {
+      method: 'POST',
+      headers: {
+        origin: 'https://app.example.com',
+        host: 'app.example.com',
+        'content-type': 'application/json',
+      },
+      body: {
+        target: 'forlangning',
+        email: 'member@example.com',
+      },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('still blocks cross-origin POST when allowlist is unset', async () => {
+    process.env.ZAPIER_FORLANGNING_WEBHOOK_URL = 'https://example.com/forlangning';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req: MockReq = {
+      method: 'POST',
+      headers: {
+        origin: 'https://evil.example.com',
+        host: 'app.example.com',
+        'content-type': 'application/json',
+      },
+      body: {
+        target: 'forlangning',
+        email: 'member@example.com',
+      },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.jsonBody).toEqual({ error: 'Forbidden origin' });
+    expect(fetchMock).toHaveBeenCalledTimes(0);
+  });
 });

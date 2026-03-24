@@ -22,10 +22,44 @@ const WEBHOOK_ENV_MAP: Record<WebhookTarget, string> = {
 const VALID_TARGETS = new Set<string>(Object.keys(WEBHOOK_ENV_MAP));
 const NON_BLOCKING_TARGETS = new Set<WebhookTarget>(['forlangning_months']);
 
+function firstHeaderValue(value: unknown): string {
+  if (Array.isArray(value)) return String(value[0] || '');
+  return typeof value === 'string' ? value : '';
+}
+
+function normalizeFirstHeaderToken(value: unknown): string {
+  return firstHeaderValue(value).split(',')[0]?.trim().toLowerCase() || '';
+}
+
+function isSameOriginRequest(req: any, origin: string | undefined): boolean {
+  if (!origin) return false;
+
+  let originUrl: URL;
+  try {
+    originUrl = new URL(origin);
+  } catch {
+    return false;
+  }
+
+  const originHost = originUrl.host.toLowerCase();
+  const originProtocol = originUrl.protocol.replace(':', '').toLowerCase();
+
+  const forwardedHost = normalizeFirstHeaderToken(req?.headers?.['x-forwarded-host']);
+  const host = normalizeFirstHeaderToken(req?.headers?.host);
+  const requestHosts = [forwardedHost, host].filter(Boolean);
+  if (!requestHosts.includes(originHost)) return false;
+
+  const forwardedProto = normalizeFirstHeaderToken(req?.headers?.['x-forwarded-proto']);
+  if (!forwardedProto) return true;
+
+  return forwardedProto === originProtocol;
+}
+
 export default async function handler(req: any, res: any) {
   const origin = req.headers?.origin as string | undefined;
 
-  if (!isAllowedOrigin(origin, 'WEBHOOK_PROXY_ALLOWED_ORIGINS')) {
+  const originAllowed = isAllowedOrigin(origin, 'WEBHOOK_PROXY_ALLOWED_ORIGINS') || isSameOriginRequest(req, origin);
+  if (!originAllowed) {
     setCors(res, origin);
     res.status(403).json({ error: 'Forbidden origin' });
     return;
