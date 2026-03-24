@@ -1,6 +1,6 @@
 import type Stripe from 'stripe';
 
-import { getBearerToken, isAllowedOrigin, readJsonBody, setCors } from '../../api/_shared/apiHelpers.js';
+import { getBearerToken, isAllowedOrigin, readJsonBody, setCors } from '../_shared/apiHelpers.js';
 import {
   computeForlangningOfferFromProfile,
   fallbackForFlow,
@@ -10,7 +10,7 @@ import {
   computeRefillTotals,
   normalizeShipping,
   validateShipping,
-} from '../../api/_shared/paymentDomain.js';
+} from '../_shared/paymentDomain.js';
 import {
   getRequestBaseUrl,
   getStripeClient,
@@ -18,7 +18,7 @@ import {
   getSupabaseAdmin,
   isFlagEnabled,
   resolveAuthUser,
-} from '../../api/_shared/paymentHelpers.js';
+} from '../_shared/paymentHelpers.js';
 import type { CheckoutFlow } from '../../lib/paymentConstants';
 import type { CreateCheckoutSessionPayload } from '../../lib/paymentTypes';
 

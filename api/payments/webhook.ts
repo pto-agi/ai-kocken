@@ -1,13 +1,13 @@
 import type Stripe from 'stripe';
 
-import { setCors } from '../../api/_shared/apiHelpers.js';
-import { computeForlangningOfferFromProfile } from '../../api/_shared/paymentDomain.js';
+import { setCors } from '../_shared/apiHelpers.js';
+import { computeForlangningOfferFromProfile } from '../_shared/paymentDomain.js';
 import {
   getStripeClient,
   getStripeWebhookSecret,
   getSupabaseAdmin,
   readRawBody,
-} from '../../api/_shared/paymentHelpers.js';
+} from '../_shared/paymentHelpers.js';
 
 export const config = {
   api: {

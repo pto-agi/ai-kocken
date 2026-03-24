@@ -1,6 +1,6 @@
-import { getBearerToken, isAllowedOrigin, setCors } from '../../api/_shared/apiHelpers.js';
-import { computeForlangningOfferFromProfile } from '../../api/_shared/paymentDomain.js';
-import { getSupabaseAdmin, resolveAuthUser } from '../../api/_shared/paymentHelpers.js';
+import { getBearerToken, isAllowedOrigin, setCors } from '../_shared/apiHelpers.js';
+import { computeForlangningOfferFromProfile } from '../_shared/paymentDomain.js';
+import { getSupabaseAdmin, resolveAuthUser } from '../_shared/paymentHelpers.js';
 
 type ProfileRow = {
   id: string;
