@@ -20,7 +20,8 @@ const WEBHOOK_ENV_MAP: Record<WebhookTarget, string> = {
 };
 
 const VALID_TARGETS = new Set<string>(Object.keys(WEBHOOK_ENV_MAP));
-const NON_BLOCKING_TARGETS = new Set<WebhookTarget>(['forlangning_months']);
+const NON_BLOCKING_MISSING_URL_TARGETS = new Set<WebhookTarget>(['forlangning_months']);
+const NON_BLOCKING_UPSTREAM_FAILURE_TARGETS = new Set<WebhookTarget>(['forlangning', 'forlangning_months']);
 
 function firstHeaderValue(value: unknown): string {
   if (Array.isArray(value)) return String(value[0] || '');
@@ -92,10 +93,11 @@ export default async function handler(req: any, res: any) {
   const webhookUrl = (process.env[envKey] || '').trim();
 
   const typedTarget = target as WebhookTarget;
-  const isNonBlockingTarget = NON_BLOCKING_TARGETS.has(typedTarget);
+  const isNonBlockingMissingUrlTarget = NON_BLOCKING_MISSING_URL_TARGETS.has(typedTarget);
+  const isNonBlockingUpstreamFailureTarget = NON_BLOCKING_UPSTREAM_FAILURE_TARGETS.has(typedTarget);
 
   if (!webhookUrl) {
-    if (isNonBlockingTarget) {
+    if (isNonBlockingMissingUrlTarget) {
       console.warn('Webhook proxy skipped: missing URL', { target });
       setCors(res, origin);
       res.status(200).json({ ok: true, target, skipped: true, reason: 'Webhook not configured' });
@@ -123,7 +125,7 @@ export default async function handler(req: any, res: any) {
     });
 
     if (!response.ok) {
-      if (isNonBlockingTarget) {
+      if (isNonBlockingUpstreamFailureTarget) {
         console.warn('Webhook proxy skipped: non-2xx response', { target, status: response.status });
         setCors(res, origin);
         res.status(200).json({ ok: true, target, skipped: true, reason: 'Webhook failed', status: response.status });
@@ -138,7 +140,7 @@ export default async function handler(req: any, res: any) {
     setCors(res, origin);
     res.status(200).json({ ok: true, target });
   } catch (error) {
-    if (isNonBlockingTarget) {
+    if (isNonBlockingUpstreamFailureTarget) {
       console.warn('Webhook proxy skipped: request error', { target, error });
       setCors(res, origin);
       res.status(200).json({ ok: true, target, skipped: true, reason: 'Webhook request failed' });

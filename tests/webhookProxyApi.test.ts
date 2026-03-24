@@ -183,4 +183,39 @@ describe('webhook proxy api', () => {
     expect(res.jsonBody).toEqual({ error: 'Forbidden origin' });
     expect(fetchMock).toHaveBeenCalledTimes(0);
   });
+
+  it('treats forlangning as non-blocking when upstream webhook returns non-2xx', async () => {
+    process.env.ZAPIER_FORLANGNING_WEBHOOK_URL = 'https://example.com/forlangning';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const req: MockReq = {
+      method: 'POST',
+      headers: {
+        origin: 'https://app.example.com',
+        host: 'app.example.com',
+        'content-type': 'application/json',
+      },
+      body: {
+        target: 'forlangning',
+        email: 'member@example.com',
+      },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(res.statusCode).toBe(200);
+    expect(res.jsonBody).toEqual({
+      ok: true,
+      target: 'forlangning',
+      skipped: true,
+      reason: 'Webhook failed',
+      status: 502,
+    });
+  });
 });
