@@ -19,8 +19,8 @@ import {
   isFlagEnabled,
   resolveAuthUser,
 } from '../_shared/paymentHelpers.js';
-import type { CheckoutFlow } from '../_shared/paymentConstants';
-import type { CreateCheckoutSessionPayload } from '../_shared/paymentTypes';
+import type { CheckoutFlow } from '../_shared/paymentConstants.js';
+import type { CreateCheckoutSessionPayload } from '../_shared/paymentTypes.js';
 
 type SessionMode = 'payment' | 'subscription';
 

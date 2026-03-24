@@ -1,4 +1,4 @@
-import type { CheckoutFlow, CheckoutMode } from './paymentConstants';
+import type { CheckoutFlow, CheckoutMode } from './paymentConstants.js';
 
 export type RefillCheckoutItem = {
   id: string;
