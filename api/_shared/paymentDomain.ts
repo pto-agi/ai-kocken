@@ -4,15 +4,15 @@ import {
   LEGACY_PAYMENT_LINKS,
   pickForlangningFallback,
   type CheckoutFlow,
-} from '../../lib/paymentConstants';
-import { REFILL_PRODUCT_MAP } from '../../lib/refillCatalog';
+} from './paymentConstants';
+import { REFILL_PRODUCT_MAP } from './refillCatalog';
 import type {
   CreateCheckoutSessionPayload,
   ForlangningOfferPayload,
   RefillCheckoutItem,
   RefillShipping,
-} from '../../lib/paymentTypes';
-import { computeYearEndOffer } from '../../utils/extensionOffer';
+} from './paymentTypes';
+import { computeYearEndOffer } from './extensionOffer';
 
 function env(name: string): string {
   const value = process.env[name];
