@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Sparkles, User2 } from 'lucide-react';
 import { computeYearEndOffer } from '../utils/extensionOffer';
+import EmbeddedCheckoutCard from './EmbeddedCheckoutCard';
+import { isPaymentsV2Enabled } from '../utils/paymentFeatureFlags';
 
 const PAYMENT_OPTIONS = [
   'Jag betalar via friskvårdsportal',
@@ -19,7 +21,7 @@ const PORTAL_OPTIONS = [
   'Edenred',
 ];
 
-const WEBHOOK_PROXY_URL = '/api/webhook-proxy';
+
 
 type FlowStep = 'intro' | 'offer' | 'confirm';
 
@@ -38,7 +40,8 @@ type RenewalFlowProps = {
     coaching_expires_at?: string | null;
   } | null;
   session: {
-    user?: { email?: string | null };
+    access_token?: string | null;
+    user?: { id?: string | null; email?: string | null };
   } | null;
   compact?: boolean;
 };
@@ -59,6 +62,7 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
 
 export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, compact = false }) => {
   const navigate = useNavigate();
+  const paymentsV2 = isPaymentsV2Enabled();
 
   const [step, setStep] = useState<FlowStep>('intro');
   const [form, setForm] = useState<FormState>({
@@ -76,7 +80,7 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
     monthlyPrice: 249,
   }), [profile?.coaching_expires_at]);
 
-  const isPortalRequired = form.payment === 'Jag betalar via friskvårdsportal';
+  const isPortalRequired = !paymentsV2 && form.payment === 'Jag betalar via friskvårdsportal';
 
   useEffect(() => {
     if (!profile && !session?.user?.email) return;
@@ -96,10 +100,10 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
       return 'Fyll i förnamn, efternamn och e-post.';
     }
-    if (!form.payment) {
+    if (!paymentsV2 && !form.payment) {
       return 'Välj betalningsmetod.';
     }
-    if (isPortalRequired && !form.portal) {
+    if (!paymentsV2 && isPortalRequired && !form.portal) {
       return 'Välj vilken friskvårdsportal du använder.';
     }
     return null;
@@ -124,91 +128,37 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (paymentsV2) return;
     setError(null);
     setStatus('sending');
 
-    const payload = {
-      source: 'forlangning',
-      campaign: 'year_end_offer',
-      campaign_year: offer.campaignYear,
-      monthly_price: offer.monthlyPrice,
-      month_count: offer.monthCount,
-      billable_days: offer.billableDays,
-      calculation_mode: offer.calculationMode,
-      total_price: offer.totalPrice,
-      current_expires_at: offer.currentExpiresAt || '',
-      billing_starts_at: offer.billingStartsAt,
-      new_expires_at: offer.newExpiresAt,
-      first_name: form.firstName.trim(),
-      last_name: form.lastName.trim(),
-      name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
-      email: form.email.trim(),
-      payment_method: form.payment,
-      wellness_portal: isPortalRequired ? form.portal : '',
-    };
-
-    const body = new URLSearchParams(
-      Object.entries(payload).map(([key, value]) => [key, String(value ?? '')])
-    ).toString();
-
     try {
-      const webhookRes = await fetch(WEBHOOK_PROXY_URL, {
+      const forlangningRes = await fetch('/api/economy/forlangning', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target: 'forlangning', ...Object.fromEntries(new URLSearchParams(body).entries()) }),
+        body: JSON.stringify({
+          email: form.email.trim(),
+          first_name: form.firstName.trim(),
+          last_name: form.lastName.trim(),
+          month_count: offer.monthCount,
+          total_price: offer.totalPrice,
+          current_expires_at: offer.currentExpiresAt || '',
+          new_expires_at: offer.newExpiresAt,
+          billing_starts_at: offer.billingStartsAt,
+          payment_method: form.payment,
+          wellness_portal: isPortalRequired ? form.portal : '',
+          campaign_year: offer.campaignYear,
+        }),
       });
-      if (!webhookRes.ok) throw new Error('Webhook failed');
 
-      const roundedMonthsExtended = Math.max(0, Math.round(offer.monthCount));
-      const monthsPayload = new URLSearchParams({
-        name: payload.name,
-        email: payload.email,
-        months_extended: `${roundedMonthsExtended} månader`,
-      }).toString();
-
-      const monthsRes = await fetch(WEBHOOK_PROXY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target: 'forlangning_months', ...Object.fromEntries(new URLSearchParams(monthsPayload).entries()) }),
-      });
-      if (!monthsRes.ok) throw new Error('Months webhook failed');
-
-      const formNotificationPayload = {
-        source: 'forlangning',
-        submitted_at: new Date().toISOString(),
-        first_name: form.firstName.trim(),
-        last_name: form.lastName.trim(),
-        email: form.email.trim(),
-        current_expires_at: offer.currentExpiresAt || 'Ej registrerat',
-        new_expires_at: offer.newExpiresAt,
-        billing_starts_at: offer.billingStartsAt,
-        months_extended: `${roundedMonthsExtended} månader`,
-        month_count: String(offer.monthCount),
-        total_price: String(offer.totalPrice),
-        payment_method: form.payment,
-        wellness_portal: isPortalRequired ? form.portal : '',
-        campaign_year: String(offer.campaignYear),
-      };
-
-      try {
-        const notificationRes = await fetch('https://cghnlrinjtexhvetngbe.supabase.co/functions/v1/email-trigger', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source: 'forlangning', data: formNotificationPayload }),
-        });
-        if (!notificationRes.ok) {
-          console.warn('Forlangning notification non-200:', notificationRes.status);
-        }
-      } catch (notificationErr) {
-        console.warn('Forlangning notification error:', notificationErr);
-      }
+      if (!forlangningRes.ok) throw new Error('Förlängning request failed');
 
       navigate('/tack-forlangning', {
         state: {
-          fullName: payload.name,
-          email: payload.email,
-          paymentMethod: payload.payment_method,
-          portal: payload.wellness_portal,
+          fullName: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
+          email: form.email.trim(),
+          paymentMethod: form.payment,
+          portal: isPortalRequired ? form.portal : '',
           newExpiresAt: offer.newExpiresAt,
           currentExpiresAt: offer.currentExpiresAt,
           billingStartsAt: offer.billingStartsAt,
@@ -329,29 +279,31 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
             />
           </div>
 
-          <div className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Betalningsmetod</p>
+          {!paymentsV2 && (
             <div className="space-y-2">
-              {PAYMENT_OPTIONS.map((option) => (
-                <label
-                  key={option}
-                  className={`flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                    form.payment === option ? 'border-[#a0c81d]/60 bg-[#F6F1E7]' : 'border-[#E6E1D8] bg-[#F6F1E7]/60'
-                  }`}
-                >
-                  <span className="text-sm text-[#3D3D3D]">{option}</span>
-                  <input
-                    type="radio"
-                    name="renewal-payment"
-                    value={option}
-                    checked={form.payment === option}
-                    onChange={() => setForm((prev) => ({ ...prev, payment: option, portal: '' }))}
-                    className="accent-[#a0c81d]"
-                  />
-                </label>
-              ))}
+              <p className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Betalningsmetod</p>
+              <div className="space-y-2">
+                {PAYMENT_OPTIONS.map((option) => (
+                  <label
+                    key={option}
+                    className={`flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                      form.payment === option ? 'border-[#a0c81d]/60 bg-[#F6F1E7]' : 'border-[#E6E1D8] bg-[#F6F1E7]/60'
+                    }`}
+                  >
+                    <span className="text-sm text-[#3D3D3D]">{option}</span>
+                    <input
+                      type="radio"
+                      name="renewal-payment"
+                      value={option}
+                      checked={form.payment === option}
+                      onChange={() => setForm((prev) => ({ ...prev, payment: option, portal: '' }))}
+                      className="accent-[#a0c81d]"
+                    />
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {isPortalRequired && (
             <div className="space-y-1.5">
@@ -410,13 +362,17 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
               <div>{form.email}</div>
               <div>Nuvarande utgångsdatum: {offer.currentExpiresAt || 'Ej registrerat'}</div>
               <div>Nytt utgångsdatum: <span className="font-black text-[#3D3D3D]">{offer.newExpiresAt}</span></div>
-              <div>Betalning: {form.payment}</div>
-              <div>{isPortalRequired ? `Portal: ${form.portal}` : 'Portal: —'}</div>
+              <div>Betalning: {paymentsV2 ? 'Kort/Wallet/Klarna via Stripe' : form.payment}</div>
+              <div>{paymentsV2 ? 'Portal: —' : isPortalRequired ? `Portal: ${form.portal}` : 'Portal: —'}</div>
             </div>
 
             <div className="rounded-xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-3 text-sm text-[#6B6158]">
-              <div className="font-black text-[#3D3D3D]">Förlängningen registreras direkt när du bekräftar.</div>
-              <div className="mt-1">Betalningen hanteras separat med dig av teamet efter att förlängningen skickats in.</div>
+              <div className="font-black text-[#3D3D3D]">
+                {paymentsV2 ? 'Förlängningen aktiveras automatiskt när betalningen är klar.' : 'Förlängningen registreras direkt när du bekräftar.'}
+              </div>
+              <div className="mt-1">
+                {paymentsV2 ? 'Slutför betalningen i den säkra checkouten nedan.' : 'Betalningen hanteras separat med dig av teamet efter att förlängningen skickats in.'}
+              </div>
             </div>
           </div>
 
@@ -437,14 +393,43 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
             >
               Tillbaka
             </button>
-            <button
-              type="submit"
-              disabled={status === 'sending'}
-              className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition inline-flex items-center justify-center gap-2 disabled:opacity-70"
-            >
-              {status === 'sending' ? 'Registrerar...' : 'Bekräfta förlängning'}
-              <CheckCircle2 className="w-4 h-4" />
-            </button>
+            {paymentsV2 ? (
+              <div className="flex-1">
+                <EmbeddedCheckoutCard
+                  accessToken={session?.access_token || null}
+                  payload={{
+                    flow: 'forlangning',
+                    mode: 'payment',
+                    userId: session?.user?.id,
+                    email: form.email.trim(),
+                    fullName: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
+                    forlangningOffer: {
+                      monthlyPrice: offer.monthlyPrice,
+                      monthCount: offer.monthCount,
+                      totalPrice: offer.totalPrice,
+                      campaignYear: offer.campaignYear,
+                      billableDays: offer.billableDays,
+                      calculationMode: offer.calculationMode,
+                      currentExpiresAt: offer.currentExpiresAt,
+                      billingStartsAt: offer.billingStartsAt,
+                      newExpiresAt: offer.newExpiresAt,
+                    },
+                    successPath: '/tack-forlangning',
+                    cancelPath: '/forlangning',
+                  }}
+                  buttonLabel="Gå till säker betalning"
+                />
+              </div>
+            ) : (
+              <button
+                type="submit"
+                disabled={status === 'sending'}
+                className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition inline-flex items-center justify-center gap-2 disabled:opacity-70"
+              >
+                {status === 'sending' ? 'Registrerar...' : 'Bekräfta förlängning'}
+                <CheckCircle2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </form>
       )}
