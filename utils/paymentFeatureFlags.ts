@@ -5,12 +5,21 @@ function toBool(value: string, fallback = false): boolean {
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
 }
 
+/**
+ * Returns false ONLY if explicitly set to 'false'/'0'/'no'/'off'.
+ * Otherwise defaults to true (feature is live).
+ */
+function toBoolDefaultTrue(value: string): boolean {
+  if (!value) return true;
+  return !['0', 'false', 'no', 'off'].includes(value.toLowerCase());
+}
+
 export function isPaymentsV2Enabled(): boolean {
-  return toBool(getEnv('PAYMENTS_V2_ENABLED'), false);
+  return toBoolDefaultTrue(getEnv('PAYMENTS_V2_ENABLED'));
 }
 
 export function isPaymentsV2RefillEnabled(): boolean {
-  return toBool(getEnv('PAYMENTS_V2_REFILL_ENABLED'), false);
+  return toBoolDefaultTrue(getEnv('PAYMENTS_V2_REFILL_ENABLED'));
 }
 
 export function isPaymentsFallbackEnabled(): boolean {

@@ -272,8 +272,8 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const v2Enabled = isFlagEnabled('PAYMENTS_V2_ENABLED', false);
-  const v2RefillEnabled = isFlagEnabled('PAYMENTS_V2_REFILL_ENABLED', false);
+  const v2Enabled = isFlagEnabled('PAYMENTS_V2_ENABLED', true);
+  const v2RefillEnabled = isFlagEnabled('PAYMENTS_V2_REFILL_ENABLED', true);
   const fallbackEnabled = isFlagEnabled('PAYMENTS_V2_FALLBACK_LINKS_ENABLED', true);
 
   if (!v2Enabled || (flow === 'refill' && !v2RefillEnabled)) {
