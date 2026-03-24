@@ -7,10 +7,21 @@
  * This keeps us within the Vercel Hobby plan limit of 12 functions.
  */
 
-import createCheckoutSession from './_payments/create-checkout-session.js';
-import sessionStatus from './_payments/session-status.js';
-import webhook from './_payments/webhook.js';
-import claimPendingEntitlements from './_payments/claim-pending-entitlements.js';
+let createCheckoutSession: any;
+let sessionStatus: any;
+let webhook: any;
+let claimPendingEntitlements: any;
+let importError: string | null = null;
+
+try {
+  createCheckoutSession = require('./_payments/create-checkout-session').default;
+  sessionStatus = require('./_payments/session-status').default;
+  webhook = require('./_payments/webhook').default;
+  claimPendingEntitlements = require('./_payments/claim-pending-entitlements').default;
+} catch (err: any) {
+  importError = err?.message || String(err);
+  console.error('Payment router import error:', err);
+}
 
 const routes: Record<string, (req: any, res: any) => Promise<void>> = {
   'create-checkout-session': createCheckoutSession,
@@ -20,6 +31,11 @@ const routes: Record<string, (req: any, res: any) => Promise<void>> = {
 };
 
 export default async function handler(req: any, res: any) {
+  if (importError) {
+    res.status(500).json({ error: 'Payment module import failed', detail: importError });
+    return;
+  }
+
   // 1. Read action from query param (set by Vercel rewrite)
   const queryAction = typeof req.query?.action === 'string' ? req.query.action : '';
 
@@ -32,10 +48,20 @@ export default async function handler(req: any, res: any) {
 
   const routeHandler = routes[action];
   if (!routeHandler) {
-    res.status(404).json({ error: `Unknown payment action: ${action || '(empty)'}`, available: Object.keys(routes) });
+    res.status(404).json({
+      error: `Unknown payment action: ${action || '(empty)'}`,
+      available: Object.keys(routes),
+      debug: { queryAction, pathAction, url: url.substring(0, 100) },
+    });
     return;
   }
 
-  await routeHandler(req, res);
+  try {
+    await routeHandler(req, res);
+  } catch (err: any) {
+    console.error(`Payment handler error [${action}]:`, err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: `Handler crash: ${err?.message || 'unknown'}`, action });
+    }
+  }
 }
-
