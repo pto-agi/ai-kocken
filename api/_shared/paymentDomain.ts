@@ -1,4 +1,5 @@
 import type Stripe from 'stripe';
+import { getServiceTaxRateId, getSupplementTaxRateId } from './paymentHelpers.js';
 
 import {
   LEGACY_PAYMENT_LINKS,
@@ -41,20 +42,23 @@ export function fallbackForFlow(flow: CheckoutFlow, payload: CreateCheckoutSessi
   return null;
 }
 
-export function buildPremiumLineItems(): Stripe.Checkout.SessionCreateParams.LineItem[] {
+export async function buildPremiumLineItems(stripe: Stripe): Promise<Stripe.Checkout.SessionCreateParams.LineItem[]> {
+  const taxRateId = await getServiceTaxRateId(stripe);
   const premiumPriceId = env('STRIPE_PREMIUM_PRICE_ID');
   if (premiumPriceId) {
-    return [{ price: premiumPriceId, quantity: 1 }];
+    return [{ price: premiumPriceId, quantity: 1, tax_rates: [taxRateId] }];
   }
 
   const amountOre = asPositiveInt(env('STRIPE_PREMIUM_MONTHLY_AMOUNT_ORE')) || 29900;
   return [
     {
       quantity: 1,
+      tax_rates: [taxRateId],
       price_data: {
         currency: 'sek',
         recurring: { interval: 'month' },
         unit_amount: amountOre,
+        tax_behavior: 'inclusive',
         product_data: {
           name: env('STRIPE_PREMIUM_PRODUCT_NAME') || 'PTO Premium (Månadsvis)',
           description: 'Månadsvis premium-medlemskap hos Private Training Online',
@@ -64,7 +68,8 @@ export function buildPremiumLineItems(): Stripe.Checkout.SessionCreateParams.Lin
   ];
 }
 
-export function buildForlangningLineItems(payload: CreateCheckoutSessionPayload): Stripe.Checkout.SessionCreateParams.LineItem[] {
+export async function buildForlangningLineItems(stripe: Stripe, payload: CreateCheckoutSessionPayload): Promise<Stripe.Checkout.SessionCreateParams.LineItem[]> {
+  const taxRateId = await getServiceTaxRateId(stripe);
   const offer = payload.forlangningOffer;
   if (!offer) {
     throw new Error('Missing forlangningOffer');
@@ -75,9 +80,11 @@ export function buildForlangningLineItems(payload: CreateCheckoutSessionPayload)
   return [
     {
       quantity: 1,
+      tax_rates: [taxRateId],
       price_data: {
         currency: 'sek',
         unit_amount: amountOre,
+        tax_behavior: 'inclusive',
         product_data: {
           name: `Förlängning (${Math.round(offer.monthCount)} mån)`,
           description: `Kampanj ${offer.campaignYear} – nytt utgångsdatum ${offer.newExpiresAt}`,
@@ -115,7 +122,8 @@ function normalizeRefillItems(items: RefillCheckoutItem[]): RefillCheckoutItem[]
     .filter((item) => item.id && item.qty > 0);
 }
 
-export function buildRefillLineItems(payload: CreateCheckoutSessionPayload): Stripe.Checkout.SessionCreateParams.LineItem[] {
+export async function buildRefillLineItems(stripe: Stripe, payload: CreateCheckoutSessionPayload): Promise<Stripe.Checkout.SessionCreateParams.LineItem[]> {
+  const taxRateId = await getSupplementTaxRateId(stripe);
   const normalized = normalizeRefillItems(payload.refillItems || []);
   if (!normalized.length) throw new Error('Missing refill items');
 
@@ -124,9 +132,11 @@ export function buildRefillLineItems(payload: CreateCheckoutSessionPayload): Str
     if (!catalog) throw new Error(`Unsupported refill item: ${item.id}`);
     return {
       quantity: item.qty,
+      tax_rates: [taxRateId],
       price_data: {
         currency: 'sek',
         unit_amount: Math.round(catalog.memberPrice * 100),
+        tax_behavior: 'inclusive' as const,
         product_data: {
           name: catalog.title,
           description: catalog.description,

@@ -101,3 +101,64 @@ export function toIsoOrNull(value: unknown): string | null {
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
 }
+
+// ---------------------------------------------------------------------------
+// Swedish inclusive tax rates (auto-created in Stripe on first use)
+// ---------------------------------------------------------------------------
+
+const taxRateCache: Record<string, string> = {};
+
+/**
+ * Get or create an inclusive Stripe TaxRate.
+ * Checks env var first (e.g. STRIPE_TAX_RATE_12), then Stripe API, then creates.
+ */
+async function getOrCreateTaxRate(
+  stripe: Stripe,
+  percentage: number,
+  displayName: string,
+  description: string,
+): Promise<string> {
+  const cacheKey = `inclusive_${percentage}`;
+  if (taxRateCache[cacheKey]) return taxRateCache[cacheKey];
+
+  // Check env var
+  const envKey = `STRIPE_TAX_RATE_${percentage}`;
+  const envId = env(envKey);
+  if (envId) {
+    taxRateCache[cacheKey] = envId;
+    return envId;
+  }
+
+  // Search existing tax rates
+  const existing = await stripe.taxRates.list({ limit: 100, active: true, inclusive: true });
+  const match = existing.data.find(
+    (tr) => tr.percentage === percentage && tr.inclusive === true,
+  );
+  if (match) {
+    taxRateCache[cacheKey] = match.id;
+    return match.id;
+  }
+
+  // Create new
+  const created = await stripe.taxRates.create({
+    display_name: displayName,
+    description,
+    percentage,
+    inclusive: true,
+    country: 'SE',
+    jurisdiction: 'SE',
+  });
+  taxRateCache[cacheKey] = created.id;
+  console.log(`[tax] Created inclusive ${percentage}% tax rate: ${created.id}`);
+  return created.id;
+}
+
+/** 12% inclusive (Swedish reduced VAT — supplements/food) */
+export async function getSupplementTaxRateId(stripe: Stripe): Promise<string> {
+  return getOrCreateTaxRate(stripe, 12, 'Moms', 'Svensk moms 12% (livsmedel/kosttillskott)');
+}
+
+/** 25% inclusive (Swedish standard VAT — services) */
+export async function getServiceTaxRateId(stripe: Stripe): Promise<string> {
+  return getOrCreateTaxRate(stripe, 25, 'Moms', 'Svensk moms 25% (tjänster)');
+}

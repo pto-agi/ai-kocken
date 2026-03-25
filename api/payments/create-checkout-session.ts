@@ -157,7 +157,7 @@ async function getProfileCoachingExpiresAt(admin: any, userId: string): Promise<
   }
 }
 
-function buildCheckoutSessionParams(input: {
+async function buildCheckoutSessionParams(stripe: Stripe, input: {
   flow: CheckoutFlow;
   mode: SessionMode;
   payload: CreateCheckoutSessionPayload;
@@ -166,7 +166,7 @@ function buildCheckoutSessionParams(input: {
   successUrl: string;
   cancelUrl: string;
   orderId?: string | null;
-}): Stripe.Checkout.SessionCreateParams {
+}): Promise<Stripe.Checkout.SessionCreateParams> {
   const { flow, mode, payload } = input;
   const metadata: Record<string, string> = {
     flow,
@@ -177,16 +177,16 @@ function buildCheckoutSessionParams(input: {
 
   let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
   if (flow === 'premium') {
-    lineItems = buildPremiumLineItems();
+    lineItems = await buildPremiumLineItems(stripe);
   } else if (flow === 'forlangning') {
-    lineItems = buildForlangningLineItems(payload);
+    lineItems = await buildForlangningLineItems(stripe, payload);
     metadata.new_expires_at = payload.forlangningOffer?.newExpiresAt || '';
     metadata.current_expires_at = payload.forlangningOffer?.currentExpiresAt || '';
     metadata.billing_starts_at = payload.forlangningOffer?.billingStartsAt || '';
     metadata.month_count = String(payload.forlangningOffer?.monthCount || '');
     metadata.total_price = String(payload.forlangningOffer?.totalPrice || '');
   } else {
-    lineItems = buildRefillLineItems(payload);
+    lineItems = await buildRefillLineItems(stripe, payload);
     metadata.order_id = input.orderId || '';
   }
 
@@ -374,7 +374,7 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    const params = buildCheckoutSessionParams({
+    const params = await buildCheckoutSessionParams(stripe, {
       flow,
       mode,
       payload: nextPayload,

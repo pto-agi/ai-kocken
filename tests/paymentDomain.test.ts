@@ -18,8 +18,15 @@ describe('payment domain helpers', () => {
     expect(totals.subtotalSek).toBe(877);
   });
 
-  it('builds stripe line items for refill', () => {
-    const lineItems = buildRefillLineItems({
+  it('builds stripe line items for refill', async () => {
+    const mockStripe = {
+      taxRates: {
+        list: async () => ({ data: [] }),
+        create: async (params: any) => ({ id: `txr_mock_${params.percentage}` }),
+      },
+    } as any;
+
+    const lineItems = await buildRefillLineItems(mockStripe, {
       flow: 'refill',
       mode: 'payment',
       refillItems: [{ id: 'bcaa', qty: 2 }],
@@ -28,6 +35,7 @@ describe('payment domain helpers', () => {
     expect(lineItems).toHaveLength(1);
     expect(lineItems[0].quantity).toBe(2);
     expect(lineItems[0].price_data?.currency).toBe('sek');
+    expect(lineItems[0].tax_rates).toEqual(['txr_mock_12']);
   });
 
   it('returns fallback links per flow', () => {
