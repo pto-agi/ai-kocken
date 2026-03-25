@@ -97,7 +97,7 @@ export const EmbeddedCheckoutCard: React.FC<EmbeddedCheckoutCardProps> = ({
       )}
 
       {clientSecret && stripePromise && (
-        <div className="mt-4 rounded-2xl border border-[#E6E1D8] bg-white p-2 md:p-3">
+        <div className="mt-4 rounded-2xl p-0">
           <EmbeddedCheckoutProvider
             stripe={stripePromise}
             options={{
@@ -110,7 +110,9 @@ export const EmbeddedCheckoutCard: React.FC<EmbeddedCheckoutCardProps> = ({
               },
             }}
           >
-            <EmbeddedCheckout />
+            <EmbeddedCheckout
+              className="embedded-checkout-warm"
+            />
           </EmbeddedCheckoutProvider>
         </div>
       )}
