@@ -200,15 +200,28 @@ export const Profile: React.FC = () => {
     setReactivateStatus('idle');
     setIsReactivating(true);
     try {
-      await callMemberAction('reactivate_membership', {
-        source: 'reactivate_membership'
+      const agentUrl = import.meta.env.VITE_ANTIGRAVITY_URL || 'https://aimade.se';
+      const res = await fetch(`${agentUrl}/api/economy/reactivate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.full_name || '',
+          user_id: user.id,
+        }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Kunde inte återaktivera medlemskapet.');
+      }
       setReactivateStatus('success');
       const until = now + 24 * 60 * 60 * 1000;
       localStorage.setItem(cooldownKey, String(until));
       setReactivateCooldownUntil(until);
+      // Refresh profile to get updated status
+      await refreshProfile();
     } catch (err) {
-      console.error('Reactivate membership webhook error:', err);
+      console.error('Reactivate membership error:', err);
       setReactivateStatus('error');
     } finally {
       setIsReactivating(false);
