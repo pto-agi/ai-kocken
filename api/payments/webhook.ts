@@ -245,6 +245,35 @@ async function processPaidCheckoutSession(admin: any, session: Stripe.Checkout.S
     } catch {
       // non-blocking
     }
+
+    // ── Notify AntiGravity Agent: Sheet write, TZ reactivation, email ──
+    try {
+      const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
+      const customerName = session.customer_details?.name || metadata.email || '';
+      const nameParts = customerName.split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      fetch(`${agentBaseUrl}/api/economy/forlangning`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email || metadata.email || '',
+          first_name: firstName,
+          last_name: lastName,
+          month_count: Number(metadata.month_count) || computedOffer.monthCount,
+          total_price: Number(metadata.total_price) || computedOffer.totalPrice,
+          current_expires_at: metadata.current_expires_at || computedOffer.currentExpiresAt || '',
+          new_expires_at: computedOffer.newExpiresAt,
+          billing_starts_at: metadata.billing_starts_at || computedOffer.billingStartsAt || '',
+          payment_method: 'stripe',
+          campaign_year: computedOffer.campaignYear,
+        }),
+      }).catch((err) => console.error('Agent forlangning call failed:', err));
+    } catch (agentErr) {
+      console.error('Agent forlangning call error:', agentErr);
+    }
+
     return;
   }
 
