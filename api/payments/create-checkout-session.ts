@@ -198,9 +198,6 @@ async function buildCheckoutSessionParams(stripe: Stripe, input: {
     line_items: lineItems,
     metadata,
     payment_method_types: mode === 'subscription' ? ['card', 'link'] : ['card', 'klarna', 'link'],
-    automatic_tax: {
-      enabled: isFlagEnabled('STRIPE_AUTOMATIC_TAX_ENABLED', true),
-    },
     customer: input.customerId || undefined,
     customer_email: !input.customerId ? input.customerEmail || undefined : undefined,
     allow_promotion_codes: true,
