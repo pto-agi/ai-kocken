@@ -162,16 +162,27 @@ export const Profile: React.FC = () => {
     setPauseStatus('idle');
     setIsPausing(true);
     try {
-      await callMemberAction('pause_membership', {
-        coaching_expires_at: user.coaching_expires_at || '',
-        source: 'pause_membership'
+      const agentUrl = import.meta.env.VITE_ANTIGRAVITY_URL || 'https://aimade.se';
+      const res = await fetch(`${agentUrl}/api/economy/pause`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.full_name || '',
+          user_id: user.id,
+          coaching_expires_at: user.coaching_expires_at || '',
+        }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Kunde inte pausa medlemskapet.');
+      }
       setPauseStatus('success');
       const until = now + 24 * 60 * 60 * 1000;
       localStorage.setItem(cooldownKey, String(until));
       setPauseCooldownUntil(until);
     } catch (err) {
-      console.error('Pause membership webhook error:', err);
+      console.error('Pause membership error:', err);
       setPauseStatus('error');
     } finally {
       setIsPausing(false);
