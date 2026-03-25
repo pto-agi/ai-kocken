@@ -384,16 +384,17 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col gap-3">
             <button
               type="button"
               onClick={() => {
                 setError(null);
                 setStep('offer');
               }}
-              className="px-5 py-3 rounded-xl bg-white/70 border border-[#E6E1D8] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:bg-white transition"
+              className="self-start inline-flex items-center gap-1.5 text-xs font-semibold text-[#6B6158] hover:text-[#3D3D3D] transition"
             >
-              Tillbaka
+              <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+              Tillbaka till erbjudande
             </button>
             {paymentsV2 ? (
               <div className="flex-1 space-y-4">
