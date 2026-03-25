@@ -341,6 +341,122 @@ export default async function handler(req: any, res: any) {
   const successUrl = `${baseUrl}${successPath}`;
   const cancelUrl = `${baseUrl}${cancelPath}`;
 
+  // -----------------------------------------------------------------------
+  // Friskvårdsbidrag — bypass Stripe entirely
+  // -----------------------------------------------------------------------
+  if (payload.paymentMethod === 'friskvardsbidrag' && (flow === 'premium' || flow === 'forlangning')) {
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      setCors(res, origin);
+      res.status(500).json({ error: 'Supabase admin is not configured' });
+      return;
+    }
+
+    const amountSek = flow === 'forlangning'
+      ? Math.round(computedForlangningOffer?.totalPrice || 0)
+      : Math.round((Number(process.env.STRIPE_PREMIUM_MONTHLY_AMOUNT_ORE || '29900')) / 100);
+
+    const orderMetadata: Record<string, unknown> = {
+      flow,
+      fullName: fullName || '',
+    };
+    if (flow === 'forlangning' && computedForlangningOffer) {
+      orderMetadata.monthCount = computedForlangningOffer.monthCount;
+      orderMetadata.newExpiresAt = computedForlangningOffer.newExpiresAt;
+      orderMetadata.currentExpiresAt = computedForlangningOffer.currentExpiresAt;
+      orderMetadata.billingStartsAt = computedForlangningOffer.billingStartsAt;
+      orderMetadata.campaignYear = computedForlangningOffer.campaignYear;
+    }
+
+    const { data: order, error: insertError } = await admin
+      .from('friskvard_orders')
+      .insert({
+        user_id: userId,
+        email: userEmail || '',
+        flow,
+        status: 'pending',
+        amount_sek: amountSek,
+        metadata: orderMetadata,
+      })
+      .select('id')
+      .single();
+
+    if (insertError || !order) {
+      console.error('friskvard insert failed', insertError);
+      setCors(res, origin);
+      res.status(500).json({ error: 'Kunde inte registrera friskvårdsbeställning.' });
+      return;
+    }
+
+    // Send emails (non-blocking)
+    const resendKey = (process.env.RESEND_API_KEY || '').trim();
+    if (resendKey) {
+      const { buildBaseEmailLayout, sendResendEmail, DEFAULT_FROM, DEFAULT_TO } = await import('../_shared/emailHelpers.js');
+      const flowLabel = flow === 'forlangning' ? 'Förlängning' : 'Premium';
+      const customerName = fullName || userEmail || 'Kund';
+
+      // Email to customer
+      const customerHtml = buildBaseEmailLayout({
+        title: 'Bekräftelse – Friskvårdsbidrag',
+        subtitle: `Tack ${customerName}! Vi har mottagit din beställning.`,
+        bodyHtml: `
+          <table cellspacing="0" cellpadding="6" style="width:100%;font-size:13px;color:#3D3D3D;">
+            <tr><td style="font-weight:700">Tjänst</td><td>${flowLabel}</td></tr>
+            <tr><td style="font-weight:700">Belopp</td><td>${amountSek} kr</td></tr>
+            <tr><td style="font-weight:700">Betalning</td><td>Friskvårdsbidrag</td></tr>
+            <tr><td style="font-weight:700">Status</td><td>Väntar på godkännande</td></tr>
+          </table>
+          <p style="margin:12px 0 0;font-size:13px;color:#6B6158;">
+            Din beställning behandlas manuellt och aktiveras efter godkännande av administratör.
+          </p>`,
+      });
+      sendResendEmail(resendKey, {
+        from: DEFAULT_FROM,
+        to: [userEmail || ''].filter(Boolean),
+        subject: `Bekräftelse – Friskvårdsbidrag (${flowLabel})`,
+        text: `Tack! Vi har mottagit din friskvårdsbeställning för ${flowLabel}. Belopp: ${amountSek} kr. Status: väntar på godkännande.`,
+        html: customerHtml,
+      }).catch((e: any) => console.error('friskvard customer email failed', e));
+
+      // Email to admin
+      const adminRecipients = (process.env.RESEND_FORM_TO || DEFAULT_TO).split(',').map((s: string) => s.trim()).filter(Boolean);
+      const appBaseUrl = getRequestBaseUrl(req) || 'https://my.privatetrainingonline.se';
+      const adminHtml = buildBaseEmailLayout({
+        title: 'Ny friskvårdsbeställning',
+        badge: 'Admin-notis',
+        bodyHtml: `
+          <table cellspacing="0" cellpadding="6" style="width:100%;font-size:13px;color:#3D3D3D;">
+            <tr><td style="font-weight:700">Kund</td><td>${customerName} (${userEmail || '—'})</td></tr>
+            <tr><td style="font-weight:700">Tjänst</td><td>${flowLabel}</td></tr>
+            <tr><td style="font-weight:700">Belopp</td><td>${amountSek} kr</td></tr>
+            ${flow === 'forlangning' && computedForlangningOffer
+              ? `<tr><td style="font-weight:700">Nytt utgångsdatum</td><td>${computedForlangningOffer.newExpiresAt}</td></tr>`
+              : ''}
+            <tr><td style="font-weight:700">Order-ID</td><td style="font-family:monospace;font-size:11px">${order.id}</td></tr>
+          </table>`,
+        ctaLabel: 'Godkänn i admin',
+        ctaHref: `${appBaseUrl}/admin?friskvard=${order.id}`,
+      });
+      sendResendEmail(resendKey, {
+        from: DEFAULT_FROM,
+        to: adminRecipients,
+        subject: `⚡ Friskvårdsbeställning: ${customerName} – ${flowLabel} (${amountSek} kr)`,
+        text: `Ny friskvårdsbeställning från ${customerName}. Tjänst: ${flowLabel}. Belopp: ${amountSek} kr. Order-ID: ${order.id}`,
+        html: adminHtml,
+      }).catch((e: any) => console.error('friskvard admin email failed', e));
+    }
+
+    setCors(res, origin);
+    res.status(200).json({
+      ok: true,
+      flow,
+      mode,
+      friskvard: true,
+      friskvard_order_id: order.id,
+    });
+    return;
+  }
+
   try {
     const stripe = getStripeClient();
     const publishableKey = getStripePublishableKey();

@@ -33,6 +33,7 @@ export type CreateCheckoutSessionPayload = {
   email?: string;
   userId?: string;
   fullName?: string;
+  paymentMethod?: 'stripe' | 'friskvardsbidrag';
   forlangningOffer?: ForlangningOfferPayload;
   refillItems?: RefillCheckoutItem[];
   refillShipping?: RefillShipping;
@@ -49,5 +50,7 @@ export type CreateCheckoutSessionResponse = {
   publishable_key?: string;
   flow?: CheckoutFlow;
   mode?: CheckoutMode;
+  friskvard?: boolean;
+  friskvard_order_id?: string;
   error?: string;
 };

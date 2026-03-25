@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, Sparkles, User2 } from 'lucide-react';
 import { computeYearEndOffer } from '../utils/extensionOffer';
 import EmbeddedCheckoutCard from './EmbeddedCheckoutCard';
 import { isPaymentsV2Enabled } from '../utils/paymentFeatureFlags';
+import { createCheckoutSession } from '../utils/paymentsClient';
 
 const PAYMENT_OPTIONS = [
   'Jag betalar via friskvårdsportal',
@@ -74,6 +75,7 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
   });
   const [status, setStatus] = useState<'idle' | 'sending' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'friskvardsbidrag'>('stripe');
 
   const offer = useMemo(() => computeYearEndOffer({
     coachingExpiresAt: profile?.coaching_expires_at || null,
@@ -394,31 +396,126 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
               Tillbaka
             </button>
             {paymentsV2 ? (
-              <div className="flex-1">
-                <EmbeddedCheckoutCard
-                  accessToken={session?.access_token || null}
-                  payload={{
-                    flow: 'forlangning',
-                    mode: 'payment',
-                    userId: session?.user?.id,
-                    email: form.email.trim(),
-                    fullName: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
-                    forlangningOffer: {
-                      monthlyPrice: offer.monthlyPrice,
-                      monthCount: offer.monthCount,
-                      totalPrice: offer.totalPrice,
-                      campaignYear: offer.campaignYear,
-                      billableDays: offer.billableDays,
-                      calculationMode: offer.calculationMode,
-                      currentExpiresAt: offer.currentExpiresAt,
-                      billingStartsAt: offer.billingStartsAt,
-                      newExpiresAt: offer.newExpiresAt,
-                    },
-                    successPath: '/tack-forlangning',
-                    cancelPath: '/forlangning',
-                  }}
-                  buttonLabel="Gå till säker betalning"
-                />
+              <div className="flex-1 space-y-4">
+                {/* Payment method toggle */}
+                <div className="flex gap-2">
+                  <label
+                    className={`flex-1 flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition ${
+                      paymentMethod === 'stripe'
+                        ? 'border-[#a0c81d] bg-[#a0c81d]/10'
+                        : 'border-[#E6E1D8] bg-white/60 hover:bg-white/80'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="stripe"
+                      checked={paymentMethod === 'stripe'}
+                      onChange={() => setPaymentMethod('stripe')}
+                      className="accent-[#a0c81d]"
+                    />
+                    <span className="text-xs font-bold uppercase tracking-wider">💳 Kort / Klarna</span>
+                  </label>
+                  <label
+                    className={`flex-1 flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition ${
+                      paymentMethod === 'friskvardsbidrag'
+                        ? 'border-[#a0c81d] bg-[#a0c81d]/10'
+                        : 'border-[#E6E1D8] bg-white/60 hover:bg-white/80'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="friskvardsbidrag"
+                      checked={paymentMethod === 'friskvardsbidrag'}
+                      onChange={() => setPaymentMethod('friskvardsbidrag')}
+                      className="accent-[#a0c81d]"
+                    />
+                    <span className="text-xs font-bold uppercase tracking-wider">🏥 Friskvårdsbidrag</span>
+                  </label>
+                </div>
+
+                {paymentMethod === 'stripe' ? (
+                  <EmbeddedCheckoutCard
+                    accessToken={session?.access_token || null}
+                    payload={{
+                      flow: 'forlangning',
+                      mode: 'payment',
+                      userId: session?.user?.id,
+                      email: form.email.trim(),
+                      fullName: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
+                      forlangningOffer: {
+                        monthlyPrice: offer.monthlyPrice,
+                        monthCount: offer.monthCount,
+                        totalPrice: offer.totalPrice,
+                        campaignYear: offer.campaignYear,
+                        billableDays: offer.billableDays,
+                        calculationMode: offer.calculationMode,
+                        currentExpiresAt: offer.currentExpiresAt,
+                        billingStartsAt: offer.billingStartsAt,
+                        newExpiresAt: offer.newExpiresAt,
+                      },
+                      successPath: '/tack-forlangning',
+                      cancelPath: '/forlangning',
+                    }}
+                    buttonLabel="Gå till säker betalning"
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-xl bg-[#F6F1E7] border border-[#E6E1D8] text-sm text-[#3D3D3D]">
+                      <p className="font-bold mb-1">Betalning via friskvårdsbidrag</p>
+                      <p className="text-xs text-[#6B6158]">
+                        Din beställning registreras och en bekräftelse skickas till dig via e-post.
+                        Administratör godkänner innan tjänsten aktiveras.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={status === 'sending'}
+                      onClick={async () => {
+                        setStatus('sending');
+                        setError(null);
+                        try {
+                          const result = await createCheckoutSession(
+                            {
+                              flow: 'forlangning',
+                              mode: 'payment',
+                              paymentMethod: 'friskvardsbidrag',
+                              userId: session?.user?.id,
+                              email: form.email.trim(),
+                              fullName: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
+                              forlangningOffer: {
+                                monthlyPrice: offer.monthlyPrice,
+                                monthCount: offer.monthCount,
+                                totalPrice: offer.totalPrice,
+                                campaignYear: offer.campaignYear,
+                                billableDays: offer.billableDays,
+                                calculationMode: offer.calculationMode,
+                                currentExpiresAt: offer.currentExpiresAt,
+                                billingStartsAt: offer.billingStartsAt,
+                                newExpiresAt: offer.newExpiresAt,
+                              },
+                            },
+                            session?.access_token,
+                          );
+                          if (result.friskvard) {
+                            navigate('/tack-forlangning?friskvard=1');
+                          } else {
+                            setError(result.error || 'Något gick fel');
+                            setStatus('error');
+                          }
+                        } catch (e: any) {
+                          setError(e?.message || 'Kunde inte skicka beställning');
+                          setStatus('error');
+                        }
+                      }}
+                      className="w-full px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition inline-flex items-center justify-center gap-2 disabled:opacity-70"
+                    >
+                      {status === 'sending' ? 'Registrerar...' : 'Beställ med friskvårdsbidrag'}
+                      <CheckCircle2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <button

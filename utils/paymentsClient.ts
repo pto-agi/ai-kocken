@@ -59,3 +59,24 @@ export async function claimPendingEntitlements(
 
   return data as { ok: boolean; resolved_count?: number; applied?: string[] };
 }
+
+/** Approve a friskvårdsbidrag order (admin action) */
+export async function approveFriskvardOrder(
+  orderId: string,
+  accessToken: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const response = await fetch('/api/payments/claim-pending-entitlements', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ action: 'approve-friskvard', orderId }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return { ok: false, error: typeof data?.error === 'string' ? data.error : 'Kunde inte godkänna' };
+  }
+  return { ok: true };
+}
