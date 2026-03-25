@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { CheckCircle2, ArrowRight, Sparkles, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ArrowRight, Sparkles, ShieldCheck, AlertTriangle, Clock } from 'lucide-react';
 import { fetchCheckoutSessionStatus } from '../utils/paymentsClient';
 
 type ForlangningTackState = {
@@ -69,19 +69,41 @@ export const ForlangningTack: React.FC = () => {
         <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2.6rem] p-8 md:p-12 border border-[#E6E1D8] shadow-2xl">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
             <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#a0c81d]/15 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
-                  <CheckCircle2 className="w-6 h-6" />
+                <div className="flex items-center gap-3 mb-4">
+                <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${
+                  checkoutStatus === 'error'
+                    ? 'bg-red-100 border-red-300 text-red-600'
+                    : checkoutStatus === 'pending'
+                      ? 'bg-amber-100 border-amber-300 text-amber-600'
+                      : 'bg-[#a0c81d]/15 border-[#a0c81d]/40 text-[#a0c81d]'
+                }`}>
+                  {checkoutStatus === 'error' ? (
+                    <AlertTriangle className="w-6 h-6" />
+                  ) : checkoutStatus === 'pending' ? (
+                    <Clock className="w-6 h-6" />
+                  ) : (
+                    <CheckCircle2 className="w-6 h-6" />
+                  )}
                 </div>
-                <span className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Bekräftelse</span>
+                <span className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">
+                  {checkoutStatus === 'error' ? 'Betalning misslyckades' : checkoutStatus === 'pending' ? 'Väntar på betalning' : 'Bekräftelse'}
+                </span>
               </div>
               <h1 className="text-3xl md:text-4xl font-black text-[#3D3D3D] tracking-tight">
-                Tack! Din förlängning är registrerad.
+                {checkoutStatus === 'pending'
+                  ? 'Betalningen är inte slutförd'
+                  : checkoutStatus === 'error'
+                    ? 'Något gick fel med betalningen'
+                    : 'Tack! Din förlängning är registrerad.'}
               </h1>
               <p className="text-[#6B6158] mt-3 max-w-2xl">
-                {checkoutSessionId
-                  ? 'Vi har mottagit din checkout och verifierar betalningsstatus.'
-                  : 'Vi hanterar nu betalningen separat med dig och uppdaterar medlemskapet enligt din bekräftelse.'}
+                {checkoutStatus === 'pending'
+                  ? 'Det verkar som att betalningen avbröts eller inte slutfördes. Du kan gå tillbaka och försöka igen.'
+                  : checkoutStatus === 'error'
+                    ? 'Vi kunde inte bekräfta betalningen. Prova igen eller kontakta support.'
+                    : checkoutSessionId
+                      ? 'Vi har mottagit din betalning och verifierar status.'
+                      : 'Vi hanterar nu betalningen separat med dig och uppdaterar medlemskapet enligt din bekräftelse.'}
               </p>
             </div>
             <div className="flex flex-col gap-3 w-full md:w-auto">
