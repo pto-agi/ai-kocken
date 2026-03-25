@@ -397,7 +397,7 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
               Tillbaka till erbjudande
             </button>
             {paymentsV2 ? (
-              <div className="flex-1 space-y-4">
+              <div className="rounded-2xl border border-[#E6E1D8] bg-white/70 p-4 space-y-4">
                 {/* Payment method toggle */}
                 <div className="flex gap-2">
                   <label
@@ -463,7 +463,7 @@ export const RenewalFlow: React.FC<RenewalFlowProps> = ({ profile, session, comp
                   />
                 ) : (
                   <div className="space-y-3">
-                    <div className="p-4 rounded-xl bg-[#F6F1E7] border border-[#E6E1D8] text-sm text-[#3D3D3D]">
+                    <div className="p-4 rounded-xl bg-[#F6F1E7]/70 border border-[#E6E1D8] text-sm text-[#3D3D3D]">
                       <p className="font-bold mb-1">Betalning via friskvårdsbidrag</p>
                       <p className="text-xs text-[#6B6158]">
                         Din beställning registreras och en bekräftelse skickas till dig via e-post.
