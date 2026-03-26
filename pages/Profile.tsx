@@ -105,23 +105,6 @@ export const Profile: React.FC = () => {
     setCity(user.city || '');
     setCountry(user.country || 'Sverige');
     setPhone(user.phone || '');
-    const pauseCooldownKey = `pto_pause_request:${user.id}`;
-    const rawPauseCooldown = localStorage.getItem(pauseCooldownKey);
-    if (rawPauseCooldown) {
-      const parsed = Number(rawPauseCooldown);
-      setPauseCooldownUntil(Number.isFinite(parsed) ? parsed : null);
-    } else {
-      setPauseCooldownUntil(null);
-    }
-
-    const reactivateCooldownKey = `pto_reactivate_request:${user.id}`;
-    const rawReactivateCooldown = localStorage.getItem(reactivateCooldownKey);
-    if (rawReactivateCooldown) {
-      const parsed = Number(rawReactivateCooldown);
-      setReactivateCooldownUntil(Number.isFinite(parsed) ? parsed : null);
-    } else {
-      setReactivateCooldownUntil(null);
-    }
   }, [user?.id, user?.address_line1, user?.address_line2, user?.postal_code, user?.city, user?.country, user?.phone]);
 
   const handleCancelSubscription = async () => {
