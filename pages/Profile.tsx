@@ -148,9 +148,9 @@ export const Profile: React.FC = () => {
           coaching_expires_at: user.coaching_expires_at || '',
         }),
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || 'Kunde inte pausa medlemskapet.');
+      const data = await res.json().catch(() => ({} as any));
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.errors?.join(', ') || data?.error || 'Kunde inte pausa medlemskapet.');
       }
       setPauseStatus('success');
       await refreshProfile();
@@ -177,9 +177,9 @@ export const Profile: React.FC = () => {
           user_id: user.id,
         }),
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || 'Kunde inte återaktivera medlemskapet.');
+      const data = await res.json().catch(() => ({} as any));
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.errors?.join(', ') || data?.error || 'Kunde inte återaktivera medlemskapet.');
       }
       setReactivateStatus('success');
       await refreshProfile();
