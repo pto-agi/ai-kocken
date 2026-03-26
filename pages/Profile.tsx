@@ -44,10 +44,8 @@ export const Profile: React.FC = () => {
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
   const [isPausing, setIsPausing] = useState(false);
   const [pauseStatus, setPauseStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [pauseCooldownUntil, setPauseCooldownUntil] = useState<number | null>(null);
   const [isReactivating, setIsReactivating] = useState(false);
   const [reactivateStatus, setReactivateStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [reactivateCooldownUntil, setReactivateCooldownUntil] = useState<number | null>(null);
   const [isSyncingMembership, setIsSyncingMembership] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [expandedSubmissions, setExpandedSubmissions] = useState<Record<string, boolean>>({});
@@ -152,12 +150,6 @@ export const Profile: React.FC = () => {
   };
 
   const handlePauseMembership = async () => {
-    const cooldownKey = `pto_pause_request:${user.id}`;
-    const now = Date.now();
-    if (pauseCooldownUntil && now < pauseCooldownUntil) {
-      setPauseStatus('success');
-      return;
-    }
     if (isPausing) return;
     setPauseStatus('idle');
     setIsPausing(true);
@@ -178,9 +170,7 @@ export const Profile: React.FC = () => {
         throw new Error(data?.error || 'Kunde inte pausa medlemskapet.');
       }
       setPauseStatus('success');
-      const until = now + 24 * 60 * 60 * 1000;
-      localStorage.setItem(cooldownKey, String(until));
-      setPauseCooldownUntil(until);
+      await refreshProfile();
     } catch (err) {
       console.error('Pause membership error:', err);
       setPauseStatus('error');
@@ -190,12 +180,6 @@ export const Profile: React.FC = () => {
   };
 
   const handleReactivateMembership = async () => {
-    const cooldownKey = `pto_reactivate_request:${user.id}`;
-    const now = Date.now();
-    if (reactivateCooldownUntil && now < reactivateCooldownUntil) {
-      setReactivateStatus('success');
-      return;
-    }
     if (isReactivating) return;
     setReactivateStatus('idle');
     setIsReactivating(true);
@@ -215,10 +199,6 @@ export const Profile: React.FC = () => {
         throw new Error(data?.error || 'Kunde inte återaktivera medlemskapet.');
       }
       setReactivateStatus('success');
-      const until = now + 24 * 60 * 60 * 1000;
-      localStorage.setItem(cooldownKey, String(until));
-      setReactivateCooldownUntil(until);
-      // Refresh profile to get updated status
       await refreshProfile();
     } catch (err) {
       console.error('Reactivate membership error:', err);
@@ -510,8 +490,8 @@ export const Profile: React.FC = () => {
     (typeof user.subscription_status === 'string' && user.subscription_status) ||
     (user.coaching_expires_at ? 'active' : 'inactive');
   const coachingActive = coachingStatus === 'active';
-  const pauseCooldownActive = pauseCooldownUntil ? Date.now() < pauseCooldownUntil : false;
-  const reactivateCooldownActive = reactivateCooldownUntil ? Date.now() < reactivateCooldownUntil : false;
+  const pauseCooldownActive = false;
+  const reactivateCooldownActive = false;
   const coachingStatusMeta = {
     active: {
       label: 'Aktiv',
