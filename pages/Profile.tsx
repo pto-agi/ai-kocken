@@ -1038,7 +1038,7 @@ export const Profile: React.FC = () => {
                             {/* Extend: show when active or expired */}
                             {(coachingActive || coachingStatus === 'expired') && (
                               <Link
-                                to="/refill"
+                                to="/forlangning"
                                 className={ui.primaryBtnSm}
                               >
                                 Förläng medlemskap
