@@ -278,7 +278,7 @@ export const Profile: React.FC = () => {
   };
 
   const ui = {
-    page: 'min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-24 pt-16 md:pt-24 px-4 md:px-6 overflow-x-hidden',
+    page: 'min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans pb-24 pt-16 md:pt-24 px-4 md:px-8 overflow-x-hidden',
     panel: 'bg-[#E8F1D5] rounded-[2.5rem] p-5 md:p-10 border border-[#E6E1D8] shadow-2xl relative overflow-hidden',
     card: 'rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/70 p-4 md:p-6',
     cardSoft: 'rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/60 px-3 py-3 md:px-4',
@@ -519,7 +519,7 @@ export const Profile: React.FC = () => {
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px]"></div>
       </div>
 
-      <div className="max-w-7xl mx-auto relative z-10 animate-fade-in">
+      <div className="max-w-[1400px] mx-auto relative z-10 animate-fade-in">
         <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
           <aside className="space-y-4">
             <div className="bg-[#E8F1D5]/70 backdrop-blur-xl rounded-[2rem] p-4 border border-[#E6E1D8] shadow-xl">
