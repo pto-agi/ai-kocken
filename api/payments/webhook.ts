@@ -254,22 +254,55 @@ async function processPaidCheckoutSession(admin: any, session: Stripe.Checkout.S
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      fetch(`${agentBaseUrl}/api/economy/forlangning`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email || metadata.email || '',
-          first_name: firstName,
-          last_name: lastName,
-          month_count: Number(metadata.month_count) || computedOffer.monthCount,
-          total_price: Number(metadata.total_price) || computedOffer.totalPrice,
-          current_expires_at: metadata.current_expires_at || computedOffer.currentExpiresAt || '',
-          new_expires_at: computedOffer.newExpiresAt,
-          billing_starts_at: metadata.billing_starts_at || computedOffer.billingStartsAt || '',
-          payment_method: 'stripe',
-          campaign_year: computedOffer.campaignYear,
-        }),
-      }).catch((err) => console.error('Agent forlangning call failed:', err));
+      const agentPayload = {
+        email: email || metadata.email || '',
+        first_name: firstName,
+        last_name: lastName,
+        month_count: Number(metadata.month_count) || computedOffer.monthCount,
+        total_price: Number(metadata.total_price) || computedOffer.totalPrice,
+        current_expires_at: metadata.current_expires_at || computedOffer.currentExpiresAt || '',
+        new_expires_at: computedOffer.newExpiresAt,
+        billing_starts_at: metadata.billing_starts_at || computedOffer.billingStartsAt || '',
+        payment_method: 'stripe',
+        campaign_year: computedOffer.campaignYear,
+      };
+
+      // Await the call with retry (max 2 attempts, 10s timeout each)
+      let agentOk = false;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10_000);
+          const agentRes = await fetch(`${agentBaseUrl}/api/economy/forlangning`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(agentPayload),
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          if (agentRes.ok) {
+            agentOk = true;
+            break;
+          }
+          console.error(`Agent forlangning attempt ${attempt} got ${agentRes.status}`);
+        } catch (fetchErr: any) {
+          console.error(`Agent forlangning attempt ${attempt} failed:`, fetchErr?.message);
+        }
+      }
+
+      // If AG-Agent call failed, log to activity_log so it's visible in the dashboard
+      if (!agentOk) {
+        try {
+          await admin.from('agent_activity_log').insert({
+            type: 'membership',
+            title: `⚠️ Förlängning misslyckad: ${customerName}`,
+            summary: `Stripe-betalning OK men AG-Agent nåddes inte. Email: ${email}, Belopp: ${computedOffer.totalPrice} kr, Nytt datum: ${computedOffer.newExpiresAt}. Kunden fick INTE bekräftelsemejl. Trigga manuellt via /api/economy/forlangning.`,
+            status: 'error',
+            client_name: customerName,
+            metadata: { ...agentPayload, session_id: session.id, error: 'AG-Agent unreachable after 2 attempts' },
+          }).throwOnError();
+        } catch { /* best effort */ }
+      }
     } catch (agentErr) {
       console.error('Agent forlangning call error:', agentErr);
     }
