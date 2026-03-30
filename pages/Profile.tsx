@@ -608,9 +608,11 @@ export const Profile: React.FC = () => {
                               ? 'Deaktiverad'
                               : coachingStatus === 'expired'
                                 ? 'På väg att avslutas'
-                                : user.coaching_expires_at
-                                  ? formatDate(user.coaching_expires_at)
-                                  : 'Ej angivet'}
+                                : user.membership_type === 'subscription'
+                                  ? 'Löpande prenumeration'
+                                  : user.coaching_expires_at
+                                    ? formatDate(user.coaching_expires_at)
+                                    : 'Ej angivet'}
                         </div>
                       </div>
                       <div className="flex flex-col gap-2">
@@ -964,9 +966,11 @@ export const Profile: React.FC = () => {
                                   ? 'Deaktiverad'
                                   : coachingStatus === 'expired'
                                     ? 'Perioden har löpt ut'
-                                    : user.coaching_expires_at
-                                      ? formatDate(user.coaching_expires_at)
-                                      : 'Ej angivet'}
+                                    : user.membership_type === 'subscription'
+                                      ? 'Löpande prenumeration'
+                                      : user.coaching_expires_at
+                                        ? formatDate(user.coaching_expires_at)
+                                        : 'Ej angivet'}
                             </p>
                           </div>
 

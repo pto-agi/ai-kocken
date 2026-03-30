@@ -72,6 +72,7 @@ export interface UserProfile {
   is_manager?: boolean;
   chat_enabled?: boolean;
   subscription_status?: string;
+  membership_type?: string;     // 'package' | 'subscription' — controls how expiry is displayed
   coaching_expires_at?: string; // DATE STRING from Google Sheets/Zapier
   referral_code?: string;
   phone?: string;
