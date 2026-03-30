@@ -3,10 +3,9 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import type { Appearance } from '@stripe/stripe-js';
 import {
-  Loader2, AlertTriangle, Receipt, Lock,
-  Shield, Zap, Award, CheckCircle2, ArrowLeft,
+  Loader2, AlertTriangle, Receipt, Lock, ArrowRight,
+  Shield, Zap, Award, CheckCircle2,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 import { CHECKOUT_PLANS, DEFAULT_PLAN_ID, getPlanById } from '../lib/checkoutPlans';
 import type { CheckoutPlan } from '../lib/checkoutPlans';
@@ -14,6 +13,7 @@ import { createIntent } from '../utils/checkoutClient';
 import { trackCheckoutEvent } from '../utils/paymentAnalytics';
 import { useAuthStore } from '../store/authStore';
 
+import { CheckoutHeader } from '../components/checkout/CheckoutHeader';
 import { PlanSelector } from '../components/checkout/PlanSelector';
 import { CheckoutForm } from '../components/checkout/CheckoutForm';
 
@@ -150,30 +150,7 @@ export const Checkout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F6F1E7]">
-      {/* ═══ MINIMAL HEADER ═══ */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#F6F1E7]/90 backdrop-blur-xl border-b border-[#E6E1D8]/60">
-        <div className="max-w-5xl mx-auto flex items-center justify-between px-4 h-14">
-          <Link
-            to="/bli-klient"
-            className="flex items-center gap-1.5 text-xs font-bold text-[#8A8177] hover:text-[#3D3D3D] transition"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Tillbaka
-          </Link>
-          <Link to="/" className="flex items-center gap-2">
-            <img
-              src="https://i.imgur.com/NqW2u9m.png"
-              alt="PTO"
-              className="h-6 w-auto"
-              loading="eager"
-            />
-          </Link>
-          <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#8A8177] uppercase tracking-wider">
-            <Lock className="w-3 h-3" />
-            Säker kassa
-          </div>
-        </div>
-      </header>
+      <CheckoutHeader />
 
       {/* ═══ MAIN CONTENT ═══ */}
       <main className="pt-20 pb-12 px-4">
@@ -224,7 +201,7 @@ export const Checkout: React.FC = () => {
                       className={`
                         flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all
                         ${paymentMethod === 'stripe'
-                          ? 'bg-[#3D3D3D] text-white shadow-md'
+                          ? 'bg-[#a0c81d] text-white shadow-md shadow-[#a0c81d]/20'
                           : 'bg-[#F6F1E7] text-[#6B6158] hover:bg-[#EDE8DD]'
                         }
                       `}
@@ -237,7 +214,7 @@ export const Checkout: React.FC = () => {
                       className={`
                         flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all
                         ${paymentMethod === 'friskvard'
-                          ? 'bg-[#3D3D3D] text-white shadow-md'
+                          ? 'bg-[#a0c81d] text-white shadow-md shadow-[#a0c81d]/20'
                           : 'bg-[#F6F1E7] text-[#6B6158] hover:bg-[#EDE8DD]'
                         }
                       `}
@@ -292,20 +269,8 @@ export const Checkout: React.FC = () => {
                           flex items-center justify-center gap-2
                         "
                       >
-                        {paymentMethod === 'friskvard' ? (
-                          <>
-                            <Receipt className="w-4 h-4" />
-                            Beställ friskvård · {plan.price.toLocaleString('sv-SE')} kr
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="w-4 h-4" />
-                            Betala{' '}
-                            {plan.mode === 'subscription'
-                              ? `${plan.price.toLocaleString('sv-SE')} kr/mån`
-                              : `${plan.price.toLocaleString('sv-SE')} kr`}
-                          </>
-                        )}
+                        Fortsätt
+                        <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>
                   )}
@@ -490,10 +455,13 @@ export const Checkout: React.FC = () => {
         </div>
       </main>
 
-      {/* Mini footer */}
-      <footer className="py-6 px-4 border-t border-[#E6E1D8]/60 text-center">
+      {/* Footer */}
+      <footer className="py-8 px-4 border-t border-[#E6E1D8]/60 text-center">
         <p className="text-[10px] text-[#8A8177] font-medium">
-          © {new Date().getFullYear()} Private Training Online · Org.nr 559387-3108
+          © {new Date().getFullYear()} Private Training Online · Org.nr 559387-3108 ·{' '}
+          <a href="https://www.privatetrainingonline.se" className="underline hover:text-[#3D3D3D] transition">
+            privatetrainingonline.se
+          </a>
         </p>
       </footer>
     </div>
