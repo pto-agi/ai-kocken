@@ -82,6 +82,39 @@ async function applyPendingEntitlement(admin: any, profile: ProfileRow, entitlem
     return true;
   }
 
+  if (entitlement.entitlement_type === 'package') {
+    const payload = entitlement.payload || {};
+    const monthCount = Number(payload.month_count) || 0;
+    if (monthCount <= 0) {
+      await markResolved(admin, entitlement.id);
+      return false;
+    }
+
+    // Calculate new expiry: from now + monthCount months
+    const now = new Date();
+    const currentExpiry = profile.coaching_expires_at
+      ? new Date(profile.coaching_expires_at)
+      : null;
+    const baseDate = (currentExpiry && currentExpiry > now) ? currentExpiry : now;
+    const newExpiry = new Date(baseDate);
+    newExpiry.setMonth(newExpiry.getMonth() + monthCount);
+    const newExpiresAt = newExpiry.toISOString().split('T')[0];
+
+    await admin
+      .from('profiles')
+      .update({
+        coaching_expires_at: newExpiresAt,
+        is_member: true,
+        membership_type: 'package',
+        subscription_status: 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', profile.id)
+      .throwOnError();
+    await markResolved(admin, entitlement.id);
+    return true;
+  }
+
   await markResolved(admin, entitlement.id);
   return false;
 }

@@ -31,6 +31,8 @@ const RefillTack = React.lazy(() => import('./pages/RefillTack').then((module) =
 const AuthRequired = React.lazy(() => import('./pages/AuthRequired').then((module) => ({ default: module.AuthRequired })));
 const Premium = React.lazy(() => import('./pages/Premium').then((module) => ({ default: module.Premium })));
 const AuthScreen = React.lazy(() => import('./components/AuthScreen'));
+const Checkout = React.lazy(() => import('./pages/Checkout').then((module) => ({ default: module.Checkout })));
+const CheckoutSuccess = React.lazy(() => import('./pages/CheckoutSuccess').then((module) => ({ default: module.CheckoutSuccess })));
 
 const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/': {
@@ -49,37 +51,9 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
     title: 'Mina sidor',
     description: 'Dashboard för översikt, snabbåtgärder och genvägar. Se status, senaste inlämningar och din adminpanel för medlemskap och konto.'
   },
-  '/profile/inlamningar': {
-    title: 'Inlämningar',
-    description: 'Historik för startformulär och uppföljningar. Skicka nya inlämningar och se status på tidigare.'
-  },
-  '/profile/adminpanel': {
-    title: 'Adminpanel',
-    description: 'Samlad panel för medlemskap, konto, leveransuppgifter och säkerhet.'
-  },
-  '/profile/medlemskap': {
-    title: 'Adminpanel',
-    description: 'Samlad panel för medlemskap, konto, leveransuppgifter och säkerhet.'
-  },
-  '/profile/konto': {
-    title: 'Adminpanel',
-    description: 'Samlad panel för medlemskap, konto, leveransuppgifter och säkerhet.'
-  },
-  '/nps': {
-    title: 'Feedback',
-    description: 'Ge oss feedback och hjälp oss bli bättre. Snabb NPS-enkät som tar 15 sekunder.'
-  },
-  '/referral': {
-    title: 'Tipsa en vän',
-    description: 'Dela din referenslänk och få belöning när vänner blir medlemmar. Referral-program för PTO.'
-  },
-  '/register': {
-    title: 'Bli medlem',
-    description: 'Skapa konto hos PTO. Personlig coaching, veckomeny och träning – kom igång på 30 sekunder.'
-  },
   '/start': {
     title: 'Startformulär',
-    description: 'Fyll i startformuläret för att kalibrera mål, träningsnivå och preferenser. Ger mer relevanta veckomenyer och rekommendationer från dag ett. Tar bara några minuter.'
+    description: 'Skicka in startformulär med mål, kost och träningsvanor så att vi kan skapa din coach-plan. Tar ett par minuter.'
   },
   '/start/tack': {
     title: 'Startformulär Mottaget',
@@ -136,6 +110,18 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
   '/sales-capital': {
     title: 'Sälj & Kapital',
     description: 'Power dashboard för försäljning, kapital och teamets momentum. Följ månadsmål, tillväxt och nyckeltal som driver fokus och avslut.'
+  },
+  '/checkout': {
+    title: 'Bli medlem',
+    description: 'Välj plan och starta din coaching med Private Training Online. Personlig coach, AI-recept och uppföljning — allt i en app.'
+  },
+  '/checkout/tack': {
+    title: 'Tack för ditt köp',
+    description: 'Din betalning är bekräftad. Nästa steg för att komma igång med Private Training Online.'
+  },
+  '/bli-klient': {
+    title: 'Bli klient',
+    description: 'Starta din resa med Private Training Online. Personlig coach, AI-drivna veckomenyer och skräddarsydd träning — allt i en app.'
   }
 };
 
@@ -200,173 +186,144 @@ function App() {
     <Router>
       <MetaManager />
       <ScrollToTop />
-      <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans selection:bg-[#a0c81d] selection:text-[#F6F1E7] flex flex-col">
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          {/* ── Distraction-free checkout (no Navbar/Footer) ── */}
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/bli-klient" element={<Checkout />} />
+          <Route path="/checkout/tack" element={<CheckoutSuccess />} />
 
-        <Navbar />
-
-        <main className="pt-20 flex-grow flex flex-col">
-          <Suspense fallback={<RouteFallback />}>
-            <Routes>
-            <Route
-              path="/"
-              element={
-                <Home />
-              }
-            />
-
-            <Route
-              path="/recept"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <Recipes />
-                </AuthGuard>
-              }
-            />
-
-            <Route
-              path="/nps"
-              element={
-                <PageContainer>
-                  <AuthGuard requirePremium={false}>
-                    <NpsSurvey />
-                  </AuthGuard>
-                </PageContainer>
-              }
-            />
-
-            <Route
-              path="/referral"
-              element={
-                <PageContainer>
-                  <AuthGuard requirePremium={false}>
-                    <ReferralPage />
-                  </AuthGuard>
-                </PageContainer>
-              }
-            />
-
-            <Route
-              path="/support"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <Support />
-                </AuthGuard>
-              }
-            />
-
-            <Route
-              path="/profile/*"
-              element={
-                <PageContainer>
-                  <AuthGuard requirePremium={false}>
-                    <Profile />
-                  </AuthGuard>
-                </PageContainer>
-              }
-            />
-
-            <Route
-              path="/start"
-              element={<Start />}
-            />
-            <Route
-              path="/start/tack"
-              element={<StartTack />}
-            />
-
-            <Route
-              path="/uppfoljning"
-              element={<Uppfoljning />}
-            />
-            <Route
-              path="/uppfoljning/tack"
-              element={<UppfoljningTack />}
-            />
-
-            <Route
-              path="/forlangning"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <Forlangning />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/tack-forlangning"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <ForlangningTack />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/tack-forlangning-friskvard"
-              element={
-                <AuthGuard requirePremium={false}>
-                  <ForlangningFriskvardTack />
-                </AuthGuard>
-              }
-            />
-
-            <Route
-              path="/refill"
-              element={<Refill />}
-            />
-            <Route
-              path="/refill/tack"
-              element={<RefillTack />}
-            />
-
-            <Route
-              path="/intranet"
-              element={
-                <AuthGuard requireStaff>
-                  <Intranet />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/intranet/manager"
-              element={
-                <AuthGuard requireStaff requireManager>
-                  <IntranetManager />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/intranet/todoist"
-              element={
-                <AuthGuard requireStaff requireManager>
-                  <IntranetTodoist />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/sales-capital"
-              element={
-                <AuthGuard requireStaff>
-                  <SalesCapital />
-                </AuthGuard>
-              }
-            />
-
-
-            <Route path="/auth" element={<AuthScreen />} />
-            <Route path="/register" element={<ReferralRegister />} />
-            <Route path="/auth-required" element={<AuthRequired />} />
-
-            <Route
-              path="/premium"
-              element={<PageContainer><Premium /></PageContainer>}
-            />
-
-            </Routes>
-          </Suspense>
-        </main>
-
-        <Footer />
-
-      </div>
+          {/* ── Standard layout with Navbar + Footer ── */}
+          <Route path="*" element={
+            <div className="min-h-screen bg-[#F6F1E7] text-[#3D3D3D] font-sans selection:bg-[#a0c81d] selection:text-[#F6F1E7] flex flex-col">
+              <Navbar />
+              <main className="pt-20 flex-grow flex flex-col">
+                <Suspense fallback={<RouteFallback />}>
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route
+                      path="/recept"
+                      element={
+                        <AuthGuard requirePremium={false}>
+                          <Recipes />
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
+                      path="/nps"
+                      element={
+                        <PageContainer>
+                          <AuthGuard requirePremium={false}>
+                            <NpsSurvey />
+                          </AuthGuard>
+                        </PageContainer>
+                      }
+                    />
+                    <Route
+                      path="/referral"
+                      element={
+                        <PageContainer>
+                          <AuthGuard requirePremium={false}>
+                            <ReferralPage />
+                          </AuthGuard>
+                        </PageContainer>
+                      }
+                    />
+                    <Route
+                      path="/support"
+                      element={
+                        <AuthGuard requirePremium={false}>
+                          <Support />
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
+                      path="/profile/*"
+                      element={
+                        <PageContainer>
+                          <AuthGuard requirePremium={false}>
+                            <Profile />
+                          </AuthGuard>
+                        </PageContainer>
+                      }
+                    />
+                    <Route path="/start" element={<Start />} />
+                    <Route path="/start/tack" element={<StartTack />} />
+                    <Route path="/uppfoljning" element={<Uppfoljning />} />
+                    <Route path="/uppfoljning/tack" element={<UppfoljningTack />} />
+                    <Route
+                      path="/forlangning"
+                      element={
+                        <AuthGuard requirePremium={false}>
+                          <Forlangning />
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
+                      path="/tack-forlangning"
+                      element={
+                        <AuthGuard requirePremium={false}>
+                          <ForlangningTack />
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
+                      path="/tack-forlangning-friskvard"
+                      element={
+                        <AuthGuard requirePremium={false}>
+                          <ForlangningFriskvardTack />
+                        </AuthGuard>
+                      }
+                    />
+                    <Route path="/refill" element={<Refill />} />
+                    <Route path="/refill/tack" element={<RefillTack />} />
+                    <Route
+                      path="/intranet"
+                      element={
+                        <AuthGuard requireStaff>
+                          <Intranet />
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
+                      path="/intranet/manager"
+                      element={
+                        <AuthGuard requireStaff requireManager>
+                          <IntranetManager />
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
+                      path="/intranet/todoist"
+                      element={
+                        <AuthGuard requireStaff requireManager>
+                          <IntranetTodoist />
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
+                      path="/sales-capital"
+                      element={
+                        <AuthGuard requireStaff>
+                          <SalesCapital />
+                        </AuthGuard>
+                      }
+                    />
+                    <Route path="/auth" element={<AuthScreen />} />
+                    <Route path="/register" element={<ReferralRegister />} />
+                    <Route path="/auth-required" element={<AuthRequired />} />
+                    <Route
+                      path="/premium"
+                      element={<PageContainer><Premium /></PageContainer>}
+                    />
+                  </Routes>
+                </Suspense>
+              </main>
+              <Footer />
+            </div>
+          } />
+        </Routes>
+      </Suspense>
     </Router>
   );
 }

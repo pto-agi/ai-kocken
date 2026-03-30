@@ -474,6 +474,130 @@ async function markEventProcessed(admin: any, event: Stripe.Event, status: 'proc
   }
 }
 
+async function processPackagePurchase(admin: any, pi: Stripe.PaymentIntent) {
+  const meta = pi.metadata || {};
+  const email = (meta.email || '').trim().toLowerCase();
+  const monthCount = parseInt(meta.month_count || '0', 10);
+  const planId = meta.plan_id || '';
+  const planLabel = meta.plan_label || '';
+  const userId = meta.user_id || '';
+  const fullName = meta.full_name || '';
+  const amountKr = Math.round((pi.amount || 0) / 100);
+
+  if (!email || monthCount <= 0) return;
+
+  // Mark transaction as paid
+  await markTransaction(admin, {
+    paymentIntentId: pi.id,
+    status: 'paid',
+    metadata: meta,
+  });
+
+  // Find existing profile
+  const profileId = await resolveProfileId(admin, userId || undefined, email);
+  const profile = profileId ? await findProfileById(admin, profileId) : null;
+
+  if (profile) {
+    // ── Existing client: extend coaching_expires_at ──
+    const now = new Date();
+    const currentExpiry = profile.coaching_expires_at
+      ? new Date(profile.coaching_expires_at)
+      : null;
+    const baseDate = (currentExpiry && currentExpiry > now) ? currentExpiry : now;
+
+    const newExpiry = new Date(baseDate);
+    newExpiry.setMonth(newExpiry.getMonth() + monthCount);
+    const newExpiresAt = newExpiry.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    try {
+      await admin
+        .from('profiles')
+        .update({
+          coaching_expires_at: newExpiresAt,
+          is_member: true,
+          membership_type: 'package',
+          subscription_status: 'active',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', profile.id)
+        .throwOnError();
+    } catch {
+      // non-blocking
+    }
+
+    // Resolve any earlier pending entitlements
+    await resolvePendingEntitlements(admin, { email, flow: 'checkout' });
+
+    // Forward to AG-Agent for Sheet/TZ/email
+    try {
+      const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
+      const nameParts = fullName.split(' ');
+
+      const agentPayload = {
+        email,
+        first_name: nameParts[0] || '',
+        last_name: nameParts.slice(1).join(' ') || '',
+        month_count: monthCount,
+        total_price: amountKr,
+        current_expires_at: profile.coaching_expires_at || '',
+        new_expires_at: newExpiresAt,
+        payment_method: 'stripe',
+      };
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10_000);
+          const res = await fetch(`${agentBaseUrl}/api/economy/forlangning`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(agentPayload),
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          if (res.ok) break;
+        } catch {
+          // retry
+        }
+      }
+    } catch {
+      // non-blocking
+    }
+  } else {
+    // ── New client: create pending entitlement ──
+    await createPendingEntitlement(admin, {
+      email,
+      flow: 'package',
+      metadata: {
+        plan_id: planId,
+        plan_label: planLabel,
+        month_count: monthCount,
+        amount: amountKr,
+        full_name: fullName,
+        payment_intent_id: pi.id,
+      },
+    });
+  }
+
+  // Activity log (non-blocking)
+  try {
+    await admin.from('agent_activity_log').insert({
+      type: 'membership',
+      title: profile
+        ? `Paket köp (förlängning): ${fullName || email}`
+        : `Nytt paket köp: ${fullName || email} (väntar på registrering)`,
+      summary: profile
+        ? `${planLabel} (${monthCount} mån) köpt för ${amountKr} kr. coaching_expires_at uppdaterat.`
+        : `${planLabel} (${monthCount} mån) köpt för ${amountKr} kr. Väntande — kund har inte registrerat sig ännu.`,
+      status: 'done',
+      client_name: fullName || email,
+      metadata: { pi_id: pi.id, email, planId, monthCount, amountKr, hasProfile: !!profile },
+    }).throwOnError();
+  } catch {
+    // non-blocking
+  }
+}
+
 export default async function handler(req: any, res: any) {
   const origin = req.headers?.origin as string | undefined;
   setCors(res, origin);
@@ -544,6 +668,15 @@ export default async function handler(req: any, res: any) {
         }
         case 'invoice.payment_failed': {
           await processInvoice(admin, event.data.object as Stripe.Invoice, false);
+          break;
+        }
+        case 'payment_intent.succeeded': {
+          const pi = event.data.object as Stripe.PaymentIntent;
+          const meta = pi.metadata || {};
+          // Only process intents from our checkout flow (not checkout sessions)
+          if (meta.flow === 'checkout' && meta.plan_id && meta.month_count) {
+            await processPackagePurchase(admin, pi);
+          }
           break;
         }
         default:

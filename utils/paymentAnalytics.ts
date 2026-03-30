@@ -1,9 +1,10 @@
-type CheckoutEventName = 'checkout_started' | 'checkout_completed';
+type CheckoutEventName = 'checkout_started' | 'checkout_completed' | 'plan_selected' | 'payment_submitted';
 
 type CheckoutEventPayload = {
-  flow: 'premium' | 'forlangning' | 'refill';
-  mode: 'payment' | 'subscription';
+  flow: 'premium' | 'forlangning' | 'refill' | 'checkout';
+  mode?: 'payment' | 'subscription';
   sessionId?: string;
+  planId?: string;
 };
 
 export function trackCheckoutEvent(name: CheckoutEventName, payload: CheckoutEventPayload): void {
