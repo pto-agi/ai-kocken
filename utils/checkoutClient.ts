@@ -25,13 +25,13 @@ export async function createIntent(
   payload: CreateIntentPayload,
   accessToken?: string | null,
 ): Promise<CreateIntentResponse> {
-  const response = await fetch('/api/payments/create-intent', {
+  const response = await fetch('/api/payments/create-checkout-session', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, flow: 'checkout' }),
   });
 
   const data = await response.json().catch(() => ({}));
