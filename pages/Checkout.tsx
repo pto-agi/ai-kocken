@@ -96,13 +96,23 @@ export const Checkout: React.FC = () => {
 
   useEffect(() => {
     trackCheckoutEvent('checkout_started', { flow: 'checkout', mode: plan.mode });
-    // GA4 / GTM
+    // GA4 e-commerce: begin_checkout
     if (typeof window !== 'undefined') {
       window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ ecommerce: null }); // Clear previous
       window.dataLayer.push({
         event: 'begin_checkout',
-        page_title: 'Checkout',
-        page_path: '/checkout',
+        ecommerce: {
+          currency: 'SEK',
+          value: plan.price,
+          items: [{
+            item_id: selectedPlanId,
+            item_name: plan.label,
+            price: plan.price,
+            currency: 'SEK',
+            quantity: 1,
+          }],
+        },
       });
     }
   }, []);
@@ -110,12 +120,61 @@ export const Checkout: React.FC = () => {
   const handlePlanSelect = useCallback((planId: string) => {
     setSelectedPlanId(planId);
     setState({ phase: 'selecting' });
+    // GA4 e-commerce: select_item
+    const selected = getPlanById(planId);
+    if (selected && typeof window !== 'undefined') {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ ecommerce: null });
+      window.dataLayer.push({
+        event: 'select_item',
+        ecommerce: {
+          currency: 'SEK',
+          items: [{
+            item_id: planId,
+            item_name: selected.label,
+            price: selected.price,
+            currency: 'SEK',
+            quantity: 1,
+          }],
+        },
+      });
+    }
   }, []);
 
   const handleStartPayment = useCallback(async () => {
     if (!email.trim()) {
       setState({ phase: 'error', message: 'Ange din e-postadress.' });
       return;
+    }
+
+    // GA4 e-commerce: add_payment_info
+    if (typeof window !== 'undefined') {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ ecommerce: null });
+      window.dataLayer.push({
+        event: 'add_payment_info',
+        ecommerce: {
+          currency: 'SEK',
+          value: plan.price,
+          payment_type: paymentMethod === 'friskvard' ? 'friskvardsbidrag' : 'card_klarna',
+          items: [{
+            item_id: selectedPlanId,
+            item_name: plan.label,
+            price: plan.price,
+            currency: 'SEK',
+            quantity: 1,
+          }],
+        },
+      });
+      // Persist for purchase event on success page
+      try {
+        sessionStorage.setItem('pto_checkout_plan', JSON.stringify({
+          id: selectedPlanId,
+          label: plan.label,
+          price: plan.price,
+          currency: 'SEK',
+        }));
+      } catch { /* noop */ }
     }
 
     if (paymentMethod === 'friskvard') {

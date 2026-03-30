@@ -39,6 +39,49 @@ export const CheckoutSuccess: React.FC = () => {
   useEffect(() => {
     trackCheckoutEvent('checkout_completed', { flow: 'checkout' as any });
 
+    // GA4 e-commerce: purchase (conversion event for Google Ads)
+    if (typeof window !== 'undefined') {
+      const sessionId = searchParams.get('session_id') || searchParams.get('payment_intent') || '';
+      // Try to recover plan info from sessionStorage (set during checkout)
+      let planId = 'unknown';
+      let planLabel = 'PTO Coaching';
+      let planPrice = 0;
+      let planCurrency = 'SEK';
+      try {
+        const stored = sessionStorage.getItem('pto_checkout_plan');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          planId = parsed.id || planId;
+          planLabel = parsed.label || planLabel;
+          planPrice = parsed.price || planPrice;
+          planCurrency = parsed.currency || planCurrency;
+        }
+      } catch {
+        // noop
+      }
+
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ ecommerce: null }); // Clear previous
+      window.dataLayer.push({
+        event: 'purchase',
+        ecommerce: {
+          transaction_id: sessionId || `pto_${Date.now()}`,
+          value: planPrice,
+          currency: planCurrency,
+          items: [{
+            item_id: planId,
+            item_name: planLabel,
+            price: planPrice,
+            currency: planCurrency,
+            quantity: 1,
+          }],
+        },
+      });
+
+      // Clean up
+      try { sessionStorage.removeItem('pto_checkout_plan'); } catch { /* noop */ }
+    }
+
     // Auto-hide confetti after animation
     const timeout = setTimeout(() => setShowConfetti(false), 5000);
     return () => clearTimeout(timeout);
