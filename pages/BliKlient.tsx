@@ -1,12 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dumbbell, Utensils, BarChart3, Smartphone, MessageCircle,
-  ChevronDown, ArrowRight, Star, Shield, Zap,
-  Users, Award, Clock, Lock, CheckCircle2,
+  ChevronDown, ArrowRight, Star, Shield, Zap, Home,
+  Users, Award, Clock, Lock, CheckCircle2, Undo2,
 } from 'lucide-react';
 
 import { CheckoutHeader } from '../components/checkout/CheckoutHeader';
+
+// ── GTM dataLayer helper ──
+
+declare global {
+  interface Window {
+    dataLayer?: Record<string, unknown>[];
+  }
+}
+
+function pushEvent(event: string, params?: Record<string, unknown>) {
+  if (typeof window !== 'undefined') {
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({ event, ...params });
+  }
+}
 
 // ── Data ──
 
@@ -43,15 +58,24 @@ const FEATURES = [
   },
 ];
 
+const USP_BULLETS = [
+  { icon: Users, text: 'Över 30 000 nöjda klienter sedan 2012' },
+  { icon: CheckCircle2, text: 'Priset gäller för hela perioden' },
+  { icon: Zap, text: 'Inga månadsavgifter eller bindningstider' },
+  { icon: Home, text: 'Träna hemma, utomhus eller på gym' },
+  { icon: Undo2, text: '14 dagars ångerrätt' },
+  { icon: Award, text: 'Godkänt för friskvårdsbidrag' },
+];
+
 const HOW_IT_WORKS = [
-  { step: '1', title: 'Välj plan', desc: 'Bestäm dig för ett paket eller månadsvis coaching.' },
-  { step: '2', title: 'Betala enkelt', desc: 'Snabb betalning med kort, Klarna, Apple Pay eller friskvård.' },
-  { step: '3', title: 'Kom igång', desc: 'Du får instruktioner direkt — skicka in ditt startformulär och börja.' },
+  { step: '1', title: 'Välj plan & betala', desc: 'Välj ett paket eller månadsvis coaching. Betala med kort, Klarna, Apple Pay eller friskvårdsbidrag.' },
+  { step: '2', title: 'Din coach hör av sig', desc: 'Du väljer själv önskat startdatum. Din nya coach kontaktar dig inom 24 timmar.' },
+  { step: '3', title: 'Kom igång', desc: 'Fyll i ditt startformulär, få ditt skräddarsydda program och börja direkt.' },
 ];
 
 const FAQ = [
   {
-    q: 'Vad ingår i ett medlemskap?',
+    q: 'Vad ingår?',
     a: 'Personlig coach, skräddarsytt tränings- och kostschema, AI-drivna veckomenyer, regelbunden uppföljning och ny planering varje månad. Allt samlat i en app.',
   },
   {
@@ -63,8 +87,8 @@ const FAQ = [
     a: 'Ja! Välj "Friskvårdsbidrag" som betalmetod i kassan. Du kan betala hela eller delar via din arbetsgivares friskvårdsportal.',
   },
   {
-    q: 'Kan jag testa först?',
-    a: 'Vi erbjuder inget gratis provabonnemang, men du kan starta med ett 3-månaderspaket och se hur det fungerar för dig.',
+    q: 'När kan jag börja?',
+    a: 'Du väljer själv önskat startdatum och kan börja när du vill. När du slutfört din anmälan så har du kontakt med din nya coach inom 24 timmar.',
   },
   {
     q: 'Hur snabbt kommer jag igång?',
@@ -73,20 +97,27 @@ const FAQ = [
 ];
 
 const PRICING_PREVIEW = [
-  { label: '3 månader', price: '1 995', per: '665 kr/mån', popular: false },
-  { label: '6 månader', price: '2 995', per: '499 kr/mån', popular: true },
-  { label: '12 månader', price: '3 995', per: '333 kr/mån', popular: false },
-  { label: 'Månadsvis', price: '495', per: 'kr/mån', popular: false },
+  { label: '3 månader', price: '1 995', per: '665 kr/mån', popular: false, id: '3m' },
+  { label: '6 månader', price: '2 995', per: '499 kr/mån', popular: true, id: '6m' },
+  { label: '12 månader', price: '3 995', per: '333 kr/mån', popular: false, id: '12m' },
+  { label: 'Månadsvis', price: '495', per: 'kr/mån', popular: false, id: 'monthly' },
 ];
 
 // ── CTA Button ──
 
-const CtaButton: React.FC<{ className?: string }> = ({ className = '' }) => {
+const CtaButton: React.FC<{ className?: string; label?: string; eventName?: string }> = ({
+  className = '',
+  label = 'Kom igång nu',
+  eventName = 'cta_click',
+}) => {
   const navigate = useNavigate();
   return (
     <button
       type="button"
-      onClick={() => navigate('/checkout')}
+      onClick={() => {
+        pushEvent(eventName, { page: 'bli-klient', label });
+        navigate('/checkout');
+      }}
       className={`
         inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl
         bg-[#a0c81d] text-white font-black text-sm uppercase tracking-widest
@@ -96,7 +127,7 @@ const CtaButton: React.FC<{ className?: string }> = ({ className = '' }) => {
         ${className}
       `}
     >
-      Kom igång nu
+      {label}
       <ArrowRight className="w-4 h-4" />
     </button>
   );
@@ -106,6 +137,34 @@ const CtaButton: React.FC<{ className?: string }> = ({ className = '' }) => {
 
 export const BliKlient: React.FC = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // GA4: page_view event
+  useEffect(() => {
+    pushEvent('page_view', {
+      page_title: 'Bli klient',
+      page_location: window.location.href,
+      page_path: '/bli-klient',
+    });
+    pushEvent('view_item_list', {
+      item_list_name: 'bli-klient-pricing',
+      items: PRICING_PREVIEW.map((p) => ({
+        item_id: p.id,
+        item_name: p.label,
+        price: parseFloat(p.price.replace(/\s/g, '')),
+        currency: 'SEK',
+      })),
+    });
+  }, []);
+
+  const handleFaqToggle = useCallback((i: number) => {
+    setOpenFaq((prev) => {
+      const next = prev === i ? null : i;
+      if (next !== null) {
+        pushEvent('faq_click', { question: FAQ[i].q });
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F6F1E7]">
@@ -118,6 +177,7 @@ export const BliKlient: React.FC = () => {
         </div>
 
         <div className="max-w-4xl mx-auto text-center relative">
+          {/* Social proof badge */}
           <div className="inline-flex items-center gap-2 rounded-full bg-white/70 border border-[#E6E1D8] px-4 py-1.5 mb-6 backdrop-blur-sm">
             <div className="flex -space-x-1">
               {[...Array(5)].map((_, i) => (
@@ -125,7 +185,7 @@ export const BliKlient: React.FC = () => {
               ))}
             </div>
             <span className="text-xs font-bold text-[#3D3D3D]">
-              4.9/5 · 500+ nöjda klienter
+              Över 30 000 nöjda klienter sedan 2012
             </span>
           </div>
 
@@ -135,12 +195,19 @@ export const BliKlient: React.FC = () => {
             <span className="text-[#a0c81d]">I fickan.</span>
           </h1>
 
-          <p className="text-base md:text-lg text-[#6B6158] font-medium max-w-lg mx-auto mb-8 leading-relaxed">
-            Skräddarsytt träningsprogram, AI-drivna veckomenyer och personlig uppföljning — allt samlat i en app. Kom igång på 2 minuter.
+          <p className="text-base md:text-lg text-[#6B6158] font-medium max-w-xl mx-auto mb-4 leading-relaxed">
+            Skräddarsytt träningsprogram, AI-drivna veckomenyer och personlig uppföljning — allt samlat i en app.
           </p>
 
-          <CtaButton />
+          <p className="text-sm text-[#3D3D3D] font-bold mb-8">
+            Du väljer själv önskat startdatum och kan börja när du vill.
+            <br className="hidden sm:block" />
+            {' '}Din nya coach kontaktar dig inom 24 timmar.
+          </p>
 
+          <CtaButton label="Bli klient" eventName="hero_cta_click" />
+
+          {/* Trust strip */}
           <div className="flex flex-wrap items-center justify-center gap-4 mt-8 text-[10px] font-bold text-[#8A8177] uppercase tracking-wider">
             <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Säker betalning</span>
             <span className="hidden sm:inline">·</span>
@@ -151,8 +218,27 @@ export const BliKlient: React.FC = () => {
         </div>
       </section>
 
+      {/* ═══ USP BULLETS ═══ */}
+      <section className="py-12 px-4 bg-white/40">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {USP_BULLETS.map(({ icon: Icon, text }) => (
+              <div
+                key={text}
+                className="flex items-center gap-3 rounded-2xl bg-white border border-[#E6E1D8] px-4 py-3.5"
+              >
+                <div className="w-8 h-8 rounded-lg bg-[#f5fae6] flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-4 h-4 text-[#6B8A12]" />
+                </div>
+                <span className="text-xs font-bold text-[#3D3D3D]">{text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ═══ WHAT'S INCLUDED ═══ */}
-      <section className="py-16 md:py-20 px-4 bg-white/40">
+      <section className="py-16 md:py-20 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#a0c81d] mb-2">
@@ -185,7 +271,7 @@ export const BliKlient: React.FC = () => {
       </section>
 
       {/* ═══ HOW IT WORKS ═══ */}
-      <section className="py-16 md:py-20 px-4">
+      <section className="py-16 md:py-20 px-4 bg-white/40">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#a0c81d] mb-2">
@@ -220,26 +306,37 @@ export const BliKlient: React.FC = () => {
       </section>
 
       {/* ═══ PRICING PREVIEW ═══ */}
-      <section className="py-16 md:py-20 px-4 bg-white/40">
+      <section className="py-16 md:py-20 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#a0c81d] mb-2">
               Enkla priser
             </h2>
             <p className="text-xl md:text-2xl font-black text-[#3D3D3D]">
-              Välj det upplägg som passar dig
+              Priset gäller för hela perioden
+            </p>
+            <p className="text-sm text-[#6B6158] font-medium mt-2">
+              Inga dolda avgifter. Inga bindningstider.
             </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-            {PRICING_PREVIEW.map(({ label, price, per, popular }) => (
-              <div
+            {PRICING_PREVIEW.map(({ label, price, per, popular, id }) => (
+              <button
+                type="button"
                 key={label}
+                onClick={() => {
+                  pushEvent('select_item', {
+                    item_list_name: 'bli-klient-pricing',
+                    items: [{ item_id: id, item_name: label, price: parseFloat(price.replace(/\s/g, '')), currency: 'SEK' }],
+                  });
+                  window.location.href = '/checkout';
+                }}
                 className={`
-                  rounded-2xl p-5 text-center relative border transition-all
+                  rounded-2xl p-5 text-center relative border transition-all cursor-pointer
                   ${popular
-                    ? 'bg-[#3D3D3D] border-[#3D3D3D] text-white shadow-xl shadow-black/10'
-                    : 'bg-white border-[#E6E1D8] hover:border-[#a0c81d]/40'
+                    ? 'bg-[#3D3D3D] border-[#3D3D3D] text-white shadow-xl shadow-black/10 hover:bg-[#2d2d2d]'
+                    : 'bg-white border-[#E6E1D8] hover:border-[#a0c81d]/40 hover:shadow-md'
                   }
                 `}
               >
@@ -257,24 +354,24 @@ export const BliKlient: React.FC = () => {
                 <p className={`text-[10px] font-medium ${popular ? 'text-white/50' : 'text-[#8A8177]'}`}>
                   {per}
                 </p>
-              </div>
+              </button>
             ))}
           </div>
 
           <div className="text-center">
-            <CtaButton />
+            <CtaButton label="Välj plan & kom igång" eventName="pricing_cta_click" />
           </div>
         </div>
       </section>
 
       {/* ═══ TRUST SIGNALS ═══ */}
-      <section className="py-12 px-4">
+      <section className="py-12 px-4 bg-white/40">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { icon: Shield, label: 'Krypterad betalning', sub: 'via Stripe' },
-              { icon: Zap, label: 'Ingen bindningstid', sub: 'avsluta när du vill' },
-              { icon: Users, label: '500+ klienter', sub: 'sedan 2019' },
+              { icon: Undo2, label: '14 dagars ångerrätt', sub: 'riskfritt' },
+              { icon: Users, label: '30 000+ klienter', sub: 'sedan 2012' },
               { icon: Award, label: 'Friskvårdsgodkänd', sub: 'av Skatteverket' },
             ].map(({ icon: Icon, label, sub }) => (
               <div
@@ -291,7 +388,7 @@ export const BliKlient: React.FC = () => {
       </section>
 
       {/* ═══ FAQ ═══ */}
-      <section className="py-16 md:py-20 px-4 bg-white/40">
+      <section className="py-16 md:py-20 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#a0c81d] mb-2">
@@ -310,7 +407,7 @@ export const BliKlient: React.FC = () => {
               >
                 <button
                   type="button"
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  onClick={() => handleFaqToggle(i)}
                   className="w-full flex items-center justify-between px-5 py-4 text-left"
                 >
                   <span className="text-sm font-bold text-[#3D3D3D] pr-4">{q}</span>
@@ -336,15 +433,18 @@ export const BliKlient: React.FC = () => {
       </section>
 
       {/* ═══ BOTTOM CTA ═══ */}
-      <section className="py-16 md:py-20 px-4">
+      <section className="py-16 md:py-20 px-4 bg-white/40">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-xl md:text-2xl font-black text-[#3D3D3D] mb-3">
             Redo att börja?
           </h2>
-          <p className="text-sm text-[#6B6158] font-medium mb-6">
+          <p className="text-sm text-[#6B6158] font-medium mb-2">
             Välj plan, betala enkelt och kom igång direkt. Ditt team väntar.
           </p>
-          <CtaButton />
+          <p className="text-xs text-[#8A8177] mb-6">
+            14 dagars ångerrätt · Ingen bindningstid · Friskvårdsgodkänd
+          </p>
+          <CtaButton label="Bli klient" eventName="bottom_cta_click" />
         </div>
       </section>
 

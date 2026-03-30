@@ -96,6 +96,15 @@ export const Checkout: React.FC = () => {
 
   useEffect(() => {
     trackCheckoutEvent('checkout_started', { flow: 'checkout', mode: plan.mode });
+    // GA4 / GTM
+    if (typeof window !== 'undefined') {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'begin_checkout',
+        page_title: 'Checkout',
+        page_path: '/checkout',
+      });
+    }
   }, []);
 
   const handlePlanSelect = useCallback((planId: string) => {
