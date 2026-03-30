@@ -32,6 +32,7 @@ const AuthRequired = React.lazy(() => import('./pages/AuthRequired').then((modul
 const Premium = React.lazy(() => import('./pages/Premium').then((module) => ({ default: module.Premium })));
 const AuthScreen = React.lazy(() => import('./components/AuthScreen'));
 const Checkout = React.lazy(() => import('./pages/Checkout').then((module) => ({ default: module.Checkout })));
+const BliKlient = React.lazy(() => import('./pages/BliKlient').then((module) => ({ default: module.BliKlient })));
 const CheckoutSuccess = React.lazy(() => import('./pages/CheckoutSuccess').then((module) => ({ default: module.CheckoutSuccess })));
 
 const META_BY_PATH: Record<string, { title: string; description: string }> = {
@@ -190,7 +191,7 @@ function App() {
         <Routes>
           {/* ── Distraction-free checkout (no Navbar/Footer) ── */}
           <Route path="/checkout" element={<Checkout />} />
-          <Route path="/bli-klient" element={<Checkout />} />
+          <Route path="/bli-klient" element={<BliKlient />} />
           <Route path="/checkout/tack" element={<CheckoutSuccess />} />
 
           {/* ── Standard layout with Navbar + Footer ── */}
