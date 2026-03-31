@@ -432,6 +432,18 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                                     )}
                                 </button>
 
+                                {!isLogin && !isForgotPassword && !isRecoveryMode && (
+                                    <p className="text-[10px] text-[#B5AFA6] text-center leading-relaxed mt-1">
+                                        Genom att skapa konto godkänner du våra{' '}
+                                        <a href="https://privatetrainingonline.se/villkor" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#8A8177]">
+                                            villkor
+                                        </a>{' '}och{' '}
+                                        <a href="https://privatetrainingonline.se/integritetspolicy" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#8A8177]">
+                                            integritetspolicy
+                                        </a>, inkl. cookies för analys och marknadsföring.
+                                    </p>
+                                )}
+
                                 {(isForgotPassword || isRecoveryMode) && (
                                     <button
                                         type="button"
