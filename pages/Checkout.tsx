@@ -479,35 +479,62 @@ export const Checkout: React.FC = () => {
               </div>
 
               <div className="rounded-3xl bg-white border border-[#E6E1D8] shadow-xl shadow-black/[0.04] p-6 md:p-8">
-                {/* Payment method tabs */}
-                <div className="flex gap-2 mb-6">
+                {/* Payment method selector */}
+                <div className="space-y-2 mb-6">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Betalningsmetod</p>
                   <button
                     type="button"
                     onClick={() => { setPaymentMethod('stripe'); setState({ phase: 'selecting' }); }}
                     className={`
-                      flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5
+                      w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-all text-left
                       ${paymentMethod === 'stripe'
-                        ? 'bg-[#a0c81d] text-white shadow-md shadow-[#a0c81d]/20'
-                        : 'bg-[#F6F1E7] text-[#6B6158] hover:bg-[#EDE8DD]'
+                        ? 'border-[#a0c81d] bg-[#f5fae6]/50 shadow-sm shadow-[#a0c81d]/10'
+                        : 'border-[#E6E1D8] bg-white hover:border-[#C5BFB5]'
                       }
                     `}
                   >
-                    <CreditCard className="w-3.5 h-3.5" />
-                    Kort / Klarna
+                    <div className={`
+                      w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors
+                      ${paymentMethod === 'stripe' ? 'border-[#a0c81d]' : 'border-[#C5BFB5]'}
+                    `}>
+                      {paymentMethod === 'stripe' && (
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#a0c81d]" />
+                      )}
+                    </div>
+                    <CreditCard className={`w-4 h-4 flex-shrink-0 ${paymentMethod === 'stripe' ? 'text-[#6B8A12]' : 'text-[#8A8177]'}`} />
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm font-bold block ${paymentMethod === 'stripe' ? 'text-[#3D3D3D]' : 'text-[#6B6158]'}`}>
+                        Kort / Klarna
+                      </span>
+                      <span className="text-[10px] text-[#8A8177] font-medium">Betala direkt med kort, Apple Pay eller Klarna</span>
+                    </div>
                   </button>
                   <button
                     type="button"
                     onClick={() => { setPaymentMethod('friskvard'); setState({ phase: 'selecting' }); }}
                     className={`
-                      flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5
+                      w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-all text-left
                       ${paymentMethod === 'friskvard'
-                        ? 'bg-[#a0c81d] text-white shadow-md shadow-[#a0c81d]/20'
-                        : 'bg-[#F6F1E7] text-[#6B6158] hover:bg-[#EDE8DD]'
+                        ? 'border-[#a0c81d] bg-[#f5fae6]/50 shadow-sm shadow-[#a0c81d]/10'
+                        : 'border-[#E6E1D8] bg-white hover:border-[#C5BFB5]'
                       }
                     `}
                   >
-                    <Dumbbell className="w-3.5 h-3.5" />
-                    Friskvårdsbidrag
+                    <div className={`
+                      w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors
+                      ${paymentMethod === 'friskvard' ? 'border-[#a0c81d]' : 'border-[#C5BFB5]'}
+                    `}>
+                      {paymentMethod === 'friskvard' && (
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#a0c81d]" />
+                      )}
+                    </div>
+                    <Dumbbell className={`w-4 h-4 flex-shrink-0 ${paymentMethod === 'friskvard' ? 'text-[#6B8A12]' : 'text-[#8A8177]'}`} />
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm font-bold block ${paymentMethod === 'friskvard' ? 'text-[#3D3D3D]' : 'text-[#6B6158]'}`}>
+                        Friskvårdsbidrag
+                      </span>
+                      <span className="text-[10px] text-[#8A8177] font-medium">Betala via din arbetsgivares friskvårdsbidrag</span>
+                    </div>
                   </button>
                 </div>
 
