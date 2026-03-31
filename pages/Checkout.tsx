@@ -6,7 +6,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Loader2, AlertTriangle, Receipt, Lock, ArrowRight,
   Shield, Zap, Award, CheckCircle2, LogIn, UserCircle2,
-  CreditCard, Dumbbell,
+  CreditCard, Dumbbell, Sparkles, Check,
 } from 'lucide-react';
 
 import { CHECKOUT_PLANS, DEFAULT_PLAN_ID, getPlanById, buildRenewalPlan } from '../lib/checkoutPlans';
@@ -63,14 +63,16 @@ const PTO_APPEARANCE: Appearance = {
   },
 };
 
-// ── Included features for summary ──
+// ── Hero features ──
 
-const INCLUDED = [
-  'Personlig coach & träningsprogram',
-  'AI-drivna veckomenyer med recept',
-  'Månatlig uppföljning & ny planering',
-  'Chatt med ditt team',
+const HERO_FEATURES = [
   'Allt i en app',
+  'Skräddarsytt unikt efter just dig',
+  'Nya program varje månad efter din utveckling & feedback',
+  'Kostschema med förslag på recept',
+  'Regelbundna uppföljningar',
+  '14 dagars ångerrätt',
+  'Godkänt för friskvårdsbidrag',
 ];
 
 // ── Types ──
@@ -405,99 +407,131 @@ export const Checkout: React.FC = () => {
               </p>
             </div>
           )}
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-xl md:text-2xl font-black text-[#3D3D3D] mb-1">
-              {isActiveMember ? 'Förläng ditt medlemskap' : 'Slutför ditt köp'}
-            </h1>
-            <p className="text-sm text-[#6B6158] font-medium">
-              {isActiveMember
-                ? 'Välj ditt erbjudande eller en ny plan'
-                : 'Välj plan och betala — du är igång på 2 minuter'
-              }
-            </p>
-          </div>
+          {/* ═══ HERO FEATURE SECTION ═══ */}
+          <div className="relative mb-10 rounded-3xl overflow-hidden">
+            {/* Gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#3D3D3D] via-[#4a4a4a] to-[#2a2a2a]" />
+            {/* Subtle pattern overlay */}
+            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+            {/* Green glow */}
+            <div className="absolute -top-20 -right-20 w-60 h-60 bg-[#a0c81d] rounded-full blur-[100px] opacity-20" />
+            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-[#a0c81d] rounded-full blur-[80px] opacity-10" />
 
-          {/* Two-column layout */}
-          <div className="flex flex-col lg:flex-row gap-8">
-
-            {/* ── LEFT: Plan selection + Payment form ── */}
-            <div className="lg:w-[60%] space-y-6">
-
-              {/* Step 1: Plan selector */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 rounded-full bg-[#a0c81d] text-white font-black text-[10px] flex items-center justify-center">1</div>
-                  <h2 className="text-xs font-black uppercase tracking-widest text-[#3D3D3D]">Välj plan</h2>
+            <div className="relative px-6 py-8 md:px-10 md:py-10">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-xl bg-[#a0c81d] flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-white" />
                 </div>
-                <PlanSelector
-                  plans={availablePlans}
-                  selectedPlanId={selectedPlanId}
-                  onSelect={handlePlanSelect}
-                />
+                <h2 className="text-xs font-black uppercase tracking-[0.15em] text-white/60">Detta ingår</h2>
               </div>
 
-              {/* Step 2: Payment */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 rounded-full bg-[#a0c81d] text-white font-black text-[10px] flex items-center justify-center">2</div>
-                  <h2 className="text-xs font-black uppercase tracking-widest text-[#3D3D3D]">Betalning</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+                {HERO_FEATURES.map((feature, i) => (
+                  <div
+                    key={feature}
+                    className="flex items-start gap-3 group"
+                    style={{ animationDelay: `${i * 60}ms` }}
+                  >
+                    <div className="mt-0.5 w-5 h-5 rounded-lg bg-[#a0c81d]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#a0c81d]/30 transition-colors">
+                      <Check className="w-3 h-3 text-[#a0c81d]" />
+                    </div>
+                    <span className="text-sm text-white/90 font-medium leading-snug">{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ═══ CHECKOUT CONTENT (single column, centered) ═══ */}
+          <div className="max-w-xl mx-auto space-y-6">
+
+            {/* Title */}
+            <div className="text-center">
+              <h1 className="text-xl md:text-2xl font-black text-[#3D3D3D] mb-1">
+                {isActiveMember ? 'Förläng ditt medlemskap' : 'Slutför ditt köp'}
+              </h1>
+              <p className="text-sm text-[#6B6158] font-medium">
+                {isActiveMember
+                  ? 'Välj ditt erbjudande eller en ny plan'
+                  : 'Välj plan och betala — du är igång på 2 minuter'
+                }
+              </p>
+            </div>
+
+            {/* Step 1: Plan selector */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-[#a0c81d] text-white font-black text-[10px] flex items-center justify-center">1</div>
+                <h2 className="text-xs font-black uppercase tracking-widest text-[#3D3D3D]">Välj plan</h2>
+              </div>
+              <PlanSelector
+                plans={availablePlans}
+                selectedPlanId={selectedPlanId}
+                onSelect={handlePlanSelect}
+              />
+            </div>
+
+            {/* Step 2: Payment */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-[#a0c81d] text-white font-black text-[10px] flex items-center justify-center">2</div>
+                <h2 className="text-xs font-black uppercase tracking-widest text-[#3D3D3D]">Betalning</h2>
+              </div>
+
+              <div className="rounded-3xl bg-white border border-[#E6E1D8] shadow-xl shadow-black/[0.04] p-6 md:p-8">
+                {/* Payment method tabs */}
+                <div className="flex gap-2 mb-6">
+                  <button
+                    type="button"
+                    onClick={() => { setPaymentMethod('stripe'); setState({ phase: 'selecting' }); }}
+                    className={`
+                      flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5
+                      ${paymentMethod === 'stripe'
+                        ? 'bg-[#a0c81d] text-white shadow-md shadow-[#a0c81d]/20'
+                        : 'bg-[#F6F1E7] text-[#6B6158] hover:bg-[#EDE8DD]'
+                      }
+                    `}
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    Kort / Klarna
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setPaymentMethod('friskvard'); setState({ phase: 'selecting' }); }}
+                    className={`
+                      flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5
+                      ${paymentMethod === 'friskvard'
+                        ? 'bg-[#a0c81d] text-white shadow-md shadow-[#a0c81d]/20'
+                        : 'bg-[#F6F1E7] text-[#6B6158] hover:bg-[#EDE8DD]'
+                      }
+                    `}
+                  >
+                    <Dumbbell className="w-3.5 h-3.5" />
+                    Friskvårdsbidrag
+                  </button>
                 </div>
 
-                <div className="rounded-3xl bg-white border border-[#E6E1D8] shadow-xl shadow-black/[0.04] p-6 md:p-8">
-                  {/* Payment method tabs */}
-                  <div className="flex gap-2 mb-6">
-                    <button
-                      type="button"
-                      onClick={() => { setPaymentMethod('stripe'); setState({ phase: 'selecting' }); }}
-                      className={`
-                        flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5
-                        ${paymentMethod === 'stripe'
-                          ? 'bg-[#a0c81d] text-white shadow-md shadow-[#a0c81d]/20'
-                          : 'bg-[#F6F1E7] text-[#6B6158] hover:bg-[#EDE8DD]'
-                        }
-                      `}
-                    >
-                      <CreditCard className="w-3.5 h-3.5" />
-                      Kort / Klarna
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setPaymentMethod('friskvard'); setState({ phase: 'selecting' }); }}
-                      className={`
-                        flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5
-                        ${paymentMethod === 'friskvard'
-                          ? 'bg-[#a0c81d] text-white shadow-md shadow-[#a0c81d]/20'
-                          : 'bg-[#F6F1E7] text-[#6B6158] hover:bg-[#EDE8DD]'
-                        }
-                      `}
-                    >
-                      <Dumbbell className="w-3.5 h-3.5" />
-                      Friskvårdsbidrag
-                    </button>
-                  </div>
-
-                  {/* Email & name + CTA */}
-                  {(state.phase === 'selecting' || state.phase === 'error') && (
-                    <div className="space-y-4 mb-4">
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">
-                          E-post
-                        </label>
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="din@email.se"
-                          className="w-full px-4 py-3 rounded-xl border border-[#E6E1D8] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus:outline-none focus:ring-2 focus:ring-[#a0c81d] focus:border-transparent transition"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">
-                          Namn <span className="text-[#C5BFB5]">(valfritt)</span>
-                        </label>
-                        <input
-                          type="text"
+                {/* Email & name + CTA */}
+                {(state.phase === 'selecting' || state.phase === 'error') && (
+                  <div className="space-y-4 mb-4">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">
+                        E-post
+                      </label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="din@email.se"
+                        className="w-full px-4 py-3 rounded-xl border border-[#E6E1D8] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus:outline-none focus:ring-2 focus:ring-[#a0c81d] focus:border-transparent transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">
+                        Namn <span className="text-[#C5BFB5]">(valfritt)</span>
+                      </label>
+                      <input
+                        type="text"
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
                           placeholder="Ditt namn"
@@ -685,83 +719,28 @@ export const Checkout: React.FC = () => {
                     Säker betalning
                   </p>
 
-                  {/* Payment method messaging — shows Klarna/BNPL options */}
+                  {/* Payment method icons */}
                   <div className="mt-3">
-                    <PaymentMethodBadges plan={plan} />
+                    <PaymentMethodBadges />
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* ── RIGHT: Order summary ── */}
-            <div className="lg:w-[40%]">
-              <div className="lg:sticky lg:top-20 space-y-4">
-                {/* Order summary */}
-                <div className="rounded-3xl bg-white border border-[#E6E1D8] p-6">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-[#8A8177] mb-4">
-                    Din beställning
-                  </h3>
-
-                  {/* Selected plan */}
-                  <div className="rounded-2xl bg-gradient-to-br from-[#f5fae6] to-[#eef5d6] border border-[#d9e8a0] p-4 mb-5">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-bold text-[#3D3D3D]">{plan.label}</span>
-                      <span className="text-xs text-[#6B8A12] font-bold">{plan.badge || ''}</span>
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-black text-[#3D3D3D]">{plan.price.toLocaleString('sv-SE')}</span>
-                      <span className="text-base font-bold text-[#6B6158]">kr</span>
-                      {plan.mode === 'subscription' && <span className="text-xs text-[#8A8177] font-medium">/mån</span>}
-                    </div>
-                    {plan.mode === 'payment' && plan.perMonth && (
-                      <p className="text-[10px] text-[#6B8A12] font-medium mt-1">
-                        Motsvarar {plan.perMonth.toLocaleString('sv-SE')} kr/mån
-                      </p>
-                    )}
-                  </div>
-
-                  {/* What's included */}
-                  <div className="space-y-2.5 mb-5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177]">Det här ingår</p>
-                    {INCLUDED.map((item) => (
-                      <div key={item} className="flex items-start gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#a0c81d] mt-0.5 flex-shrink-0" />
-                        <span className="text-xs text-[#3D3D3D] font-medium">{item}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Divider */}
-                  <div className="border-t border-[#E6E1D8] pt-4">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-xs font-bold text-[#3D3D3D]">Totalt</span>
-                      <div className="text-right">
-                        <span className="text-lg font-black text-[#3D3D3D]">{plan.price.toLocaleString('sv-SE')} kr</span>
-                        {plan.mode === 'subscription' && (
-                          <span className="text-xs text-[#8A8177] font-medium"> /mån</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+            {/* Trust strip */}
+            <div className="grid grid-cols-3 gap-2 mt-6">
+              {[
+                { icon: Shield, label: 'Säker betalning' },
+                { icon: Zap, label: 'Ingen bindning' },
+                { icon: Award, label: 'Friskvårdsgodkänd' },
+              ].map(({ icon: Icon, label }) => (
+                <div
+                  key={label}
+                  className="flex flex-col items-center gap-1 rounded-xl bg-white/60 border border-[#E6E1D8] p-3 text-center"
+                >
+                  <Icon className="w-4 h-4 text-[#a0c81d]" />
+                  <span className="text-[9px] font-bold text-[#8A8177] uppercase tracking-wider leading-tight">{label}</span>
                 </div>
-
-                {/* Trust strip */}
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { icon: Shield, label: 'Säker betalning' },
-                    { icon: Zap, label: 'Ingen bindning' },
-                    { icon: Award, label: 'Friskvårdsgodkänd' },
-                  ].map(({ icon: Icon, label }) => (
-                    <div
-                      key={label}
-                      className="flex flex-col items-center gap-1 rounded-xl bg-white/60 border border-[#E6E1D8] p-3 text-center"
-                    >
-                      <Icon className="w-4 h-4 text-[#a0c81d]" />
-                      <span className="text-[9px] font-bold text-[#8A8177] uppercase tracking-wider leading-tight">{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>

@@ -397,9 +397,10 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
 
   if (profileId) {
     try {
+      // Only sync subscription_status here — AG-Agent handles full profile logic
+      // (is_member, membership_type, hybrid detection, stripe_customer_id)
       await admin.from('profiles').update({
         subscription_status: status,
-        membership_level: status === 'active' ? 'premium' : null,
         updated_at: new Date().toISOString(),
       }).eq('id', profileId).throwOnError();
     } catch {

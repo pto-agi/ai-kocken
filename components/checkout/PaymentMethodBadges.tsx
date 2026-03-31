@@ -1,42 +1,41 @@
-import React, { useMemo } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentMethodMessagingElement } from '@stripe/react-stripe-js';
-import { getStripePublishableKeyClient } from '../../utils/paymentFeatureFlags';
-import type { CheckoutPlan } from '../../lib/checkoutPlans';
-
-interface PaymentMethodBadgesProps {
-  plan: CheckoutPlan | null;
-}
+import React from 'react';
 
 /**
- * Displays Stripe Payment Method Messaging Element — shows
- * available BNPL / payment options (Klarna, etc.) with logos.
- * Wrapped in its own Elements provider so it works before the
- * payment session is created.
+ * Displays small payment method logos in a consistent order.
+ * Custom SVGs — no dependency on Stripe's messaging element.
  */
-export const PaymentMethodBadges: React.FC<PaymentMethodBadgesProps> = ({ plan }) => {
-  const stripePromise = useMemo(() => {
-    const pk = getStripePublishableKeyClient();
-    if (!pk) return null;
-    return loadStripe(pk, { locale: 'sv' });
-  }, []);
-
-  if (!stripePromise || !plan) return null;
-
-  // Amount in smallest currency unit (öre for SEK)
-  const amount = plan.price * 100;
-
+export const PaymentMethodBadges: React.FC = () => {
   return (
-    <Elements stripe={stripePromise}>
-      <PaymentMethodMessagingElement
-        options={{
-          amount,
-          currency: 'SEK',
-          countryCode: 'SE',
-          paymentMethodTypes: ['klarna'],
-        }}
-      />
-    </Elements>
+    <div className="flex items-center justify-center gap-3 flex-wrap">
+      {/* Apple Pay */}
+      <div className="h-8 px-3 rounded-lg border border-[#E6E1D8] bg-white flex items-center justify-center" title="Apple Pay">
+        <svg viewBox="0 0 43 18" className="h-4" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7.54 3.09c-.48.57-1.25 1.02-2.02.96-.1-.77.28-1.59.72-2.1C6.72 1.38 7.55.9 8.23.86c.08.8-.23 1.58-.69 2.23m.68 1.14c-1.12-.07-2.08.64-2.61.64-.54 0-1.35-.6-2.24-.59-1.15.02-2.21.67-2.81 1.7-1.2 2.08-.31 5.16.85 6.85.57.84 1.26 1.77 2.16 1.74.86-.04 1.19-.56 2.24-.56 1.04 0 1.34.56 2.25.54.93-.01 1.52-.84 2.09-1.68.66-.96.93-1.89.94-1.94-.02-.01-1.81-.7-1.83-2.77-.01-1.73 1.41-2.56 1.48-2.6-.81-1.2-2.07-1.33-2.52-1.33" />
+          <path d="M17.32 1.46c3.23 0 5.48 2.23 5.48 5.47 0 3.26-2.29 5.49-5.56 5.49h-3.58v5.7h-2.63V1.46h6.29zm-3.66 8.82h2.97c2.25 0 3.53-1.21 3.53-3.34 0-2.13-1.28-3.33-3.52-3.33h-2.98v6.67zm10.17 4.17c0-2.13 1.63-3.44 4.53-3.6l3.34-.19v-.95c0-1.36-.91-2.17-2.44-2.17-1.44 0-2.35.73-2.57 1.87h-2.4c.14-2.28 2.05-3.96 5.06-3.96 2.97 0 4.87 1.58 4.87 4.05v8.5h-2.44v-2.03h-.06c-.72 1.37-2.28 2.21-3.9 2.21-2.42 0-3.99-1.5-3.99-3.73zm7.87-1.13V12.3l-3.01.19c-1.5.1-2.35.76-2.35 1.82 0 1.08.88 1.79 2.23 1.79 1.76 0 3.13-1.2 3.13-2.78zm5.63 7.56v-2.04c.18.05.6.05.76.05 1.09 0 1.68-.46 2.04-1.63 0-.04.21-.7.21-.7l-4.39-12.13h2.74l3.05 9.77h.04l3.05-9.77h2.67l-4.56 12.7c-1.04 2.93-2.24 3.87-4.76 3.87-.16 0-.66-.04-.85-.08z" />
+        </svg>
+      </div>
+
+      {/* Google Pay */}
+      <div className="h-8 px-3 rounded-lg border border-[#E6E1D8] bg-white flex items-center justify-center" title="Google Pay">
+        <svg viewBox="0 0 41 17" className="h-4" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19.05 8.362v4.97h-1.57V1.5h4.16c1 0 1.96.35 2.7 1.02a3.39 3.39 0 0 1-.03 5.08c-.73.67-1.66 1-2.67 1h-2.59zm0-5.34v3.82h2.61c.6 0 1.17-.22 1.59-.63.88-.83.9-2.22.05-3.08a2.14 2.14 0 0 0-1.56-.65h-2.69v.54z" fill="#5F6368"/>
+          <path d="M29.15 5.38c1.15 0 2.06.31 2.73.92.67.61 1 1.46 1 2.53v5.13h-1.5v-1.16h-.07c-.64.95-1.5 1.42-2.57 1.42-.91 0-1.68-.27-2.29-.81a2.57 2.57 0 0 1-.93-2.02c0-.85.32-1.53.97-2.03.65-.5 1.51-.75 2.59-.75.92 0 1.68.17 2.27.5v-.35c0-.57-.23-1.08-.67-1.46-.44-.38-.97-.57-1.57-.57-.91 0-1.63.38-2.16 1.15l-1.38-.87c.79-1.13 1.95-1.63 3.58-1.63zm-2.01 6.29c0 .43.19.8.55 1.08.36.29.79.43 1.28.43.69 0 1.32-.26 1.87-.77.55-.52.83-1.12.83-1.82-.49-.38-1.16-.57-2.03-.57-.63 0-1.15.15-1.58.46-.43.31-.65.7-.92 1.19z" fill="#5F6368"/>
+          <path d="M40.15 5.65l-5.28 12.14h-1.62l1.96-4.27-3.47-7.87h1.7l2.5 6.04h.03l2.44-6.04h1.74z" fill="#5F6368"/>
+          <path d="M13.07 7.39c0-.45-.04-.9-.11-1.33H6.68v2.52h3.59a3.07 3.07 0 0 1-1.33 2.01v1.67h2.15c1.26-1.16 1.98-2.87 1.98-4.87z" fill="#4285F4"/>
+          <path d="M6.68 13.88c1.8 0 3.31-.6 4.41-1.62l-2.15-1.67c-.6.4-1.36.63-2.26.63-1.74 0-3.21-1.17-3.73-2.75H.72v1.72a6.65 6.65 0 0 0 5.96 3.69z" fill="#34A853"/>
+          <path d="M2.95 8.47a4 4 0 0 1 0-2.56V4.19H.72a6.65 6.65 0 0 0 0 5.98l2.23-1.7z" fill="#FBBC04"/>
+          <path d="M6.68 3.16c.98 0 1.86.34 2.55 1l1.91-1.91A5.98 5.98 0 0 0 6.68.57 6.65 6.65 0 0 0 .72 4.2l2.23 1.72c.52-1.58 1.99-2.76 3.73-2.76z" fill="#EA4335"/>
+        </svg>
+      </div>
+
+      {/* Klarna */}
+      <div className="h-8 px-3 rounded-lg border border-[#E6E1D8] bg-white flex items-center justify-center" title="Klarna">
+        <svg viewBox="0 0 67 15" className="h-3.5" xmlns="http://www.w3.org/2000/svg">
+          <path d="M35.55 1.8h-2.87v11.33h2.87V1.8zm-6.3 0c0 2.43-1.05 4.68-2.88 6.27l-.82.7 4.04 4.36h-3.72L22.67 9.7l-.83.7v2.73h-2.87V1.8h2.87v5.08a7.7 7.7 0 0 0 4.54-5.08h2.87zM38.5 13.13h2.87V1.8H38.5v11.33zM55.77 4.53c-1.04 0-2.03.38-2.72 1.17V4.72H50.3v8.41h2.79V8.8c0-1.4.93-2.08 2.07-2.08 1.22 0 1.92.72 1.92 2.05v4.36h2.75V8.18c0-2.22-1.52-3.65-4.06-3.65zm8.63 6.27c-.93 0-1.68-.76-1.68-1.87 0-1.12.75-1.87 1.68-1.87.93 0 1.68.75 1.68 1.87 0 1.11-.75 1.87-1.68 1.87zm.04-6.27c-1.1 0-2.1.4-2.82 1.09v-.9h-2.7v11.73h2.78v-3.96c.71.6 1.62.96 2.64.96 2.33 0 4.24-1.89 4.24-4.46 0-2.57-1.83-4.46-4.14-4.46zM48.43 4.72v.57a3.88 3.88 0 0 0-2.42-.76c-2.36 0-4.27 1.89-4.27 4.4 0 2.51 1.91 4.4 4.27 4.4.88 0 1.72-.28 2.42-.76v.56h2.71V4.72h-2.71zm-2.1 6.14c-1.13 0-1.96-.84-1.96-1.93s.83-1.93 1.96-1.93 1.96.84 1.96 1.93-.83 1.93-1.96 1.93zM4.38 13.13H1.5V1.8h2.88v11.33zM8.35 1.8H5.5v11.33h2.86V1.8z" fill="#0A0B09"/>
+        </svg>
+      </div>
+
+    </div>
   );
 };
 

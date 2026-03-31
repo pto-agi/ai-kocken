@@ -197,7 +197,7 @@ async function buildCheckoutSessionParams(stripe: Stripe, input: {
     return_url: addQuery(input.successUrl, 'session_id={CHECKOUT_SESSION_ID}'),
     line_items: lineItems,
     metadata,
-    payment_method_types: mode === 'subscription' ? ['card', 'link'] : ['card', 'klarna', 'link'],
+    payment_method_types: mode === 'subscription' ? ['card'] : ['card', 'klarna'],
     customer: input.customerId || undefined,
     customer_email: !input.customerId ? input.customerEmail || undefined : undefined,
     allow_promotion_codes: true,
@@ -350,7 +350,7 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
         payment_behavior: 'default_incomplete',
         payment_settings: {
           save_default_payment_method: 'on_subscription',
-          payment_method_types: ['card', 'klarna', 'link'],
+          payment_method_types: ['card'],
         },
         metadata,
         expand: ['latest_invoice.payment_intent'],
@@ -367,7 +367,7 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
         amount: amountOre,
         currency: 'sek',
         customer: customerId,
-        payment_method_types: ['card', 'klarna', 'link'],
+        payment_method_types: ['card', 'klarna'],
         metadata,
       });
 
