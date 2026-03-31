@@ -12,7 +12,7 @@ import {
 import { CHECKOUT_PLANS, DEFAULT_PLAN_ID, getPlanById, buildRenewalPlan } from '../lib/checkoutPlans';
 import type { CheckoutPlan } from '../lib/checkoutPlans';
 import { createIntent } from '../utils/checkoutClient';
-import { createCheckoutSession } from '../utils/paymentsClient';
+
 import { trackCheckoutEvent } from '../utils/paymentAnalytics';
 import { useAuthStore } from '../store/authStore';
 import { computeYearEndOffer } from '../utils/extensionOffer';
@@ -252,41 +252,41 @@ export const Checkout: React.FC = () => {
 
     setState({ phase: 'loading' });
 
-    // Renewal plans use the forlangning flow
+    // Renewal plans use the checkout intent flow with dynamic pricing
     if (plan.isRenewal && plan.renewalOffer) {
       try {
-        const result = await createCheckoutSession(
-          {
-            flow: 'forlangning',
-            mode: 'payment',
-            userId: session?.user?.id,
-            email: email.trim(),
-            fullName: fullName.trim(),
-            forlangningOffer: {
-              monthlyPrice: plan.renewalOffer.monthlyPrice,
-              monthCount: plan.renewalOffer.monthCount,
-              totalPrice: plan.renewalOffer.totalPrice,
-              campaignYear: plan.renewalOffer.campaignYear,
-              billableDays: plan.renewalOffer.billableDays,
-              calculationMode: plan.renewalOffer.calculationMode,
-              currentExpiresAt: plan.renewalOffer.currentExpiresAt,
-              billingStartsAt: plan.renewalOffer.billingStartsAt,
-              newExpiresAt: plan.renewalOffer.newExpiresAt,
-            },
+        const response = await createIntent({
+          planId: 'renewal',
+          email: email.trim(),
+          fullName: fullName.trim() || undefined,
+          userId: session?.user?.id,
+          renewalOffer: {
+            monthlyPrice: plan.renewalOffer.monthlyPrice,
+            monthCount: plan.renewalOffer.monthCount,
+            totalPrice: plan.renewalOffer.totalPrice,
+            campaignYear: plan.renewalOffer.campaignYear,
+            billableDays: plan.renewalOffer.billableDays,
+            calculationMode: plan.renewalOffer.calculationMode,
+            currentExpiresAt: plan.renewalOffer.currentExpiresAt,
+            billingStartsAt: plan.renewalOffer.billingStartsAt,
+            newExpiresAt: plan.renewalOffer.newExpiresAt,
           },
-          session?.access_token,
-        );
+        }, session?.access_token);
 
-        if (result.client_secret && result.publishable_key) {
+        if (!response.ok || !response.clientSecret) {
           setState({
-            phase: 'ready',
-            clientSecret: result.client_secret,
-            publishableKey: result.publishable_key,
-            mode: 'payment',
+            phase: 'error',
+            message: response.error || 'Kunde inte starta betalning.',
           });
-        } else {
-          setState({ phase: 'error', message: result.error || 'Kunde inte starta betalning.' });
+          return;
         }
+
+        setState({
+          phase: 'ready',
+          clientSecret: response.clientSecret,
+          publishableKey: response.publishableKey!,
+          mode: 'payment',
+        });
       } catch {
         setState({ phase: 'error', message: 'Oväntat fel. Försök igen.' });
       }

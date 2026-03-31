@@ -7,6 +7,17 @@ export interface CreateIntentPayload {
   email: string;
   fullName?: string;
   userId?: string;
+  renewalOffer?: {
+    monthlyPrice: number;
+    monthCount: number;
+    totalPrice: number;
+    campaignYear: number;
+    billableDays: number;
+    calculationMode: string;
+    currentExpiresAt: string;
+    billingStartsAt: string;
+    newExpiresAt: string;
+  };
 }
 
 export interface CreateIntentResponse {

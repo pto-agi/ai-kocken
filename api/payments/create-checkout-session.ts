@@ -237,8 +237,12 @@ const CHECKOUT_PLAN_CONFIG: Record<string, {
 };
 
 async function handleCheckoutIntent(req: any, res: any, body: any, origin: string | undefined) {
-  const plan = CHECKOUT_PLAN_CONFIG[body.planId];
-  if (!plan) {
+  // Standard fixed plans
+  const plan = CHECKOUT_PLAN_CONFIG[body.planId] || null;
+
+  // Dynamic renewal plan — amount comes from the frontend offer
+  const isRenewal = body.planId === 'renewal' && body.renewalOffer;
+  if (!plan && !isRenewal) {
     setCors(res, origin);
     res.status(400).json({ error: `Invalid planId: ${body.planId}` });
     return;
@@ -256,6 +260,24 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
     return;
   }
 
+  // Resolve amount and mode
+  const amountOre = isRenewal
+    ? Math.round(body.renewalOffer.totalPrice * 100)
+    : plan!.amountOre;
+  const planMode = isRenewal ? 'payment' : plan!.mode;
+  const planLabel = isRenewal
+    ? `Förläng året ut (${body.renewalOffer.monthCount || '?'} mån)`
+    : plan!.label;
+  const monthCount = isRenewal
+    ? Math.ceil(body.renewalOffer.monthCount || 0)
+    : (plan!.monthCount || 0);
+
+  if (amountOre <= 0) {
+    setCors(res, origin);
+    res.status(400).json({ error: 'Ogiltigt belopp.' });
+    return;
+  }
+
   try {
     const stripe = getStripeClient();
     const publishableKey = getStripePublishableKey();
@@ -268,20 +290,29 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
     });
 
     const metadata: Record<string, string> = {
-      flow: 'checkout',
+      flow: isRenewal ? 'renewal' : 'checkout',
       plan_id: body.planId,
-      plan_label: plan.label,
-      month_count: String(plan.monthCount || ''),
+      plan_label: planLabel,
+      month_count: String(monthCount),
       user_id: userId || '',
       email: userEmail,
       full_name: fullName || '',
     };
 
+    // Add renewal-specific metadata
+    if (isRenewal && body.renewalOffer) {
+      metadata.current_expires_at = body.renewalOffer.currentExpiresAt || '';
+      metadata.new_expires_at = body.renewalOffer.newExpiresAt || '';
+      metadata.billing_starts_at = body.renewalOffer.billingStartsAt || '';
+      metadata.calculation_mode = body.renewalOffer.calculationMode || '';
+      metadata.campaign_year = String(body.renewalOffer.campaignYear || '');
+    }
+
     let clientSecret: string;
     let mode: 'payment' | 'subscription';
     let intentId: string;
 
-    if (plan.mode === 'subscription') {
+    if (planMode === 'subscription' && plan) {
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: plan.stripePriceId }],
@@ -302,7 +333,7 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
       intentId = paymentIntent.id;
     } else {
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: plan.amountOre,
+        amount: amountOre,
         currency: 'sek',
         customer: customerId,
         payment_method_types: ['card', 'klarna', 'link'],
@@ -322,10 +353,10 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
           {
             user_id: userId || null,
             email: userEmail,
-            flow: 'checkout',
+            flow: isRenewal ? 'renewal' : 'checkout',
             mode,
             status: 'created',
-            amount: plan.amountOre,
+            amount: amountOre,
             currency: 'SEK',
             stripe_payment_intent_id: intentId,
             metadata,
@@ -346,7 +377,7 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
       mode,
       publishableKey,
       customerId,
-      amount: plan.amountOre,
+      amount: amountOre,
       currency: 'sek',
       planId: body.planId,
     });
