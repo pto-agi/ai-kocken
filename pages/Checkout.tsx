@@ -158,7 +158,7 @@ export const Checkout: React.FC = () => {
     trackCheckoutEvent('checkout_started', { flow: 'checkout', mode: plan.mode });
     // GA4 e-commerce: begin_checkout
     if (typeof window !== 'undefined') {
-      const purchaseType = plan.id === 'renewal' ? 'renewal' : 'new_purchase';
+      const purchaseType = (plan.isRenewal || isActiveMember) ? 'renewal' : 'new_purchase';
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push({ ecommerce: null }); // Clear previous
       window.dataLayer.push({
@@ -210,8 +210,8 @@ export const Checkout: React.FC = () => {
       return;
     }
 
-    // Determine purchase type for GA4
-    const purchaseType = plan.isRenewal ? 'renewal' : 'new_purchase';
+    // Determine purchase type: renewal if plan says so OR if user is already an active member
+    const purchaseType = (plan.isRenewal || isActiveMember) ? 'renewal' : 'new_purchase';
 
     // GA4 e-commerce: add_payment_info
     if (typeof window !== 'undefined') {
@@ -330,7 +330,7 @@ export const Checkout: React.FC = () => {
     const base = typeof window !== 'undefined'
       ? `${window.location.origin}/checkout/tack`
       : 'https://my.privatetrainingonline.se/checkout/tack';
-    const purchaseType = plan.id === 'renewal' ? 'renewal' : 'new_purchase';
+    const purchaseType = (plan.isRenewal || isActiveMember) ? 'renewal' : 'new_purchase';
     const params = new URLSearchParams({
       plan_id: plan.id,
       plan_label: plan.label,
@@ -642,7 +642,7 @@ export const Checkout: React.FC = () => {
                             if (data.ok && data.friskvard) {
                               // GA4 e-commerce: purchase event for friskvård
                               if (typeof window !== 'undefined') {
-                                const purchaseType = plan.id === 'renewal' ? 'renewal' : 'new_purchase';
+                                const purchaseType = (plan.isRenewal || isActiveMember) ? 'renewal' : 'new_purchase';
                                 window.dataLayer = window.dataLayer || [];
                                 window.dataLayer.push({ ecommerce: null });
                                 window.dataLayer.push({
