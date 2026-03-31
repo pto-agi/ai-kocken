@@ -464,7 +464,7 @@ export const Checkout: React.FC = () => {
               {/* Plan selection */}
               <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Välj plan</p>
               <PlanSelector
-                plans={availablePlans}
+                plans={paymentMethod === 'friskvard' ? availablePlans.filter(p => p.id !== 'monthly') : availablePlans}
                 selectedPlanId={selectedPlanId}
                 onSelect={handlePlanSelect}
               />
@@ -503,7 +503,12 @@ export const Checkout: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setPaymentMethod('friskvard'); setState({ phase: 'selecting' }); }}
+                    onClick={() => {
+                      setPaymentMethod('friskvard');
+                      setState({ phase: 'selecting' });
+                      // Monthly is Stripe-only — switch to default plan
+                      if (selectedPlanId === 'monthly') setSelectedPlanId('12m');
+                    }}
                     className={`
                       w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-all text-left
                       ${paymentMethod === 'friskvard'

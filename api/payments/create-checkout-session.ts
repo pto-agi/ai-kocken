@@ -557,7 +557,13 @@ export default async function handler(req: any, res: any) {
 
     const amountSek = flow === 'forlangning'
       ? Math.round(computedForlangningOffer?.totalPrice || 0)
-      : Math.round(Number(payload.planPrice) || (Number(process.env.STRIPE_PREMIUM_MONTHLY_AMOUNT_ORE || '29900')) / 100);
+      : Math.round(Number(payload.planPrice) || 0);
+
+    if (amountSek <= 0) {
+      setCors(res, origin);
+      res.status(400).json({ error: 'Ogiltigt belopp — planpris saknas.' });
+      return;
+    }
 
     const orderMetadata: Record<string, unknown> = {
       flow,
