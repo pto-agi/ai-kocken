@@ -6,7 +6,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Loader2, AlertTriangle, Receipt, Lock, ArrowRight,
   Shield, Zap, Award, CheckCircle2, LogIn, UserCircle2,
-  CreditCard, Dumbbell, Sparkles, Check,
+  CreditCard, Dumbbell,
 } from 'lucide-react';
 
 import { CHECKOUT_PLANS, DEFAULT_PLAN_ID, getPlanById, buildRenewalPlan } from '../lib/checkoutPlans';
@@ -65,15 +65,6 @@ const PTO_APPEARANCE: Appearance = {
 
 // ── Hero features ──
 
-const HERO_FEATURES = [
-  'Allt i en app',
-  'Skräddarsytt unikt efter just dig',
-  'Nya program varje månad efter din utveckling & feedback',
-  'Kostschema med förslag på recept',
-  'Regelbundna uppföljningar',
-  '14 dagars ångerrätt',
-  'Godkänt för friskvårdsbidrag',
-];
 
 // ── Types ──
 
@@ -407,40 +398,7 @@ export const Checkout: React.FC = () => {
               </p>
             </div>
           )}
-          {/* ═══ HERO FEATURE SECTION ═══ */}
-          <div className="relative mb-10 rounded-3xl overflow-hidden">
-            {/* Gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#3D3D3D] via-[#4a4a4a] to-[#2a2a2a]" />
-            {/* Subtle pattern overlay */}
-            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-            {/* Green glow */}
-            <div className="absolute -top-20 -right-20 w-60 h-60 bg-[#a0c81d] rounded-full blur-[100px] opacity-20" />
-            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-[#a0c81d] rounded-full blur-[80px] opacity-10" />
 
-            <div className="relative px-6 py-8 md:px-10 md:py-10">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-xl bg-[#a0c81d] flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <h2 className="text-xs font-black uppercase tracking-[0.15em] text-white/60">Detta ingår</h2>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
-                {HERO_FEATURES.map((feature, i) => (
-                  <div
-                    key={feature}
-                    className="flex items-start gap-3 group"
-                    style={{ animationDelay: `${i * 60}ms` }}
-                  >
-                    <div className="mt-0.5 w-5 h-5 rounded-lg bg-[#a0c81d]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#a0c81d]/30 transition-colors">
-                      <Check className="w-3 h-3 text-[#a0c81d]" />
-                    </div>
-                    <span className="text-sm text-white/90 font-medium leading-snug">{feature}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
 
           {/* ═══ CHECKOUT CONTENT (single column, centered) ═══ */}
           <div className="max-w-[800px] mx-auto space-y-6">
