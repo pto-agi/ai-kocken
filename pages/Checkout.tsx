@@ -419,6 +419,37 @@ export const Checkout: React.FC = () => {
             {/* ── Unified checkout card ── */}
             <div className="rounded-3xl bg-white border border-[#E6E1D8] shadow-xl shadow-black/[0.04] p-6 md:p-8">
 
+              {/* Email & name fields */}
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">
+                    E-post
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="din@email.se"
+                    className="w-full px-4 py-3 rounded-xl border border-[#E6E1D8] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus:outline-none focus:ring-2 focus:ring-[#a0c81d] focus:border-transparent transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">
+                    Namn <span className="text-[#C5BFB5]">(valfritt)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Ditt namn"
+                    className="w-full px-4 py-3 rounded-xl border border-[#E6E1D8] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus:outline-none focus:ring-2 focus:ring-[#a0c81d] focus:border-transparent transition"
+                  />
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-[#E6E1D8] my-6" />
+
               {/* Plan selection */}
               <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Välj plan</p>
               <PlanSelector
@@ -489,34 +520,9 @@ export const Checkout: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Email & name + CTA */}
+                {/* Error message + CTA */}
                 {(state.phase === 'selecting' || state.phase === 'error') && (
                   <div className="space-y-4 mb-4">
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">
-                        E-post
-                      </label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="din@email.se"
-                        className="w-full px-4 py-3 rounded-xl border border-[#E6E1D8] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus:outline-none focus:ring-2 focus:ring-[#a0c81d] focus:border-transparent transition"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">
-                        Namn <span className="text-[#C5BFB5]">(valfritt)</span>
-                      </label>
-                      <input
-                        type="text"
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          placeholder="Ditt namn"
-                          className="w-full px-4 py-3 rounded-xl border border-[#E6E1D8] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus:outline-none focus:ring-2 focus:ring-[#a0c81d] focus:border-transparent transition"
-                        />
-                      </div>
-
                       {state.phase === 'error' && (
                         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
                           <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
