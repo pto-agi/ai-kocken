@@ -357,7 +357,7 @@ export const Checkout: React.FC = () => {
 
       {/* ═══ MAIN CONTENT ═══ */}
       <main className="pt-20 pb-12 px-4">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-6xl mx-auto">
 
           {/* Login prompt for unauthenticated renewal visitors */}
           {showLoginPrompt && (
@@ -443,7 +443,7 @@ export const Checkout: React.FC = () => {
           </div>
 
           {/* ═══ CHECKOUT CONTENT (single column, centered) ═══ */}
-          <div className="max-w-xl mx-auto space-y-6">
+          <div className="max-w-[800px] mx-auto space-y-6">
 
             {/* Title */}
             <div className="text-center">
