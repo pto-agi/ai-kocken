@@ -251,64 +251,33 @@ async function processPaidCheckoutSession(admin: any, session: Stripe.Checkout.S
     }
 
     // ── Notify AntiGravity Agent: Sheet write, TZ reactivation, email ──
-    try {
-      const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
-      const customerName = session.customer_details?.name || metadata.email || '';
-      const nameParts = customerName.split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
+    const customerName = session.customer_details?.name || metadata.email || '';
+    const nameParts = customerName.split(' ');
 
-      const agentPayload = {
-        email: email || metadata.email || '',
-        first_name: firstName,
-        last_name: lastName,
-        month_count: monthCount,
-        total_price: Number(metadata.total_price) || computedOffer.totalPrice,
-        current_expires_at: metadata.current_expires_at || computedOffer.currentExpiresAt || '',
-        new_expires_at: newExpiresAt,
-        billing_starts_at: metadata.billing_starts_at || computedOffer.billingStartsAt || '',
-        payment_method: 'stripe',
-        campaign_year: computedOffer.campaignYear,
-      };
+    const agentResult = await callAgentEndpoint('/api/economy/forlangning', {
+      email: email || metadata.email || '',
+      first_name: nameParts[0] || '',
+      last_name: nameParts.slice(1).join(' ') || '',
+      month_count: monthCount,
+      total_price: Number(metadata.total_price) || computedOffer.totalPrice,
+      current_expires_at: metadata.current_expires_at || computedOffer.currentExpiresAt || '',
+      new_expires_at: newExpiresAt,
+      billing_starts_at: metadata.billing_starts_at || computedOffer.billingStartsAt || '',
+      payment_method: 'stripe',
+      campaign_year: computedOffer.campaignYear,
+    });
 
-      // Await the call with retry (max 2 attempts, 10s timeout each)
-      let agentOk = false;
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 10_000);
-          const agentRes = await fetch(`${agentBaseUrl}/api/economy/forlangning`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(agentPayload),
-            signal: controller.signal,
-          });
-          clearTimeout(timeout);
-          if (agentRes.ok) {
-            agentOk = true;
-            break;
-          }
-          console.error(`Agent forlangning attempt ${attempt} got ${agentRes.status}`);
-        } catch (fetchErr: any) {
-          console.error(`Agent forlangning attempt ${attempt} failed:`, fetchErr?.message);
-        }
-      }
-
-      // If AG-Agent call failed, log to activity_log so it's visible in the dashboard
-      if (!agentOk) {
-        try {
-          await admin.from('agent_activity_log').insert({
-            type: 'membership',
-            title: `⚠️ Förlängning misslyckad: ${customerName}`,
-            summary: `Stripe-betalning OK men AG-Agent nåddes inte. Email: ${email}, Belopp: ${computedOffer.totalPrice} kr, Nytt datum: ${computedOffer.newExpiresAt}. Kunden fick INTE bekräftelsemejl. Trigga manuellt via /api/economy/forlangning.`,
-            status: 'error',
-            client_name: customerName,
-            metadata: { ...agentPayload, session_id: session.id, error: 'AG-Agent unreachable after 2 attempts' },
-          }).throwOnError();
-        } catch { /* best effort */ }
-      }
-    } catch (agentErr) {
-      console.error('Agent forlangning call error:', agentErr);
+    if (!agentResult.ok) {
+      try {
+        await admin.from('agent_activity_log').insert({
+          type: 'membership',
+          title: `⚠️ Förlängning misslyckad: ${customerName}`,
+          summary: `Stripe-betalning OK men AG-Agent nåddes inte. Email: ${email}, Belopp: ${computedOffer.totalPrice} kr, Nytt datum: ${computedOffer.newExpiresAt}. Kunden fick INTE bekräftelsemejl. Trigga manuellt via /api/economy/forlangning.`,
+          status: 'error',
+          client_name: customerName,
+          metadata: { session_id: session.id, email, error: agentResult.error },
+        }).throwOnError();
+      } catch { /* best effort */ }
     }
 
     return;
@@ -416,33 +385,13 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
 
     if (profileId) {
       // Existing client → forward to AG-Agent subscription processor
-      try {
-        const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
-
-        const agentPayload = {
-          email,
-          full_name: fullName,
-          stripe_customer_id: stripeCustomerId,
-        };
-
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 10_000);
-            const res = await fetch(`${agentBaseUrl}/api/economy/checkout-subscription`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(agentPayload),
-              signal: controller.signal,
-            });
-            clearTimeout(timeout);
-            if (res.ok) break;
-          } catch {
-            // retry
-          }
-        }
-      } catch {
-        // non-blocking
+      const agentResult = await callAgentEndpoint('/api/economy/checkout-subscription', {
+        email,
+        full_name: fullName,
+        stripe_customer_id: stripeCustomerId,
+      });
+      if (!agentResult.ok) {
+        console.error('AG-Agent checkout-subscription failed:', email, agentResult.error);
       }
     } else {
       // New client (no profile) → pending entitlement + AG-Agent for Sheet/Email
@@ -457,37 +406,17 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
       });
 
       // Still forward for Sheet + Email (we have email even without profile)
-      try {
-        const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
-
-        const agentPayload = {
-          email,
-          full_name: fullName,
-          plan_label: 'Månadsvis',
-          month_count: 0,
-          amount: 0,
-          payment_method: 'stripe',
-          is_subscription: true,
-        };
-
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 10_000);
-            const res = await fetch(`${agentBaseUrl}/api/economy/new-checkout-client`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(agentPayload),
-              signal: controller.signal,
-            });
-            clearTimeout(timeout);
-            if (res.ok) break;
-          } catch {
-            // retry
-          }
-        }
-      } catch {
-        // non-blocking
+      const agentResult = await callAgentEndpoint('/api/economy/new-checkout-client', {
+        email,
+        full_name: fullName,
+        plan_label: 'Månadsvis',
+        month_count: 0,
+        amount: 0,
+        payment_method: 'stripe',
+        is_subscription: true,
+      });
+      if (!agentResult.ok) {
+        console.error('AG-Agent new-checkout-client (sub) failed:', email, agentResult.error);
       }
     }
   }
@@ -570,6 +499,45 @@ async function markEventProcessed(admin: any, event: Stripe.Event, status: 'proc
   }
 }
 
+/**
+ * Robust AG-Agent caller — handles Render cold-start (30-40s boot).
+ * 1. Wake-up ping to /health (non-blocking, warms the instance)
+ * 2. 3 attempts with 30s timeout each
+ * 3. 2s delay between retries
+ */
+const AG_BASE = () => process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
+
+async function callAgentEndpoint(
+  path: string,
+  payload: Record<string, unknown>,
+): Promise<{ ok: boolean; status?: number; error?: string }> {
+  const base = AG_BASE();
+
+  // Wake-up ping (fire-and-forget — just poke Render awake)
+  fetch(`${base}/health`, { method: 'GET' }).catch(() => {});
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30_000);
+      const res = await fetch(`${base}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (res.ok) return { ok: true, status: res.status };
+      console.error(`AG-Agent ${path} attempt ${attempt}: HTTP ${res.status}`);
+    } catch (err: any) {
+      console.error(`AG-Agent ${path} attempt ${attempt} failed:`, err?.message);
+    }
+    // Wait 2s before retry (give Render time to boot)
+    if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+  }
+  return { ok: false, error: 'AG-Agent unreachable after 3 attempts' };
+}
+
 async function processPackagePurchase(admin: any, pi: Stripe.PaymentIntent) {
   const meta = pi.metadata || {};
   const email = (meta.email || '').trim().toLowerCase();
@@ -647,39 +615,19 @@ async function processPackagePurchase(admin: any, pi: Stripe.PaymentIntent) {
     await resolvePendingEntitlements(admin, { email, flow: 'checkout' });
 
     // Forward to AG-Agent for Sheet/TZ/email
-    try {
-      const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
-      const nameParts = fullName.split(' ');
-
-      const agentPayload = {
-        email,
-        first_name: nameParts[0] || '',
-        last_name: nameParts.slice(1).join(' ') || '',
-        month_count: monthCount,
-        total_price: amountKr,
-        current_expires_at: profile.coaching_expires_at || '',
-        new_expires_at: newExpiresAt,
-        payment_method: 'stripe',
-      };
-
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 10_000);
-          const res = await fetch(`${agentBaseUrl}/api/economy/forlangning`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(agentPayload),
-            signal: controller.signal,
-          });
-          clearTimeout(timeout);
-          if (res.ok) break;
-        } catch {
-          // retry
-        }
-      }
-    } catch {
-      // non-blocking
+    const nameParts = fullName.split(' ');
+    const agentResult = await callAgentEndpoint('/api/economy/forlangning', {
+      email,
+      first_name: nameParts[0] || '',
+      last_name: nameParts.slice(1).join(' ') || '',
+      month_count: monthCount,
+      total_price: amountKr,
+      current_expires_at: profile.coaching_expires_at || '',
+      new_expires_at: newExpiresAt,
+      payment_method: 'stripe',
+    });
+    if (!agentResult.ok) {
+      console.error('AG-Agent forlangning failed for existing client:', email, agentResult.error);
     }
   } else {
     // ── New client: create pending entitlement + notify AG-Agent ──
@@ -705,38 +653,18 @@ async function processPackagePurchase(admin: any, pi: Stripe.PaymentIntent) {
 
     // Forward to AG-Agent for Sheet write + admin email + welcome email
     // TZ is skipped for new clients (created later via startformulär)
-    try {
-      const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
-
-      const agentPayload = {
-        email,
-        full_name: fullName,
-        plan_label: planLabel,
-        month_count: monthCount,
-        amount: amountKr,
-        new_expires_at: expectedExpiresAt,
-        payment_method: 'stripe',
-        is_subscription: false,
-      };
-
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 10_000);
-          const res = await fetch(`${agentBaseUrl}/api/economy/new-checkout-client`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(agentPayload),
-            signal: controller.signal,
-          });
-          clearTimeout(timeout);
-          if (res.ok) break;
-        } catch {
-          // retry
-        }
-      }
-    } catch {
-      // non-blocking — pending entitlement ensures client gets provisioned on registration
+    const agentResult = await callAgentEndpoint('/api/economy/new-checkout-client', {
+      email,
+      full_name: fullName,
+      plan_label: planLabel,
+      month_count: monthCount,
+      amount: amountKr,
+      new_expires_at: expectedExpiresAt,
+      payment_method: 'stripe',
+      is_subscription: false,
+    });
+    if (!agentResult.ok) {
+      console.error('AG-Agent new-checkout-client failed:', email, agentResult.error);
     }
   }
 
@@ -837,60 +765,32 @@ async function processRenewalPurchase(admin: any, pi: Stripe.PaymentIntent) {
     await resolvePendingEntitlements(admin, { email, flow: 'renewal' });
 
     // Forward to AG-Agent for Sheet/TZ/email
-    try {
-      const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
-      const nameParts = fullName.split(' ');
+    const nameParts = fullName.split(' ');
+    const renewalAgentPayload = {
+      email,
+      first_name: nameParts[0] || '',
+      last_name: nameParts.slice(1).join(' ') || '',
+      month_count: monthCount,
+      total_price: amountKr,
+      current_expires_at: currentExpiresAt || profile.coaching_expires_at || '',
+      new_expires_at: newExpiresAt,
+      billing_starts_at: billingStartsAt,
+      payment_method: 'stripe',
+      campaign_year: parseInt(campaignYear, 10) || new Date().getFullYear(),
+    };
+    const renewalResult = await callAgentEndpoint('/api/economy/forlangning', renewalAgentPayload);
 
-      const agentPayload = {
-        email,
-        first_name: nameParts[0] || '',
-        last_name: nameParts.slice(1).join(' ') || '',
-        month_count: monthCount,
-        total_price: amountKr,
-        current_expires_at: currentExpiresAt || profile.coaching_expires_at || '',
-        new_expires_at: newExpiresAt,
-        billing_starts_at: billingStartsAt,
-        payment_method: 'stripe',
-        campaign_year: parseInt(campaignYear, 10) || new Date().getFullYear(),
-      };
-
-      let agentOk = false;
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 10_000);
-          const res = await fetch(`${agentBaseUrl}/api/economy/forlangning`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(agentPayload),
-            signal: controller.signal,
-          });
-          clearTimeout(timeout);
-          if (res.ok) {
-            agentOk = true;
-            break;
-          }
-          console.error(`Agent renewal attempt ${attempt} got ${res.status}`);
-        } catch (fetchErr: any) {
-          console.error(`Agent renewal attempt ${attempt} failed:`, fetchErr?.message);
-        }
-      }
-
-      // Log failure to activity log so it's visible in the dashboard
-      if (!agentOk) {
-        try {
-          await admin.from('agent_activity_log').insert({
-            type: 'membership',
-            title: `⚠️ Renewal AG-Agent misslyckad: ${fullName || email}`,
-            summary: `Stripe-betalning OK men AG-Agent nåddes inte. Email: ${email}, Belopp: ${amountKr} kr, Nytt datum: ${newExpiresAt}. Trigga manuellt via /api/economy/forlangning.`,
-            status: 'error',
-            client_name: fullName || email,
-            metadata: { ...agentPayload, pi_id: pi.id, error: 'AG-Agent unreachable after 2 attempts' },
-          }).throwOnError();
-        } catch { /* best effort */ }
-      }
-    } catch (agentErr) {
-      console.error('Agent renewal call error:', agentErr);
+    if (!renewalResult.ok) {
+      try {
+        await admin.from('agent_activity_log').insert({
+          type: 'membership',
+          title: `⚠️ Renewal AG-Agent misslyckad: ${fullName || email}`,
+          summary: `Stripe-betalning OK men AG-Agent nåddes inte. Email: ${email}, Belopp: ${amountKr} kr, Nytt datum: ${newExpiresAt}. Trigga manuellt via /api/economy/forlangning.`,
+          status: 'error',
+          client_name: fullName || email,
+          metadata: { ...renewalAgentPayload, pi_id: pi.id, error: renewalResult.error },
+        }).throwOnError();
+      } catch { /* best effort */ }
     }
   } else {
     // Renewal without existing profile — unusual but handle gracefully
