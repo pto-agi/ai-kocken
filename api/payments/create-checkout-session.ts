@@ -359,27 +359,34 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
           payment_method_types: ['card'],
         },
         metadata,
-        expand: ['latest_invoice.payment_intent'],
+        expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent'],
       });
 
-      const latestInvoice = subscription.latest_invoice as Stripe.Invoice | null;
-      const paymentIntent = (latestInvoice as any)?.payment_intent as Stripe.PaymentIntent | null;
+      const latestInvoice = subscription.latest_invoice as any;
 
-      if (!paymentIntent?.client_secret) {
+      // Stripe v20+: use confirmation_secret; fallback to payment_intent for older API versions
+      const secret =
+        latestInvoice?.confirmation_secret?.client_secret ||
+        latestInvoice?.payment_intent?.client_secret;
+
+      if (!secret) {
         console.error('subscription created but no client_secret', {
           subscriptionId: subscription.id,
           invoiceId: latestInvoice?.id,
-          paymentIntentId: paymentIntent?.id,
-          status: paymentIntent?.status,
+          hasConfirmationSecret: !!latestInvoice?.confirmation_secret,
+          hasPaymentIntent: !!latestInvoice?.payment_intent,
         });
         setCors(res, origin);
         res.status(502).json({ error: 'Prenumeration skapades men betalning kunde inte initieras. Försök igen.' });
         return;
       }
 
-      clientSecret = paymentIntent.client_secret;
+      // Extract intent ID from client_secret (format: pi_xxx_secret_xxx or seti_xxx_secret_xxx)
+      const intentIdFromSecret = secret.split('_secret_')[0];
+
+      clientSecret = secret;
       mode = 'subscription';
-      intentId = paymentIntent.id;
+      intentId = latestInvoice?.payment_intent?.id || intentIdFromSecret;
     } else {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amountOre,
