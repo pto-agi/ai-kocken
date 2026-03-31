@@ -19,14 +19,16 @@ export const CheckoutHeader: React.FC = () => {
         </button>
 
         {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-[#a0c81d] flex items-center justify-center">
-            <span className="text-white text-xs font-black">PTO</span>
-          </div>
+        <a href="https://www.privatetrainingonline.se" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
+          <img
+            src="/pto-logotyp-2026.png"
+            alt="Private Training Online"
+            className="h-8 w-auto"
+          />
           <span className="text-sm font-black text-[#3D3D3D] hidden sm:block">
             Private Training Online
           </span>
-        </div>
+        </a>
 
         {/* Spacer to balance layout */}
         <div className="w-16" />

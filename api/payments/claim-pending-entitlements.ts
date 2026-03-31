@@ -6,6 +6,7 @@ type ProfileRow = {
   id: string;
   email: string | null;
   coaching_expires_at: string | null;
+  membership_type: string | null;
 };
 
 type PendingEntitlementRow = {
@@ -19,7 +20,7 @@ async function getProfile(admin: any, id: string): Promise<ProfileRow | null> {
   try {
     const { data } = await admin
       .from('profiles')
-      .select('id,email,coaching_expires_at')
+      .select('id,email,coaching_expires_at,membership_type')
       .eq('id', id)
       .limit(1)
       .maybeSingle()
@@ -29,6 +30,7 @@ async function getProfile(admin: any, id: string): Promise<ProfileRow | null> {
       id: String(data.id),
       email: typeof data.email === 'string' ? data.email : null,
       coaching_expires_at: typeof data.coaching_expires_at === 'string' ? data.coaching_expires_at : null,
+      membership_type: typeof data.membership_type === 'string' ? data.membership_type : null,
     };
   } catch {
     return null;
@@ -100,12 +102,34 @@ async function applyPendingEntitlement(admin: any, profile: ProfileRow, entitlem
     newExpiry.setMonth(newExpiry.getMonth() + monthCount);
     const newExpiresAt = newExpiry.toISOString().split('T')[0];
 
+    // Detect active subscription → hybrid
+    const hasActiveSubscription =
+      profile.membership_type === 'subscription' ||
+      profile.membership_type === 'hybrid';
+    const newMembershipType = hasActiveSubscription ? 'hybrid' : 'package';
+
     await admin
       .from('profiles')
       .update({
         coaching_expires_at: newExpiresAt,
         is_member: true,
-        membership_type: 'package',
+        membership_type: newMembershipType,
+        subscription_status: 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', profile.id)
+      .throwOnError();
+    await markResolved(admin, entitlement.id);
+    return true;
+  }
+
+  if (entitlement.entitlement_type === 'subscription') {
+    // Activate profile for subscription
+    await admin
+      .from('profiles')
+      .update({
+        is_member: true,
+        membership_type: 'subscription',
         subscription_status: 'active',
         updated_at: new Date().toISOString(),
       })
@@ -197,6 +221,65 @@ export default async function handler(req: any, res: any) {
       const nextProfile = await getProfile(admin, authUser.id);
       if (nextProfile) {
         refreshedProfile = nextProfile;
+      }
+    }
+
+    // Forward to AG-Agent for downstream actions (Sheet/TZ sync)
+    // Email was already sent at purchase time, but TZ + Sheet may need profile
+    if (applied.length > 0) {
+      try {
+        const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
+
+        for (const type of applied) {
+          if (type === 'package') {
+            // Forward to forlangning for TZ reactivation + Sheet sync
+            const nameParts = (refreshedProfile as any)?.full_name?.split(' ') || [normalizedEmail];
+            const agentPayload = {
+              email: normalizedEmail,
+              first_name: nameParts[0] || '',
+              last_name: nameParts.slice(1).join(' ') || '',
+              month_count: 0, // Already applied
+              payment_method: 'stripe',
+              new_expires_at: refreshedProfile.coaching_expires_at || '',
+            };
+
+            try {
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 10_000);
+              await fetch(`${agentBaseUrl}/api/economy/forlangning`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(agentPayload),
+                signal: controller.signal,
+              });
+              clearTimeout(timeout);
+            } catch {
+              // non-blocking
+            }
+          } else if (type === 'subscription') {
+            // Forward to checkout-subscription for Sheet + profile sync
+            const agentPayload = {
+              email: normalizedEmail,
+              full_name: (refreshedProfile as any)?.full_name || '',
+            };
+
+            try {
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 10_000);
+              await fetch(`${agentBaseUrl}/api/economy/checkout-subscription`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(agentPayload),
+                signal: controller.signal,
+              });
+              clearTimeout(timeout);
+            } catch {
+              // non-blocking
+            }
+          }
+        }
+      } catch {
+        // non-blocking — entitlements are already resolved in DB
       }
     }
 

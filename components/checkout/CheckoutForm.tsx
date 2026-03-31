@@ -79,13 +79,9 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     [stripe, elements, returnUrl, email],
   );
 
-  const priceLabel = plan.mode === 'subscription'
-    ? `${plan.price.toLocaleString('sv-SE')} kr/mån`
-    : `${plan.price.toLocaleString('sv-SE')} kr`;
-
   const ctaLabel = plan.mode === 'subscription'
-    ? `Starta prenumeration · ${priceLabel}`
-    : `Betala ${priceLabel}`;
+    ? 'Starta prenumeration'
+    : 'Slutför köp';
 
   return (
     <div className="space-y-6">

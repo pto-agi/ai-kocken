@@ -4,7 +4,10 @@
  * These map 1:1 to Stripe Price IDs.
  * Package plans (3m/6m/12m) = one-time PaymentIntent
  * Monthly plan = recurring Subscription
+ * Renewal plan = dynamic "Förläng året ut" (computed from coaching_expires_at)
  */
+
+import type { YearEndOffer } from '../utils/extensionOffer';
 
 export interface CheckoutPlan {
   id: string;
@@ -19,6 +22,8 @@ export interface CheckoutPlan {
   monthCount?: number;    // Package duration
   interval?: 'month';     // For subscription
   description?: string;
+  isRenewal?: boolean;    // Dynamic renewal plan
+  renewalOffer?: YearEndOffer; // Offer details for renewal
 }
 
 export const CHECKOUT_PLANS: CheckoutPlan[] = [
@@ -73,3 +78,30 @@ export function getPlanById(id: string): CheckoutPlan | undefined {
 }
 
 export const DEFAULT_PLAN_ID = '12m';
+
+/**
+ * Build a dynamic renewal plan from a year-end offer.
+ * Returns null if the offer has 0 months (already covers year-end).
+ */
+export function buildRenewalPlan(offer: YearEndOffer): CheckoutPlan | null {
+  if (offer.monthCount <= 0 || offer.totalPrice <= 0) return null;
+
+  const monthCount = Math.ceil(offer.monthCount);
+  const perMonth = monthCount > 0 ? Math.round(offer.totalPrice / monthCount) : offer.totalPrice;
+
+  return {
+    id: 'renewal',
+    label: `Förläng året ut`,
+    badge: 'Ditt erbjudande',
+    price: offer.totalPrice,
+    priceOre: offer.totalPrice * 100,
+    perMonth,
+    mode: 'payment',
+    stripePriceId: '', // Dynamic — handled via forlangning flow
+    monthCount,
+    description: `Nytt utgångsdatum: ${offer.newExpiresAt}`,
+    isRenewal: true,
+    renewalOffer: offer,
+  };
+}
+

@@ -2,16 +2,19 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import type { Appearance } from '@stripe/stripe-js';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Loader2, AlertTriangle, Receipt, Lock, ArrowRight,
-  Shield, Zap, Award, CheckCircle2,
+  Shield, Zap, Award, CheckCircle2, LogIn, UserCircle2,
 } from 'lucide-react';
 
-import { CHECKOUT_PLANS, DEFAULT_PLAN_ID, getPlanById } from '../lib/checkoutPlans';
+import { CHECKOUT_PLANS, DEFAULT_PLAN_ID, getPlanById, buildRenewalPlan } from '../lib/checkoutPlans';
 import type { CheckoutPlan } from '../lib/checkoutPlans';
 import { createIntent } from '../utils/checkoutClient';
+import { createCheckoutSession } from '../utils/paymentsClient';
 import { trackCheckoutEvent } from '../utils/paymentAnalytics';
 import { useAuthStore } from '../store/authStore';
+import { computeYearEndOffer } from '../utils/extensionOffer';
 
 import { CheckoutHeader } from '../components/checkout/CheckoutHeader';
 import { PlanSelector } from '../components/checkout/PlanSelector';
@@ -81,13 +84,67 @@ type CheckoutState =
 
 export const Checkout: React.FC = () => {
   const { session, profile } = useAuthStore();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [selectedPlanId, setSelectedPlanId] = useState(DEFAULT_PLAN_ID);
   const [state, setState] = useState<CheckoutState>({ phase: 'selecting' });
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'friskvard'>('stripe');
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
-  const plan = useMemo(() => getPlanById(selectedPlanId) || CHECKOUT_PLANS[0], [selectedPlanId]);
+  // ── Renewal mode detection ──
+  const isRenewalFlow = searchParams.get('flow') === 'renewal';
+  const isActiveMember = Boolean(
+    profile &&
+    (profile.membership_type === 'package' ||
+     profile.membership_type === 'subscription' ||
+     profile.membership_type === 'hybrid'),
+  );
+  const isLoggedIn = Boolean(session?.user?.id);
+
+  // Compute renewal offer for active members
+  const renewalOffer = useMemo(() => {
+    if (!isActiveMember || !profile?.coaching_expires_at) return null;
+    return computeYearEndOffer({
+      coachingExpiresAt: profile.coaching_expires_at,
+      monthlyPrice: 249,
+    });
+  }, [isActiveMember, profile?.coaching_expires_at]);
+
+  const renewalPlan = useMemo(() => {
+    if (!renewalOffer) return null;
+    return buildRenewalPlan(renewalOffer);
+  }, [renewalOffer]);
+
+  // Build dynamic plan list
+  const availablePlans = useMemo(() => {
+    if (renewalPlan) return [renewalPlan, ...CHECKOUT_PLANS];
+    return CHECKOUT_PLANS;
+  }, [renewalPlan]);
+
+  // Auto-select renewal plan if renewal flow + has offer
+  useEffect(() => {
+    if (isRenewalFlow && renewalPlan && selectedPlanId !== 'renewal') {
+      setSelectedPlanId('renewal');
+      setState({ phase: 'selecting' });
+    }
+  }, [isRenewalFlow, renewalPlan]);
+
+  // Show login prompt for unauthenticated renewal visitors
+  useEffect(() => {
+    if (isRenewalFlow && !isLoggedIn) {
+      setShowLoginPrompt(true);
+    } else {
+      setShowLoginPrompt(false);
+    }
+  }, [isRenewalFlow, isLoggedIn]);
+
+  // Resolve selected plan from both standard and dynamic plans
+  const plan = useMemo(() => {
+    if (selectedPlanId === 'renewal' && renewalPlan) return renewalPlan;
+    return getPlanById(selectedPlanId) || CHECKOUT_PLANS[0];
+  }, [selectedPlanId, renewalPlan]);
 
   useEffect(() => {
     if (session?.user?.email && !email) setEmail(session.user.email);
@@ -147,6 +204,9 @@ export const Checkout: React.FC = () => {
       return;
     }
 
+    // Determine purchase type for GA4
+    const purchaseType = plan.isRenewal ? 'renewal' : 'new_purchase';
+
     // GA4 e-commerce: add_payment_info
     if (typeof window !== 'undefined') {
       window.dataLayer = window.dataLayer || [];
@@ -160,19 +220,25 @@ export const Checkout: React.FC = () => {
           items: [{
             item_id: selectedPlanId,
             item_name: plan.label,
+            item_category: purchaseType,
             price: plan.price,
             currency: 'SEK',
             quantity: 1,
           }],
         },
       });
-      // Persist for purchase event on success page
+      // Persist for purchase event on success page (Enhanced Conversions data)
       try {
         sessionStorage.setItem('pto_checkout_plan', JSON.stringify({
           id: selectedPlanId,
           label: plan.label,
           price: plan.price,
           currency: 'SEK',
+          purchaseType,
+          email: email.trim(),
+          fullName: fullName.trim(),
+          monthCount: plan.monthCount || 0,
+          newExpiresAt: plan.renewalOffer?.newExpiresAt || '',
         }));
       } catch { /* noop */ }
     }
@@ -184,6 +250,48 @@ export const Checkout: React.FC = () => {
 
     setState({ phase: 'loading' });
 
+    // Renewal plans use the forlangning flow
+    if (plan.isRenewal && plan.renewalOffer) {
+      try {
+        const result = await createCheckoutSession(
+          {
+            flow: 'forlangning',
+            mode: 'payment',
+            userId: session?.user?.id,
+            email: email.trim(),
+            fullName: fullName.trim(),
+            forlangningOffer: {
+              monthlyPrice: plan.renewalOffer.monthlyPrice,
+              monthCount: plan.renewalOffer.monthCount,
+              totalPrice: plan.renewalOffer.totalPrice,
+              campaignYear: plan.renewalOffer.campaignYear,
+              billableDays: plan.renewalOffer.billableDays,
+              calculationMode: plan.renewalOffer.calculationMode,
+              currentExpiresAt: plan.renewalOffer.currentExpiresAt,
+              billingStartsAt: plan.renewalOffer.billingStartsAt,
+              newExpiresAt: plan.renewalOffer.newExpiresAt,
+            },
+          },
+          session?.access_token,
+        );
+
+        if (result.client_secret && result.publishable_key) {
+          setState({
+            phase: 'ready',
+            clientSecret: result.client_secret,
+            publishableKey: result.publishable_key,
+            mode: 'payment',
+          });
+        } else {
+          setState({ phase: 'error', message: result.error || 'Kunde inte starta betalning.' });
+        }
+      } catch {
+        setState({ phase: 'error', message: 'Oväntat fel. Försök igen.' });
+      }
+      return;
+    }
+
+    // Standard checkout flow
     const response = await createIntent({
       planId: selectedPlanId,
       email: email.trim(),
@@ -224,13 +332,50 @@ export const Checkout: React.FC = () => {
       <main className="pt-20 pb-12 px-4">
         <div className="max-w-5xl mx-auto">
 
+          {/* Login prompt for unauthenticated renewal visitors */}
+          {showLoginPrompt && (
+            <div className="max-w-lg mx-auto mb-8 rounded-2xl border border-[#d9e8a0] bg-[#f5fae6] p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <UserCircle2 className="w-6 h-6 text-[#6B8A12] mt-0.5 flex-shrink-0" />
+                <div>
+                  <h2 className="text-sm font-bold text-[#3D3D3D] mb-1">
+                    Logga in för att se ditt personliga erbjudande
+                  </h2>
+                  <p className="text-xs text-[#6B6158] leading-relaxed">
+                    Som befintlig klient har du tillgång till ett personligt förlängningserbjudande baserat på ditt nuvarande utgångsdatum.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/auth?redirect=/checkout?flow=renewal')}
+                  className="flex-1 py-3 rounded-xl bg-[#a0c81d] text-white text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition flex items-center justify-center gap-2"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Logga in
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPrompt(false)}
+                  className="flex-1 py-3 rounded-xl bg-white border border-[#E6E1D8] text-[#6B6158] text-xs font-bold uppercase tracking-widest hover:bg-[#F6F1E7] transition"
+                >
+                  Fortsätt som gäst
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-xl md:text-2xl font-black text-[#3D3D3D] mb-1">
-              Slutför ditt köp
+              {isActiveMember ? 'Förläng ditt medlemskap' : 'Slutför ditt köp'}
             </h1>
             <p className="text-sm text-[#6B6158] font-medium">
-              Välj plan och betala — du är igång på 2 minuter
+              {isActiveMember
+                ? 'Välj ditt erbjudande eller en ny plan'
+                : 'Välj plan och betala — du är igång på 2 minuter'
+              }
             </p>
           </div>
 
@@ -247,7 +392,7 @@ export const Checkout: React.FC = () => {
                   <h2 className="text-xs font-black uppercase tracking-widest text-[#3D3D3D]">Välj plan</h2>
                 </div>
                 <PlanSelector
-                  plans={CHECKOUT_PLANS}
+                  plans={availablePlans}
                   selectedPlanId={selectedPlanId}
                   onSelect={handlePlanSelect}
                 />

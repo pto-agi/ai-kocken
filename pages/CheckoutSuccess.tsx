@@ -7,13 +7,27 @@ import {
   ArrowRight,
   Download,
   PartyPopper,
-  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 
 import { CheckoutHeader } from '../components/checkout/CheckoutHeader';
 import { trackCheckoutEvent } from '../utils/paymentAnalytics';
 
-const NEXT_STEPS = [
+type PurchaseType = 'new_purchase' | 'renewal';
+
+interface StoredPlan {
+  id: string;
+  label: string;
+  price: number;
+  currency: string;
+  purchaseType: PurchaseType;
+  email: string;
+  fullName: string;
+  monthCount: number;
+  newExpiresAt: string;
+}
+
+const NEW_PURCHASE_STEPS = [
   {
     icon: Mail,
     title: 'Kolla din inkorg',
@@ -31,34 +45,49 @@ const NEXT_STEPS = [
   },
 ];
 
+const RENEWAL_STEPS = [
+  {
+    icon: CheckCircle2,
+    title: 'Förlängningen är registrerad',
+    description: 'Ditt utgångsdatum uppdateras automatiskt. Du behöver inte göra något mer.',
+  },
+  {
+    icon: RefreshCw,
+    title: 'Fortsätt som vanligt',
+    description: 'Dina tränings- och kostupplägg fortsätter utan avbrott. Din coach får ett meddelande.',
+  },
+  {
+    icon: Mail,
+    title: 'Bekräftelse via e-post',
+    description: 'Du får en bekräftelse med ditt nya utgångsdatum till din registrerade e-postadress.',
+  },
+];
+
 export const CheckoutSuccess: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [showConfetti, setShowConfetti] = useState(true);
+  const [storedPlan, setStoredPlan] = useState<StoredPlan | null>(null);
 
   useEffect(() => {
+    // Recover plan data from sessionStorage
+    let plan: StoredPlan | null = null;
+    try {
+      const stored = sessionStorage.getItem('pto_checkout_plan');
+      if (stored) {
+        plan = JSON.parse(stored) as StoredPlan;
+        setStoredPlan(plan);
+      }
+    } catch {
+      // noop
+    }
+
+    const purchaseType = plan?.purchaseType || 'new_purchase';
     trackCheckoutEvent('checkout_completed', { flow: 'checkout' as any });
 
     // GA4 e-commerce: purchase (conversion event for Google Ads)
     if (typeof window !== 'undefined') {
       const sessionId = searchParams.get('session_id') || searchParams.get('payment_intent') || '';
-      // Try to recover plan info from sessionStorage (set during checkout)
-      let planId = 'unknown';
-      let planLabel = 'PTO Coaching';
-      let planPrice = 0;
-      let planCurrency = 'SEK';
-      try {
-        const stored = sessionStorage.getItem('pto_checkout_plan');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          planId = parsed.id || planId;
-          planLabel = parsed.label || planLabel;
-          planPrice = parsed.price || planPrice;
-          planCurrency = parsed.currency || planCurrency;
-        }
-      } catch {
-        // noop
-      }
 
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push({ ecommerce: null }); // Clear previous
@@ -66,26 +95,55 @@ export const CheckoutSuccess: React.FC = () => {
         event: 'purchase',
         ecommerce: {
           transaction_id: sessionId || `pto_${Date.now()}`,
-          value: planPrice,
-          currency: planCurrency,
+          value: plan?.price || 0,
+          currency: plan?.currency || 'SEK',
           items: [{
-            item_id: planId,
-            item_name: planLabel,
-            price: planPrice,
-            currency: planCurrency,
+            item_id: plan?.id || 'unknown',
+            item_name: plan?.label || 'PTO Coaching',
+            item_category: purchaseType,
+            price: plan?.price || 0,
+            currency: plan?.currency || 'SEK',
             quantity: 1,
           }],
         },
+      });
+
+      // GA4 Enhanced Conversions: push user data for improved attribution
+      if (plan?.email || plan?.fullName) {
+        window.dataLayer.push({
+          event: 'enhanced_conversion_data',
+          enhanced_conversions: {
+            email: plan?.email || '',
+            ...(plan?.fullName ? {
+              first_name: plan.fullName.split(' ')[0] || '',
+              last_name: plan.fullName.split(' ').slice(1).join(' ') || '',
+            } : {}),
+          },
+        });
+      }
+
+      // Custom event to distinguish renewal vs new_purchase in GA4
+      window.dataLayer.push({
+        event: purchaseType === 'renewal' ? 'pto_renewal_completed' : 'pto_new_purchase_completed',
+        pto_purchase_type: purchaseType,
+        pto_plan_id: plan?.id || '',
+        pto_plan_label: plan?.label || '',
+        pto_amount: plan?.price || 0,
+        pto_month_count: plan?.monthCount || 0,
+        pto_new_expires_at: plan?.newExpiresAt || '',
       });
 
       // Clean up
       try { sessionStorage.removeItem('pto_checkout_plan'); } catch { /* noop */ }
     }
 
-    // Auto-hide confetti after animation
+    // Auto-hide confetti
     const timeout = setTimeout(() => setShowConfetti(false), 5000);
     return () => clearTimeout(timeout);
   }, []);
+
+  const isRenewal = storedPlan?.purchaseType === 'renewal';
+  const steps = isRenewal ? RENEWAL_STEPS : NEW_PURCHASE_STEPS;
 
   return (
     <div className="min-h-screen bg-[#F6F1E7]">
@@ -105,15 +163,41 @@ export const CheckoutSuccess: React.FC = () => {
 
           {/* Heading */}
           <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D] mb-2">
-            Välkommen till PTO! 🎉
+            {isRenewal ? 'Förlängningen är klar!' : 'Välkommen till PTO!'}
           </h1>
-          <p className="text-sm text-[#6B6158] font-medium max-w-sm mx-auto mb-10">
-            Din betalning är bekräftad och ditt konto förbereds. Du är nu en del av teamet!
+          <p className="text-sm text-[#6B6158] font-medium max-w-sm mx-auto mb-3">
+            {isRenewal
+              ? 'Din betalning är bekräftad och ditt medlemskap har förlängts.'
+              : 'Din betalning är bekräftad och ditt konto förbereds. Du är nu en del av teamet!'
+            }
           </p>
+
+          {/* Purchase summary */}
+          {storedPlan && (
+            <div className="rounded-2xl bg-white border border-[#E6E1D8] p-4 mb-8 text-left">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Sammanfattning</p>
+              <div className="space-y-1 text-sm text-[#6B6158]">
+                <div className="flex justify-between">
+                  <span>Plan</span>
+                  <span className="font-bold text-[#3D3D3D]">{storedPlan.label}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Belopp</span>
+                  <span className="font-bold text-[#3D3D3D]">{storedPlan.price.toLocaleString('sv-SE')} kr</span>
+                </div>
+                {storedPlan.newExpiresAt && (
+                  <div className="flex justify-between">
+                    <span>Nytt utgångsdatum</span>
+                    <span className="font-bold text-[#3D3D3D]">{storedPlan.newExpiresAt}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Next steps */}
           <div className="space-y-4 text-left mb-10">
-            {NEXT_STEPS.map((step, i) => (
+            {steps.map((step, i) => (
               <div
                 key={step.title}
                 className="flex items-start gap-4 rounded-2xl bg-white border border-[#E6E1D8] p-4 shadow-sm"
@@ -147,7 +231,7 @@ export const CheckoutSuccess: React.FC = () => {
                 flex items-center justify-center gap-2
               "
             >
-              Logga in på myPTO
+              {isRenewal ? 'Till min profil' : 'Logga in på myPTO'}
               <ArrowRight className="w-4 h-4" />
             </button>
             <a

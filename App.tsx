@@ -252,14 +252,7 @@ function App() {
                     <Route path="/start/tack" element={<StartTack />} />
                     <Route path="/uppfoljning" element={<Uppfoljning />} />
                     <Route path="/uppfoljning/tack" element={<UppfoljningTack />} />
-                    <Route
-                      path="/forlangning"
-                      element={
-                        <AuthGuard requirePremium={false}>
-                          <Forlangning />
-                        </AuthGuard>
-                      }
-                    />
+                    <Route path="/forlangning" element={<Forlangning />} />
                     <Route
                       path="/tack-forlangning"
                       element={

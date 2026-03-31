@@ -38,12 +38,12 @@ async function findProfileIdByEmail(admin: any, email: string): Promise<string |
   }
 }
 
-async function findProfileById(admin: any, id: string): Promise<{ id: string; email: string | null; coaching_expires_at: string | null } | null> {
+async function findProfileById(admin: any, id: string): Promise<{ id: string; email: string | null; coaching_expires_at: string | null; membership_type: string | null } | null> {
   if (!id) return null;
   try {
     const { data } = await admin
       .from('profiles')
-      .select('id,email,coaching_expires_at')
+      .select('id,email,coaching_expires_at,membership_type')
       .eq('id', id)
       .limit(1)
       .maybeSingle()
@@ -53,6 +53,7 @@ async function findProfileById(admin: any, id: string): Promise<{ id: string; em
       id: String(data.id),
       email: typeof data.email === 'string' ? data.email : null,
       coaching_expires_at: typeof data.coaching_expires_at === 'string' ? data.coaching_expires_at : null,
+      membership_type: typeof data.membership_type === 'string' ? data.membership_type : null,
     };
   } catch {
     return null;
@@ -358,6 +359,13 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
 
   email = (customerRow?.email as string | undefined) || null;
   userId = (customerRow?.user_id as string | undefined) || null;
+
+  // If no email from stripe_customers, try fetching from subscription metadata
+  if (!email) {
+    const meta = (subscription as any).metadata || {};
+    email = (meta.email as string | undefined) || null;
+  }
+
   const profileId = await resolveProfileId(admin, userId || undefined, email || undefined);
 
   const rawSubscription = subscription as any;
@@ -393,6 +401,90 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
       }).eq('id', profileId).throwOnError();
     } catch {
       // non-blocking
+    }
+  }
+
+  // ── Forward new active subscriptions to AG-Agent ──
+  // AG-Agent handles: profile hybrid check, Sheet write, welcome email, admin email
+  if (status === 'active' && email) {
+    const meta = (subscription as any).metadata || {};
+    const fullName = (meta.full_name as string) || '';
+
+    if (profileId) {
+      // Existing client → forward to AG-Agent subscription processor
+      try {
+        const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
+
+        const agentPayload = {
+          email,
+          full_name: fullName,
+          stripe_customer_id: stripeCustomerId,
+        };
+
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10_000);
+            const res = await fetch(`${agentBaseUrl}/api/economy/checkout-subscription`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(agentPayload),
+              signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            if (res.ok) break;
+          } catch {
+            // retry
+          }
+        }
+      } catch {
+        // non-blocking
+      }
+    } else {
+      // New client (no profile) → pending entitlement + AG-Agent for Sheet/Email
+      await createPendingEntitlement(admin, {
+        email,
+        flow: 'subscription',
+        metadata: {
+          stripe_subscription_id: subscription.id,
+          stripe_customer_id: stripeCustomerId,
+          full_name: fullName,
+        },
+      });
+
+      // Still forward for Sheet + Email (we have email even without profile)
+      try {
+        const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
+
+        const agentPayload = {
+          email,
+          full_name: fullName,
+          plan_label: 'Månadsvis',
+          month_count: 0,
+          amount: 0,
+          payment_method: 'stripe',
+          is_subscription: true,
+        };
+
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10_000);
+            const res = await fetch(`${agentBaseUrl}/api/economy/new-checkout-client`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(agentPayload),
+              signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            if (res.ok) break;
+          } catch {
+            // retry
+          }
+        }
+      } catch {
+        // non-blocking
+      }
     }
   }
 }
@@ -509,13 +601,35 @@ async function processPackagePurchase(admin: any, pi: Stripe.PaymentIntent) {
     newExpiry.setMonth(newExpiry.getMonth() + monthCount);
     const newExpiresAt = newExpiry.toISOString().split('T')[0]; // YYYY-MM-DD
 
+    // Check if user has an active Stripe subscription → hybrid
+    let hasActiveSubscription = false;
+    if (profile.membership_type === 'subscription' || profile.membership_type === 'hybrid') {
+      hasActiveSubscription = true;
+    } else {
+      // Fallback: check stripe_subscriptions table
+      try {
+        const { data: activeSub } = await admin
+          .from('stripe_subscriptions')
+          .select('id')
+          .eq('email', email.toLowerCase())
+          .eq('status', 'active')
+          .limit(1)
+          .maybeSingle();
+        if (activeSub) hasActiveSubscription = true;
+      } catch {
+        // non-blocking
+      }
+    }
+
+    const newMembershipType = hasActiveSubscription ? 'hybrid' : 'package';
+
     try {
       await admin
         .from('profiles')
         .update({
           coaching_expires_at: newExpiresAt,
           is_member: true,
-          membership_type: 'package',
+          membership_type: newMembershipType,
           subscription_status: 'active',
           updated_at: new Date().toISOString(),
         })
@@ -564,7 +678,13 @@ async function processPackagePurchase(admin: any, pi: Stripe.PaymentIntent) {
       // non-blocking
     }
   } else {
-    // ── New client: create pending entitlement ──
+    // ── New client: create pending entitlement + notify AG-Agent ──
+
+    // Calculate expected expiry (from now + monthCount months)
+    const expectedExpiry = new Date();
+    expectedExpiry.setMonth(expectedExpiry.getMonth() + monthCount);
+    const expectedExpiresAt = expectedExpiry.toISOString().split('T')[0];
+
     await createPendingEntitlement(admin, {
       email,
       flow: 'package',
@@ -575,8 +695,45 @@ async function processPackagePurchase(admin: any, pi: Stripe.PaymentIntent) {
         amount: amountKr,
         full_name: fullName,
         payment_intent_id: pi.id,
+        new_expires_at: expectedExpiresAt,
       },
     });
+
+    // Forward to AG-Agent for Sheet write + admin email + welcome email
+    // TZ is skipped for new clients (created later via startformulär)
+    try {
+      const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
+
+      const agentPayload = {
+        email,
+        full_name: fullName,
+        plan_label: planLabel,
+        month_count: monthCount,
+        amount: amountKr,
+        new_expires_at: expectedExpiresAt,
+        payment_method: 'stripe',
+        is_subscription: false,
+      };
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10_000);
+          const res = await fetch(`${agentBaseUrl}/api/economy/new-checkout-client`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(agentPayload),
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          if (res.ok) break;
+        } catch {
+          // retry
+        }
+      }
+    } catch {
+      // non-blocking — pending entitlement ensures client gets provisioned on registration
+    }
   }
 
   // Activity log (non-blocking)
