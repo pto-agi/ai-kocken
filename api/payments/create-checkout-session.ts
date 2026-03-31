@@ -571,6 +571,7 @@ export default async function handler(req: any, res: any) {
       planId: payload.planId || '',
       planLabel: payload.planLabel || '',
       planMonthCount: payload.planMonthCount || 0,
+      monthCount: payload.planMonthCount || 0,
     };
     if (flow === 'forlangning' && computedForlangningOffer) {
       orderMetadata.monthCount = computedForlangningOffer.monthCount;
