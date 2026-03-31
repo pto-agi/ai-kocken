@@ -344,6 +344,12 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
     let intentId: string;
 
     if (planMode === 'subscription' && plan) {
+      if (!customerId) {
+        setCors(res, origin);
+        res.status(400).json({ error: 'E-post krävs för månadsvis prenumeration.' });
+        return;
+      }
+
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: plan.stripePriceId }],
@@ -356,10 +362,22 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
         expand: ['latest_invoice.payment_intent'],
       });
 
-      const latestInvoice = subscription.latest_invoice as Stripe.Invoice;
-      const paymentIntent = (latestInvoice as any).payment_intent as Stripe.PaymentIntent;
+      const latestInvoice = subscription.latest_invoice as Stripe.Invoice | null;
+      const paymentIntent = (latestInvoice as any)?.payment_intent as Stripe.PaymentIntent | null;
 
-      clientSecret = paymentIntent.client_secret!;
+      if (!paymentIntent?.client_secret) {
+        console.error('subscription created but no client_secret', {
+          subscriptionId: subscription.id,
+          invoiceId: latestInvoice?.id,
+          paymentIntentId: paymentIntent?.id,
+          status: paymentIntent?.status,
+        });
+        setCors(res, origin);
+        res.status(502).json({ error: 'Prenumeration skapades men betalning kunde inte initieras. Försök igen.' });
+        return;
+      }
+
+      clientSecret = paymentIntent.client_secret;
       mode = 'subscription';
       intentId = paymentIntent.id;
     } else {
