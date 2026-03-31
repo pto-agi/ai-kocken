@@ -24,7 +24,53 @@ export interface CheckoutPlan {
   description?: string;
   isRenewal?: boolean;    // Dynamic renewal plan
   renewalOffer?: YearEndOffer; // Offer details for renewal
+  campaignLabel?: string; // e.g. "Påskkampanj" | "Vårkampanj"
+  urgencyText?: string;   // e.g. "Erbjudandet gäller t.o.m. 31 maj"
 }
+
+// ── Campaign configuration ──
+
+const CAMPAIGN_DEADLINE = new Date('2026-05-31T23:59:59');
+
+/** Easter 2026 is April 5 — "Påskkampanj" runs until April 14 (week after Easter) */
+const EASTER_END = new Date('2026-04-14T23:59:59');
+
+export interface CampaignInfo {
+  name: string;          // e.g. "Påskkampanj"
+  fullLabel: string;     // e.g. "Förläng året ut (Påskkampanj)"
+  urgencyText: string;   // e.g. "3 dagar kvar" or "Tidsbegränsat erbjudande"
+  isActive: boolean;     // false if past deadline
+  deadline: Date;
+}
+
+export function getCampaignInfo(now: Date = new Date()): CampaignInfo {
+  const deadline = CAMPAIGN_DEADLINE;
+  const isActive = now <= deadline;
+
+  // Determine campaign name by date
+  const isEasterPeriod = now <= EASTER_END;
+  const name = isEasterPeriod ? 'Påskkampanj' : 'Vårkampanj';
+  const fullLabel = `Förläng året ut (${name})`;
+
+  // Build urgency text
+  let urgencyText: string;
+  if (!isActive) {
+    urgencyText = 'Erbjudandet har gått ut';
+  } else {
+    const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysLeft <= 3) {
+      urgencyText = daysLeft === 1 ? 'Sista dagen!' : `${daysLeft} dagar kvar!`;
+    } else if (daysLeft <= 14) {
+      urgencyText = `${daysLeft} dagar kvar`;
+    } else {
+      urgencyText = 'Tidsbegränsat erbjudande';
+    }
+  }
+
+  return { name, fullLabel, urgencyText, isActive, deadline };
+}
+
+// ── Standard plans ──
 
 export const CHECKOUT_PLANS: CheckoutPlan[] = [
   {
@@ -81,17 +127,21 @@ export const DEFAULT_PLAN_ID = '12m';
 
 /**
  * Build a dynamic renewal plan from a year-end offer.
- * Returns null if the offer has 0 months (already covers year-end).
+ * Returns null if the offer has 0 months, the campaign has expired,
+ * or the price is invalid.
  */
 export function buildRenewalPlan(offer: YearEndOffer): CheckoutPlan | null {
   if (offer.monthCount <= 0 || offer.totalPrice <= 0) return null;
+
+  const campaign = getCampaignInfo();
+  if (!campaign.isActive) return null;
 
   const monthCount = Math.ceil(offer.monthCount);
   const perMonth = monthCount > 0 ? Math.round(offer.totalPrice / monthCount) : offer.totalPrice;
 
   return {
     id: 'renewal',
-    label: `Förläng året ut`,
+    label: campaign.fullLabel,
     badge: 'Ditt erbjudande',
     price: offer.totalPrice,
     priceOre: offer.totalPrice * 100,
@@ -102,6 +152,8 @@ export function buildRenewalPlan(offer: YearEndOffer): CheckoutPlan | null {
     description: `Nytt utgångsdatum: ${offer.newExpiresAt}`,
     isRenewal: true,
     renewalOffer: offer,
+    campaignLabel: campaign.name,
+    urgencyText: campaign.urgencyText,
   };
 }
 

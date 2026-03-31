@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Sparkles, Clock, Star } from 'lucide-react';
+import { Check, Sparkles, Clock, Star, Timer } from 'lucide-react';
 import type { CheckoutPlan } from '../../lib/checkoutPlans';
 
 interface PlanSelectorProps {
@@ -80,6 +80,16 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Urgency badge */}
+            {plan.urgencyText && (
+              <div className="mt-3 ml-8">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-[10px] font-bold text-amber-800 uppercase tracking-wide">
+                  <Timer className="w-3 h-3 animate-pulse" />
+                  {plan.urgencyText}
+                </span>
+              </div>
+            )}
           </button>
         );
       })}
