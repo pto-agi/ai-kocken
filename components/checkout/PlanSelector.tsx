@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Sparkles, Clock, Star, Timer } from 'lucide-react';
+import { Star, Timer } from 'lucide-react';
 import type { CheckoutPlan } from '../../lib/checkoutPlans';
 
 interface PlanSelectorProps {
@@ -29,10 +29,10 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
             type="button"
             onClick={() => onSelect(plan.id)}
             className={`
-              group relative w-full text-left rounded-2xl border-2 p-5 transition-all duration-200
+              group relative w-full text-left rounded-xl border-2 p-4 transition-all duration-200
               ${isSelected
-                ? 'border-[#a0c81d] bg-gradient-to-br from-[#f5fae6] to-[#eef5d6] shadow-lg shadow-[#a0c81d]/15'
-                : 'border-[#d9e8a0] bg-gradient-to-br from-[#f5fae6]/60 to-[#eef5d6]/60 hover:border-[#a0c81d] hover:shadow-md'
+                ? 'border-[#a0c81d] bg-gradient-to-br from-[#f5fae6] to-[#eef5d6] shadow-md shadow-[#a0c81d]/10'
+                : 'border-[#d9e8a0] bg-gradient-to-br from-[#f5fae6]/60 to-[#eef5d6]/60 hover:border-[#a0c81d] hover:shadow-sm'
               }
             `}
             aria-pressed={isSelected}
@@ -45,23 +45,20 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {/* Radio indicator */}
+                {/* Radio indicator — Stripe-style hollow circle with dot */}
                 <div
                   className={`
-                    w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
-                    transition-all duration-200
-                    ${isSelected
-                      ? 'border-[#a0c81d] bg-[#a0c81d]'
-                      : 'border-[#c5d69b] group-hover:border-[#a0c81d]'
-                    }
+                    w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center flex-shrink-0
+                    transition-colors duration-150
+                    ${isSelected ? 'border-[#a0c81d]' : 'border-[#C5BFB5] group-hover:border-[#a0c81d]/60'}
                   `}
                 >
-                  {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                  {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-[#a0c81d]" />}
                 </div>
 
                 {/* Plan info */}
                 <div>
-                  <span className="text-sm font-bold text-[#3D3D3D]">{plan.label}</span>
+                  <span className="text-sm font-semibold text-[#3D3D3D]">{plan.label}</span>
                   {plan.description && (
                     <div className="text-xs text-[#6B8A12] font-medium mt-0.5">
                       {plan.description}
@@ -72,7 +69,7 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
 
               {/* Price */}
               <div className="text-right flex-shrink-0 ml-4">
-                <span className="text-base font-black text-[#3D3D3D]">
+                <span className="text-sm font-bold text-[#3D3D3D]">
                   {plan.price.toLocaleString('sv-SE')} kr
                 </span>
                 <div className="text-[11px] text-[#6B8A12] font-medium">
@@ -83,8 +80,8 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
 
             {/* Urgency badge */}
             {plan.urgencyText && (
-              <div className="mt-3 ml-8">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-[10px] font-bold text-amber-800 uppercase tracking-wide">
+              <div className="mt-2.5 ml-[30px]">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 uppercase tracking-wide">
                   <Timer className="w-3 h-3 animate-pulse" />
                   {plan.urgencyText}
                 </span>
@@ -103,20 +100,9 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
         </div>
       )}
 
-      {/* Standard plans — grouped list */}
+      {/* Standard plans — compact accordion list matching Stripe's radio style */}
       {standardPlans.length > 0 && (
-        <div className="relative rounded-2xl border border-[#E6E1D8] overflow-hidden">
-          {/* Popular badge on the container */}
-          {standardPlans.some(p => p.badge) && (() => {
-            const popularPlan = standardPlans.find(p => p.badge);
-            return popularPlan ? (
-              <span className="absolute -top-0 left-4 z-10 inline-flex items-center gap-1 rounded-b-lg bg-[#a0c81d] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-sm">
-                <Sparkles className="w-3 h-3" />
-                {popularPlan.badge}
-              </span>
-            ) : null;
-          })()}
-
+        <div className="rounded-xl border border-[#E6E1D8] overflow-hidden">
           {standardPlans.map((plan, index) => {
             const isSelected = plan.id === selectedPlanId;
 
@@ -126,37 +112,33 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                 type="button"
                 onClick={() => onSelect(plan.id)}
                 className={`
-                  group relative w-full text-left px-5 py-4 transition-all duration-200
+                  group relative w-full text-left px-4 py-3 transition-all duration-150
                   ${index > 0 ? 'border-t border-[#E6E1D8]' : ''}
                   ${isSelected
-                    ? 'bg-[#f5fae6]'
+                    ? 'bg-[#FAFAF5]'
                     : 'bg-white hover:bg-[#FAFAF5]'
                   }
-                  ${index === 0 && plan.badge ? 'pt-7' : ''}
                 `}
                 aria-pressed={isSelected}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {/* Radio indicator */}
+                    {/* Radio indicator — Stripe-style hollow circle with dot */}
                     <div
                       className={`
-                        w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0
-                        transition-all duration-200
-                        ${isSelected
-                          ? 'border-[#a0c81d] bg-[#a0c81d]'
-                          : 'border-[#D5CFC6] group-hover:border-[#a0c81d]/50'
-                        }
+                        w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center flex-shrink-0
+                        transition-colors duration-150
+                        ${isSelected ? 'border-[#a0c81d]' : 'border-[#C5BFB5] group-hover:border-[#a0c81d]/60'}
                       `}
                     >
-                      {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                      {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-[#a0c81d]" />}
                     </div>
 
                     {/* Plan info */}
-                    <div>
-                      <span className="text-sm font-bold text-[#3D3D3D]">{plan.label}</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-semibold text-[#3D3D3D]">{plan.label}</span>
                       {plan.description && (
-                        <span className="ml-2 text-xs text-[#8A8177] font-medium">
+                        <span className="text-[11px] text-[#8A8177] font-medium">
                           {plan.description}
                         </span>
                       )}
@@ -166,17 +148,19 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                   {/* Price */}
                   <div className="text-right flex-shrink-0 ml-4">
                     {plan.mode === 'subscription' ? (
-                      <div>
-                        <span className="text-base font-black text-[#3D3D3D]">
+                      <div className="flex items-baseline gap-0.5">
+                        <span className="text-sm font-bold text-[#3D3D3D]">
                           {plan.price.toLocaleString('sv-SE')} kr
                         </span>
-                        <span className="text-xs text-[#8A8177] font-medium">/mån</span>
+                        <span className="text-[11px] text-[#8A8177] font-medium">/mån</span>
                       </div>
                     ) : (
                       <div>
-                        <span className="text-base font-black text-[#3D3D3D]">
-                          {plan.price.toLocaleString('sv-SE')} kr
-                        </span>
+                        <div className="flex items-baseline gap-0.5">
+                          <span className="text-sm font-bold text-[#3D3D3D]">
+                            {plan.price.toLocaleString('sv-SE')} kr
+                          </span>
+                        </div>
                         <div className="text-[11px] text-[#8A8177] font-medium">
                           {plan.perMonth.toLocaleString('sv-SE')} kr/mån
                         </div>
@@ -184,16 +168,6 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                     )}
                   </div>
                 </div>
-
-                {/* Savings badge */}
-                {plan.savings && (
-                  <div className="mt-2 ml-8">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
-                      <Clock className="w-3 h-3" />
-                      {plan.savings} jämfört med månadsvis
-                    </span>
-                  </div>
-                )}
               </button>
             );
           })}
