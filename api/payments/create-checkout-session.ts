@@ -460,13 +460,13 @@ export default async function handler(req: any, res: any) {
     ? payload.mode
     : preferredMode(flow);
 
-  if (flow === 'premium' && mode !== 'subscription') {
+  if (flow === 'premium' && mode !== 'subscription' && payload.paymentMethod !== 'friskvardsbidrag') {
     setCors(res, origin);
     res.status(400).json({ error: 'Premium requires subscription mode' });
     return;
   }
 
-  if (flow !== 'premium' && mode !== 'payment') {
+  if (flow !== 'premium' && mode !== 'payment' && payload.paymentMethod !== 'friskvardsbidrag') {
     setCors(res, origin);
     res.status(400).json({ error: `${flow} requires payment mode` });
     return;
