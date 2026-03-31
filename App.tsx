@@ -263,11 +263,7 @@ function App() {
                     />
                     <Route
                       path="/tack-forlangning-friskvard"
-                      element={
-                        <AuthGuard requirePremium={false}>
-                          <ForlangningFriskvardTack />
-                        </AuthGuard>
-                      }
+                      element={<ForlangningFriskvardTack />}
                     />
                     <Route path="/refill" element={<Refill />} />
                     <Route path="/refill/tack" element={<RefillTack />} />

@@ -649,10 +649,14 @@ export const Checkout: React.FC = () => {
                                 // Renewal → use forlangning flow so backend calculates correct amount
                                 // Standard → use premium flow (monthly subscription via friskvård)
                                 flow: plan.id === 'renewal' ? 'forlangning' : 'premium',
-                                mode: plan.id === 'renewal' ? 'payment' : 'subscription',
+                                mode: plan.id === 'renewal' ? 'payment' : plan.mode,
                                 paymentMethod: 'friskvardsbidrag',
                                 email, fullName,
                                 userId: session?.user?.id,
+                                planId: plan.id,
+                                planLabel: plan.label,
+                                planPrice: plan.price,
+                                planMonthCount: plan.monthCount || 0,
                                 // Include renewal offer data so backend can validate
                                 ...(plan.id === 'renewal' && renewalOffer ? {
                                   forlangningOffer: {

@@ -557,11 +557,14 @@ export default async function handler(req: any, res: any) {
 
     const amountSek = flow === 'forlangning'
       ? Math.round(computedForlangningOffer?.totalPrice || 0)
-      : Math.round((Number(process.env.STRIPE_PREMIUM_MONTHLY_AMOUNT_ORE || '29900')) / 100);
+      : Math.round(Number(payload.planPrice) || (Number(process.env.STRIPE_PREMIUM_MONTHLY_AMOUNT_ORE || '29900')) / 100);
 
     const orderMetadata: Record<string, unknown> = {
       flow,
       fullName: fullName || '',
+      planId: payload.planId || '',
+      planLabel: payload.planLabel || '',
+      planMonthCount: payload.planMonthCount || 0,
     };
     if (flow === 'forlangning' && computedForlangningOffer) {
       orderMetadata.monthCount = computedForlangningOffer.monthCount;
