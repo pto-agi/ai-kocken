@@ -218,16 +218,19 @@ async function processPaidCheckoutSession(admin: any, session: Stripe.Checkout.S
     }
 
     const computedOffer = computeForlangningOfferFromProfile(profile.coaching_expires_at);
-    const expectedAmountOre = Math.round(computedOffer.totalPrice * 100);
-    const paidAmountOre = typeof session.amount_total === 'number' ? session.amount_total : null;
 
-    if (!expectedAmountOre || (paidAmountOre !== null && paidAmountOre !== expectedAmountOre)) {
+    // Prefer metadata from checkout creation time (set in create-checkout-session.ts)
+    // This avoids failures when coaching_expires_at changes between checkout and payment
+    const newExpiresAt = metadata.new_expires_at || computedOffer.newExpiresAt;
+    const monthCount = Number(metadata.month_count) || computedOffer.monthCount;
+
+    if (!newExpiresAt) {
       await markTransaction(admin, {
         sessionId: session.id,
         paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
         subscriptionId: typeof session.subscription === 'string' ? session.subscription : null,
         status: 'review_required',
-        metadata,
+        metadata: { ...metadata, reason: 'No new_expires_at resolved' },
       });
       return;
     }
@@ -236,7 +239,7 @@ async function processPaidCheckoutSession(admin: any, session: Stripe.Checkout.S
       await admin
         .from('profiles')
         .update({
-          coaching_expires_at: computedOffer.newExpiresAt,
+          coaching_expires_at: newExpiresAt,
           subscription_status: 'active',
           updated_at: new Date().toISOString(),
         })
@@ -259,10 +262,10 @@ async function processPaidCheckoutSession(admin: any, session: Stripe.Checkout.S
         email: email || metadata.email || '',
         first_name: firstName,
         last_name: lastName,
-        month_count: Number(metadata.month_count) || computedOffer.monthCount,
+        month_count: monthCount,
         total_price: Number(metadata.total_price) || computedOffer.totalPrice,
         current_expires_at: metadata.current_expires_at || computedOffer.currentExpiresAt || '',
-        new_expires_at: computedOffer.newExpiresAt,
+        new_expires_at: newExpiresAt,
         billing_starts_at: metadata.billing_starts_at || computedOffer.billingStartsAt || '',
         payment_method: 'stripe',
         campaign_year: computedOffer.campaignYear,
@@ -755,6 +758,174 @@ async function processPackagePurchase(admin: any, pi: Stripe.PaymentIntent) {
   }
 }
 
+/**
+ * Process a renewal PaymentIntent (flow === 'renewal').
+ *
+ * Unlike processPackagePurchase which adds months additively,
+ * renewal sets coaching_expires_at to the exact date from metadata
+ * (typically Dec 31 of the campaign year).
+ */
+async function processRenewalPurchase(admin: any, pi: Stripe.PaymentIntent) {
+  const meta = pi.metadata || {};
+  const email = (meta.email || '').trim().toLowerCase();
+  const monthCount = parseInt(meta.month_count || '0', 10);
+  const planLabel = meta.plan_label || '';
+  const userId = meta.user_id || '';
+  const fullName = meta.full_name || '';
+  const amountKr = Math.round((pi.amount || 0) / 100);
+  const newExpiresAt = meta.new_expires_at || '';
+  const currentExpiresAt = meta.current_expires_at || '';
+  const billingStartsAt = meta.billing_starts_at || '';
+  const campaignYear = meta.campaign_year || '';
+
+  if (!email || !newExpiresAt) {
+    console.error('processRenewalPurchase: missing email or new_expires_at', { email, newExpiresAt, piId: pi.id });
+    return;
+  }
+
+  // Mark transaction as paid
+  await markTransaction(admin, {
+    paymentIntentId: pi.id,
+    status: 'paid',
+    metadata: meta,
+  });
+
+  // Find existing profile
+  const profileId = await resolveProfileId(admin, userId || undefined, email);
+  const profile = profileId ? await findProfileById(admin, profileId) : null;
+
+  if (profile) {
+    // ── Existing client: set coaching_expires_at to exact date (NOT additive) ──
+    let hasActiveSubscription = false;
+    if (profile.membership_type === 'subscription' || profile.membership_type === 'hybrid') {
+      hasActiveSubscription = true;
+    } else {
+      try {
+        const { data: activeSub } = await admin
+          .from('stripe_subscriptions')
+          .select('id')
+          .eq('email', email.toLowerCase())
+          .eq('status', 'active')
+          .limit(1)
+          .maybeSingle();
+        if (activeSub) hasActiveSubscription = true;
+      } catch {
+        // non-blocking
+      }
+    }
+
+    const newMembershipType = hasActiveSubscription ? 'hybrid' : 'package';
+
+    try {
+      await admin
+        .from('profiles')
+        .update({
+          coaching_expires_at: newExpiresAt,
+          is_member: true,
+          membership_type: newMembershipType,
+          subscription_status: 'active',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', profile.id)
+        .throwOnError();
+    } catch {
+      // non-blocking
+    }
+
+    // Resolve pending entitlements
+    await resolvePendingEntitlements(admin, { email, flow: 'renewal' });
+
+    // Forward to AG-Agent for Sheet/TZ/email
+    try {
+      const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
+      const nameParts = fullName.split(' ');
+
+      const agentPayload = {
+        email,
+        first_name: nameParts[0] || '',
+        last_name: nameParts.slice(1).join(' ') || '',
+        month_count: monthCount,
+        total_price: amountKr,
+        current_expires_at: currentExpiresAt || profile.coaching_expires_at || '',
+        new_expires_at: newExpiresAt,
+        billing_starts_at: billingStartsAt,
+        payment_method: 'stripe',
+        campaign_year: parseInt(campaignYear, 10) || new Date().getFullYear(),
+      };
+
+      let agentOk = false;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10_000);
+          const res = await fetch(`${agentBaseUrl}/api/economy/forlangning`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(agentPayload),
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          if (res.ok) {
+            agentOk = true;
+            break;
+          }
+          console.error(`Agent renewal attempt ${attempt} got ${res.status}`);
+        } catch (fetchErr: any) {
+          console.error(`Agent renewal attempt ${attempt} failed:`, fetchErr?.message);
+        }
+      }
+
+      // Log failure to activity log so it's visible in the dashboard
+      if (!agentOk) {
+        try {
+          await admin.from('agent_activity_log').insert({
+            type: 'membership',
+            title: `⚠️ Renewal AG-Agent misslyckad: ${fullName || email}`,
+            summary: `Stripe-betalning OK men AG-Agent nåddes inte. Email: ${email}, Belopp: ${amountKr} kr, Nytt datum: ${newExpiresAt}. Trigga manuellt via /api/economy/forlangning.`,
+            status: 'error',
+            client_name: fullName || email,
+            metadata: { ...agentPayload, pi_id: pi.id, error: 'AG-Agent unreachable after 2 attempts' },
+          }).throwOnError();
+        } catch { /* best effort */ }
+      }
+    } catch (agentErr) {
+      console.error('Agent renewal call error:', agentErr);
+    }
+  } else {
+    // Renewal without existing profile — unusual but handle gracefully
+    // Create pending entitlement with renewal-specific data
+    await createPendingEntitlement(admin, {
+      email,
+      flow: 'renewal',
+      metadata: {
+        plan_label: planLabel,
+        month_count: monthCount,
+        amount: amountKr,
+        full_name: fullName,
+        payment_intent_id: pi.id,
+        new_expires_at: newExpiresAt,
+        current_expires_at: currentExpiresAt,
+        billing_starts_at: billingStartsAt,
+        campaign_year: campaignYear,
+      },
+    });
+  }
+
+  // Activity log (non-blocking)
+  try {
+    await admin.from('agent_activity_log').insert({
+      type: 'membership',
+      title: `Renewal köp: ${fullName || email}`,
+      summary: `${planLabel} (${monthCount} mån) köpt för ${amountKr} kr. coaching_expires_at → ${newExpiresAt}.`,
+      status: 'done',
+      client_name: fullName || email,
+      metadata: { pi_id: pi.id, email, monthCount, amountKr, newExpiresAt, hasProfile: !!profile },
+    }).throwOnError();
+  } catch {
+    // non-blocking
+  }
+}
+
 export default async function handler(req: any, res: any) {
   const origin = req.headers?.origin as string | undefined;
   setCors(res, origin);
@@ -830,9 +1001,11 @@ export default async function handler(req: any, res: any) {
         case 'payment_intent.succeeded': {
           const pi = event.data.object as Stripe.PaymentIntent;
           const meta = pi.metadata || {};
-          // Only process intents from our checkout flow (not checkout sessions)
+          // Process intents from our checkout flow (not from checkout sessions)
           if (meta.flow === 'checkout' && meta.plan_id && meta.month_count) {
             await processPackagePurchase(admin, pi);
+          } else if (meta.flow === 'renewal' && meta.new_expires_at) {
+            await processRenewalPurchase(admin, pi);
           }
           break;
         }

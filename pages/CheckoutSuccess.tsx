@@ -70,17 +70,40 @@ export const CheckoutSuccess: React.FC = () => {
   const [storedPlan, setStoredPlan] = useState<StoredPlan | null>(null);
 
   useEffect(() => {
-    // Recover plan data from sessionStorage
+    // Recover plan data: try sessionStorage first, then URL query params as fallback
     let plan: StoredPlan | null = null;
+
+    // Source 1: sessionStorage (set during checkout flow — same tab)
     try {
       const stored = sessionStorage.getItem('pto_checkout_plan');
       if (stored) {
         plan = JSON.parse(stored) as StoredPlan;
-        setStoredPlan(plan);
       }
     } catch {
       // noop
     }
+
+    // Source 2: URL query params (fallback for redirect-based payments like Klarna)
+    if (!plan) {
+      const qPlanId = searchParams.get('plan_id');
+      const qPrice = searchParams.get('plan_price');
+      const qLabel = searchParams.get('plan_label');
+      if (qPlanId && qPrice) {
+        plan = {
+          id: qPlanId,
+          label: qLabel || qPlanId,
+          price: Number(qPrice) || 0,
+          currency: 'SEK',
+          purchaseType: (searchParams.get('purchase_type') as PurchaseType) || 'new_purchase',
+          email: searchParams.get('email') || '',
+          fullName: searchParams.get('full_name') || '',
+          monthCount: Number(searchParams.get('month_count') || 0),
+          newExpiresAt: searchParams.get('new_expires_at') || '',
+        };
+      }
+    }
+
+    if (plan) setStoredPlan(plan);
 
     const purchaseType = plan?.purchaseType || 'new_purchase';
     trackCheckoutEvent('checkout_completed', { flow: 'checkout' as any });

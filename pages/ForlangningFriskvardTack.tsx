@@ -12,10 +12,13 @@ type FriskvardState = {
 export const ForlangningFriskvardTack: React.FC = () => {
   const location = useLocation();
   const state = location.state as FriskvardState | null;
-  const portalName = state?.portal?.trim();
-  const planLabel = state?.planLabel?.trim();
-  const planPrice = state?.planPrice?.trim();
-  const priceText = planPrice ? ` (t.ex. ${planPrice.replace(':-', ' kr')})` : '';
+  const searchParams = new URLSearchParams(location.search);
+
+  // Read from query params (new checkout) or location.state (legacy)
+  const portalName = state?.portal?.trim() || '';
+  const planLabel = (searchParams.get('plan') || state?.planLabel || '').trim();
+  const planPrice = (searchParams.get('price') || state?.planPrice || '').trim();
+  const priceText = planPrice ? ` (t.ex. ${planPrice.replace(':-', '')} kr)` : '';
   const planText = planLabel ? ` för ${planLabel.toLowerCase()}` : '';
 
   return (

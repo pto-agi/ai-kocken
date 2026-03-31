@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import type { Appearance } from '@stripe/stripe-js';
@@ -119,6 +119,9 @@ export const Checkout: React.FC = () => {
     return buildRenewalPlan(renewalOffer);
   }, [renewalOffer]);
 
+  // Detect campaign expiration: offer calculated but campaign deadline passed
+  const campaignExpired = Boolean(renewalOffer && renewalOffer.monthCount > 0 && !renewalPlan);
+
   // Build dynamic plan list
   const availablePlans = useMemo(() => {
     if (renewalPlan) return [renewalPlan, ...CHECKOUT_PLANS];
@@ -153,10 +156,16 @@ export const Checkout: React.FC = () => {
     if (profile?.full_name && !fullName) setFullName(profile.full_name);
   }, [session, profile]);
 
+  const beginCheckoutFired = useRef(false);
   useEffect(() => {
+    // Fire begin_checkout once per plan selection — waits for renewal auto-select
+    if (beginCheckoutFired.current && !isRenewalFlow) return;
+    beginCheckoutFired.current = true;
+
     trackCheckoutEvent('checkout_started', { flow: 'checkout', mode: plan.mode });
     // GA4 e-commerce: begin_checkout
     if (typeof window !== 'undefined') {
+      const purchaseType = plan.id === 'renewal' ? 'renewal' : 'new_purchase';
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push({ ecommerce: null }); // Clear previous
       window.dataLayer.push({
@@ -167,6 +176,7 @@ export const Checkout: React.FC = () => {
           items: [{
             item_id: selectedPlanId,
             item_name: plan.label,
+            item_category: purchaseType,
             price: plan.price,
             currency: 'SEK',
             quantity: 1,
@@ -174,13 +184,14 @@ export const Checkout: React.FC = () => {
         },
       });
     }
-  }, []);
+  }, [selectedPlanId]);
 
   const handlePlanSelect = useCallback((planId: string) => {
     setSelectedPlanId(planId);
     setState({ phase: 'selecting' });
     // GA4 e-commerce: select_item
-    const selected = getPlanById(planId);
+    // Search availablePlans (includes dynamic renewal plan), fallback to getPlanById
+    const selected = availablePlans.find((p) => p.id === planId) || getPlanById(planId);
     if (selected && typeof window !== 'undefined') {
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push({ ecommerce: null });
@@ -198,7 +209,7 @@ export const Checkout: React.FC = () => {
         },
       });
     }
-  }, []);
+  }, [availablePlans]);
 
   const handleStartPayment = useCallback(async () => {
     if (!email.trim()) {
@@ -322,9 +333,21 @@ export const Checkout: React.FC = () => {
     return loadStripe(state.publishableKey);
   }, [state]);
 
-  const returnUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/checkout/tack`
-    : 'https://my.privatetrainingonline.se/checkout/tack';
+  const returnUrl = useMemo(() => {
+    const base = typeof window !== 'undefined'
+      ? `${window.location.origin}/checkout/tack`
+      : 'https://my.privatetrainingonline.se/checkout/tack';
+    const purchaseType = plan.id === 'renewal' ? 'renewal' : 'new_purchase';
+    const params = new URLSearchParams({
+      plan_id: plan.id,
+      plan_label: plan.label,
+      plan_price: String(plan.price),
+      purchase_type: purchaseType,
+      month_count: String(plan.monthCount || 0),
+      ...(plan.renewalOffer?.newExpiresAt ? { new_expires_at: plan.renewalOffer.newExpiresAt } : {}),
+    });
+    return `${base}?${params.toString()}`;
+  }, [plan]);
 
   return (
     <div className="min-h-screen bg-[#F6F1E7]">
@@ -368,6 +391,20 @@ export const Checkout: React.FC = () => {
             </div>
           )}
 
+          {/* Campaign expired banner — renewal offer existed but deadline passed */}
+          {campaignExpired && isRenewalFlow && (
+            <div className="max-w-lg mx-auto mb-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 space-y-2">
+              <h2 className="text-sm font-bold text-[#3D3D3D]">
+                Förlängningserbjudandet har gått ut
+              </h2>
+              <p className="text-xs text-[#6B6158] leading-relaxed">
+                Kampanjperioden för att förlänga året ut har tyvärr passerat. Du kan fortfarande välja en av våra
+                ordinarie planer nedan, eller kontakta oss via{' '}
+                <a href="/support" className="underline text-[#a0c81d] font-bold hover:text-[#5C7A12]">chatten</a>{' '}
+                för personlig hjälp.
+              </p>
+            </div>
+          )}
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-xl md:text-2xl font-black text-[#3D3D3D] mb-1">
@@ -556,16 +593,69 @@ export const Checkout: React.FC = () => {
                                 ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
                               },
                               body: JSON.stringify({
-                                flow: 'premium',
-                                mode: 'subscription',
+                                // Renewal → use forlangning flow so backend calculates correct amount
+                                // Standard → use premium flow (monthly subscription via friskvård)
+                                flow: plan.id === 'renewal' ? 'forlangning' : 'premium',
+                                mode: plan.id === 'renewal' ? 'payment' : 'subscription',
                                 paymentMethod: 'friskvardsbidrag',
                                 email, fullName,
                                 userId: session?.user?.id,
+                                // Include renewal offer data so backend can validate
+                                ...(plan.id === 'renewal' && renewalOffer ? {
+                                  forlangningOffer: {
+                                    monthlyPrice: renewalOffer.monthlyPrice,
+                                    monthCount: renewalOffer.monthCount,
+                                    totalPrice: renewalOffer.totalPrice,
+                                    campaignYear: renewalOffer.campaignYear,
+                                    billableDays: renewalOffer.billableDays,
+                                    calculationMode: renewalOffer.calculationMode,
+                                    currentExpiresAt: renewalOffer.currentExpiresAt,
+                                    billingStartsAt: renewalOffer.billingStartsAt,
+                                    newExpiresAt: renewalOffer.newExpiresAt,
+                                  },
+                                } : {}),
                               }),
                             });
                             const data = await response.json();
                             if (data.ok && data.friskvard) {
-                              window.location.href = '/tack-forlangning-friskvard';
+                              // GA4 e-commerce: purchase event for friskvård
+                              if (typeof window !== 'undefined') {
+                                const purchaseType = plan.id === 'renewal' ? 'renewal' : 'new_purchase';
+                                window.dataLayer = window.dataLayer || [];
+                                window.dataLayer.push({ ecommerce: null });
+                                window.dataLayer.push({
+                                  event: 'purchase',
+                                  ecommerce: {
+                                    transaction_id: `friskvard_${data.friskvard_order_id || Date.now()}`,
+                                    currency: 'SEK',
+                                    value: plan.price,
+                                    payment_type: 'friskvardsbidrag',
+                                    items: [{
+                                      item_id: plan.id,
+                                      item_name: plan.label,
+                                      item_category: purchaseType,
+                                      price: plan.price,
+                                      currency: 'SEK',
+                                      quantity: 1,
+                                    }],
+                                  },
+                                });
+                                // Custom event for fine-grained reporting
+                                window.dataLayer.push({
+                                  event: purchaseType === 'renewal' ? 'pto_renewal_completed' : 'pto_new_purchase_completed',
+                                  purchaseType,
+                                  paymentMethod: 'friskvardsbidrag',
+                                  planId: plan.id,
+                                  value: plan.price,
+                                });
+                              }
+                              // Navigate with plan data in query params
+                              const params = new URLSearchParams({
+                                friskvard: '1',
+                                plan: plan.label,
+                                price: String(plan.price),
+                              });
+                              navigate(`/tack-forlangning-friskvard?${params.toString()}`);
                             } else {
                               setState({ phase: 'error', message: data.error || 'Kunde inte registrera friskvårdsbeställning.' });
                             }

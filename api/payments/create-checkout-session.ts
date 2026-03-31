@@ -260,23 +260,54 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
     return;
   }
 
-  // Resolve amount and mode
+  // ── Server-side renewal validation ──
+  // Re-compute offer from profile data to prevent price manipulation
+  let serverOffer: ReturnType<typeof computeForlangningOfferFromProfile> | null = null;
+  if (isRenewal) {
+    if (!userId) {
+      setCors(res, origin);
+      res.status(401).json({ error: 'Inloggning krävs för förlängning.' });
+      return;
+    }
+
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      setCors(res, origin);
+      res.status(500).json({ error: 'Supabase admin is not configured' });
+      return;
+    }
+
+    const coachingExpiresAt = await getProfileCoachingExpiresAt(admin, userId);
+    serverOffer = computeForlangningOfferFromProfile(coachingExpiresAt);
+
+    if (serverOffer.totalPrice <= 0 || serverOffer.monthCount <= 0) {
+      setCors(res, origin);
+      res.status(409).json({ error: 'Ingen aktiv förlängning behövs just nu.' });
+      return;
+    }
+
+    // Validate client-submitted price against server-computed price (100 öre tolerance for rounding)
+    const serverAmountOre = Math.round(serverOffer.totalPrice * 100);
+    const clientAmountOre = Math.round((body.renewalOffer?.totalPrice || 0) * 100);
+    if (Math.abs(serverAmountOre - clientAmountOre) > 100) {
+      console.error('Renewal price mismatch', { serverAmountOre, clientAmountOre, userId, email: userEmail });
+      setCors(res, origin);
+      res.status(400).json({ error: 'Prisberäkningen matchar inte. Ladda om sidan och försök igen.' });
+      return;
+    }
+  }
+
+  // Resolve amount and mode — use server-computed values for renewal
   const amountOre = isRenewal
-    ? Math.round(body.renewalOffer.totalPrice * 100)
+    ? Math.round(serverOffer!.totalPrice * 100)
     : plan!.amountOre;
   const planMode = isRenewal ? 'payment' : plan!.mode;
   const planLabel = isRenewal
-    ? `Förläng året ut (${body.renewalOffer.monthCount || '?'} mån)`
+    ? `Förläng året ut (${serverOffer!.monthCount} mån)`
     : plan!.label;
   const monthCount = isRenewal
-    ? Math.ceil(body.renewalOffer.monthCount || 0)
+    ? serverOffer!.monthCount
     : (plan!.monthCount || 0);
-
-  if (amountOre <= 0) {
-    setCors(res, origin);
-    res.status(400).json({ error: 'Ogiltigt belopp.' });
-    return;
-  }
 
   try {
     const stripe = getStripeClient();
@@ -299,13 +330,13 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
       full_name: fullName || '',
     };
 
-    // Add renewal-specific metadata
-    if (isRenewal && body.renewalOffer) {
-      metadata.current_expires_at = body.renewalOffer.currentExpiresAt || '';
-      metadata.new_expires_at = body.renewalOffer.newExpiresAt || '';
-      metadata.billing_starts_at = body.renewalOffer.billingStartsAt || '';
-      metadata.calculation_mode = body.renewalOffer.calculationMode || '';
-      metadata.campaign_year = String(body.renewalOffer.campaignYear || '');
+    // Add renewal-specific metadata — use server-computed values
+    if (isRenewal && serverOffer) {
+      metadata.current_expires_at = serverOffer.currentExpiresAt || '';
+      metadata.new_expires_at = serverOffer.newExpiresAt || '';
+      metadata.billing_starts_at = serverOffer.billingStartsAt || '';
+      metadata.calculation_mode = serverOffer.calculationMode || '';
+      metadata.campaign_year = String(serverOffer.campaignYear || '');
     }
 
     let clientSecret: string;
