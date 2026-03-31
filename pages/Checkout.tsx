@@ -458,27 +458,19 @@ export const Checkout: React.FC = () => {
               </p>
             </div>
 
-            {/* Step 1: Plan selector */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-[#a0c81d] text-white font-black text-[10px] flex items-center justify-center">1</div>
-                <h2 className="text-xs font-black uppercase tracking-widest text-[#3D3D3D]">Välj plan</h2>
-              </div>
+            {/* ── Unified checkout card ── */}
+            <div className="rounded-3xl bg-white border border-[#E6E1D8] shadow-xl shadow-black/[0.04] p-6 md:p-8">
+
+              {/* Plan selection */}
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">Välj plan</p>
               <PlanSelector
                 plans={availablePlans}
                 selectedPlanId={selectedPlanId}
                 onSelect={handlePlanSelect}
               />
-            </div>
 
-            {/* Step 2: Payment */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-full bg-[#a0c81d] text-white font-black text-[10px] flex items-center justify-center">2</div>
-                <h2 className="text-xs font-black uppercase tracking-widest text-[#3D3D3D]">Betalning</h2>
-              </div>
-
-              <div className="rounded-3xl bg-white border border-[#E6E1D8] shadow-xl shadow-black/[0.04] p-6 md:p-8">
+              {/* Divider */}
+              <div className="border-t border-[#E6E1D8] my-6" />
                 {/* Payment method selector */}
                 <div className="space-y-2 mb-6">
                   <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Betalningsmetod</p>
@@ -750,10 +742,9 @@ export const Checkout: React.FC = () => {
                   <div className="mt-3">
                     <PaymentMethodBadges />
                   </div>
-                </div>
-              </div>
+            </div>
 
-            {/* Trust strip */}
+
             <div className="grid grid-cols-3 gap-2 mt-6">
               {[
                 { icon: Shield, label: 'Säker betalning' },
