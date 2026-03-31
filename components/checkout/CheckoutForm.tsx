@@ -118,7 +118,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       <form onSubmit={handleSubmit} className="space-y-5">
         <PaymentElement
           options={{
-            layout: 'tabs',
+            layout: {
+              type: 'accordion',
+              defaultCollapsed: false,
+              radios: true,
+              spacedAccordionItems: false,
+            },
             defaultValues: {
               billingDetails: {
                 email,
