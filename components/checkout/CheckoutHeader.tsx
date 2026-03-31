@@ -6,32 +6,29 @@ export const CheckoutHeader: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 bg-[#F6F1E7]/90 backdrop-blur-xl border-b border-[#E6E1D8]/60">
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+    <header className="fixed top-0 inset-x-0 z-50 bg-[#3D3D3D] border-b border-[#6B6158]">
+      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Back button */}
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-xs font-bold text-[#6B6158] hover:text-[#3D3D3D] transition-colors"
+          className="flex items-center gap-1.5 text-xs font-bold text-white/70 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="hidden sm:inline">Tillbaka</span>
         </button>
 
-        {/* Logo */}
+        {/* Logo — right aligned */}
         <a href="https://www.privatetrainingonline.se" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
-          <img
-            src="/pto-logotyp-2026.png"
-            alt="Private Training Online"
-            className="h-8 w-auto"
-          />
-          <span className="text-sm font-black text-[#3D3D3D] hidden sm:block">
-            Private Training Online
-          </span>
+          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl border border-[#6B6158] bg-[#3D3D3D] overflow-hidden">
+            <img
+              src="/pto-logotyp-2026.png"
+              alt="PTO"
+              className="w-7 h-7 object-contain"
+            />
+          </div>
+          <span className="text-sm font-bold text-white tracking-tight hidden sm:block">PTO</span>
         </a>
-
-        {/* Spacer to balance layout */}
-        <div className="w-16" />
       </div>
     </header>
   );

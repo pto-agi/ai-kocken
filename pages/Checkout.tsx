@@ -6,6 +6,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Loader2, AlertTriangle, Receipt, Lock, ArrowRight,
   Shield, Zap, Award, CheckCircle2, LogIn, UserCircle2,
+  CreditCard, Dumbbell,
 } from 'lucide-react';
 
 import { CHECKOUT_PLANS, DEFAULT_PLAN_ID, getPlanById, buildRenewalPlan } from '../lib/checkoutPlans';
@@ -19,6 +20,7 @@ import { computeYearEndOffer } from '../utils/extensionOffer';
 import { CheckoutHeader } from '../components/checkout/CheckoutHeader';
 import { PlanSelector } from '../components/checkout/PlanSelector';
 import { CheckoutForm } from '../components/checkout/CheckoutForm';
+import { PaymentMethodBadges } from '../components/checkout/PaymentMethodBadges';
 
 // ── Stripe Appearance ──
 
@@ -412,27 +414,29 @@ export const Checkout: React.FC = () => {
                       type="button"
                       onClick={() => { setPaymentMethod('stripe'); setState({ phase: 'selecting' }); }}
                       className={`
-                        flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all
+                        flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5
                         ${paymentMethod === 'stripe'
                           ? 'bg-[#a0c81d] text-white shadow-md shadow-[#a0c81d]/20'
                           : 'bg-[#F6F1E7] text-[#6B6158] hover:bg-[#EDE8DD]'
                         }
                       `}
                     >
-                      💳 Kort / Klarna
+                      <CreditCard className="w-3.5 h-3.5" />
+                      Kort / Klarna
                     </button>
                     <button
                       type="button"
                       onClick={() => { setPaymentMethod('friskvard'); setState({ phase: 'selecting' }); }}
                       className={`
-                        flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all
+                        flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5
                         ${paymentMethod === 'friskvard'
                           ? 'bg-[#a0c81d] text-white shadow-md shadow-[#a0c81d]/20'
                           : 'bg-[#F6F1E7] text-[#6B6158] hover:bg-[#EDE8DD]'
                         }
                       `}
                     >
-                      🏥 Friskvårdsbidrag
+                      <Dumbbell className="w-3.5 h-3.5" />
+                      Friskvårdsbidrag
                     </button>
                   </div>
 
@@ -588,8 +592,13 @@ export const Checkout: React.FC = () => {
                   {/* Security */}
                   <p className="text-center text-[10px] text-[#8A8177] font-medium flex items-center justify-center gap-1 mt-4">
                     <Lock className="w-3 h-3" />
-                    Krypterad betalning via Stripe
+                    Säker betalning
                   </p>
+
+                  {/* Payment method messaging — shows Klarna/BNPL options */}
+                  <div className="mt-3">
+                    <PaymentMethodBadges plan={plan} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -669,10 +678,10 @@ export const Checkout: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="py-8 px-4 border-t border-[#E6E1D8]/60 text-center">
-        <p className="text-[10px] text-[#8A8177] font-medium">
-          © {new Date().getFullYear()} Private Training Online · Org.nr 559387-3108 ·{' '}
-          <a href="https://www.privatetrainingonline.se" className="underline hover:text-[#3D3D3D] transition">
+      <footer className="py-8 px-4 bg-[#3D3D3D] text-center">
+        <p className="text-[10px] text-white/50 font-medium">
+          © {new Date().getFullYear()} Private Training Online ·{' '}
+          <a href="https://www.privatetrainingonline.se" className="underline hover:text-white/80 transition">
             privatetrainingonline.se
           </a>
         </p>
