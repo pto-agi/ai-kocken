@@ -574,7 +574,7 @@ export default async function handler(req: any, res: any) {
     const { data: order, error: insertError } = await admin
       .from('friskvard_orders')
       .insert({
-        user_id: userId,
+        ...(userId ? { user_id: userId } : {}),
         email: userEmail || '',
         flow,
         status: 'pending',
