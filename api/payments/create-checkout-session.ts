@@ -229,11 +229,13 @@ const CHECKOUT_PLAN_CONFIG: Record<string, {
   mode: 'payment' | 'subscription';
   monthCount?: number;
   label: string;
+  trialDays?: number;
 }> = {
   '12m': { stripePriceId: 'price_1TGmkmCMd1GQRttCQruyEMfM', amountOre: 399500, mode: 'payment', monthCount: 12, label: '12 månader' },
   '6m':  { stripePriceId: 'price_1TGmkVCMd1GQRttCKwPn9lpP', amountOre: 299500, mode: 'payment', monthCount: 6,  label: '6 månader' },
   '3m':  { stripePriceId: 'price_1TGmkGCMd1GQRttC28TIA4aG', amountOre: 199500, mode: 'payment', monthCount: 3,  label: '3 månader' },
-  monthly: { stripePriceId: 'price_1TGmidCMd1GQRttC4QMjFroQ', amountOre: 49500, mode: 'subscription', label: 'Månadsvis' },
+  monthly: { stripePriceId: 'price_1THAldCMd1GQRttCG5nNF6JU', amountOre: 54900, mode: 'subscription', label: 'Månadsvis' },
+  trial30: { stripePriceId: 'price_1THAldCMd1GQRttCG5nNF6JU', amountOre: 0, mode: 'subscription', label: 'Prova gratis i 30 dagar', trialDays: 30 },
   test1m: { stripePriceId: 'price_1TH9j7CMd1GQRttCrY6XyM1l', amountOre: 300, mode: 'payment', monthCount: 1, label: '1 månad (TEST)' },
 };
 
@@ -351,31 +353,86 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
         return;
       }
 
+      const isTrial = Boolean(plan.trialDays);
+
+      // For trials: check if user has an active coaching_expires_at (hybrid scenario)
+      // If so, trial starts AFTER the package expires → trial_end = coaching_expires_at + 30 days
+      let trialParams: Record<string, unknown> = {};
+      if (isTrial && plan.trialDays) {
+        let coachingExpiresAt: string | null = null;
+
+        // Look up coaching_expires_at from profile (by userId or email)
+        const admin = getSupabaseAdmin();
+        if (admin) {
+          if (userId) {
+            coachingExpiresAt = await getProfileCoachingExpiresAt(admin, userId);
+          } else if (userEmail) {
+            // Non-logged-in: look up by email
+            try {
+              const { data: profileByEmail } = await admin
+                .from('profiles')
+                .select('coaching_expires_at')
+                .ilike('email', userEmail)
+                .limit(1)
+                .maybeSingle();
+              coachingExpiresAt = profileByEmail?.coaching_expires_at || null;
+            } catch { /* noop */ }
+          }
+        }
+
+        const now = new Date();
+        const expiryDate = coachingExpiresAt ? new Date(coachingExpiresAt) : null;
+        const hasActivePackage = expiryDate && expiryDate > now;
+
+        if (hasActivePackage) {
+          // Hybrid: trial starts after package expires
+          const trialEnd = new Date(expiryDate.getTime() + plan.trialDays * 24 * 60 * 60 * 1000);
+          trialParams = { trial_end: Math.floor(trialEnd.getTime() / 1000) };
+          metadata.trial_type = 'hybrid';
+          metadata.coaching_expires_at = coachingExpiresAt!;
+          metadata.trial_end = trialEnd.toISOString();
+        } else {
+          // Standard: trial starts now
+          trialParams = { trial_period_days: plan.trialDays };
+          metadata.trial_type = 'standard';
+        }
+      }
+
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: plan.stripePriceId }],
+        ...trialParams,
         payment_behavior: 'default_incomplete',
         payment_settings: {
           save_default_payment_method: 'on_subscription',
           payment_method_types: ['card'],
         },
         metadata,
-        expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent'],
+        expand: isTrial
+          ? ['pending_setup_intent']
+          : ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent'],
       });
 
-      const latestInvoice = subscription.latest_invoice as any;
+      let secret: string | undefined;
 
-      // Stripe v20+: use confirmation_secret; fallback to payment_intent for older API versions
-      const secret =
-        latestInvoice?.confirmation_secret?.client_secret ||
-        latestInvoice?.payment_intent?.client_secret;
+      if (isTrial) {
+        // Trial: Stripe creates a $0 invoice (paid automatically) and a pending SetupIntent
+        // to collect payment method for future billing
+        const setupIntent = (subscription as any).pending_setup_intent;
+        secret = setupIntent?.client_secret;
+      } else {
+        // Regular: first invoice has a PaymentIntent to collect payment
+        const latestInvoice = subscription.latest_invoice as any;
+        secret =
+          latestInvoice?.confirmation_secret?.client_secret ||
+          latestInvoice?.payment_intent?.client_secret;
+      }
 
       if (!secret) {
         console.error('subscription created but no client_secret', {
           subscriptionId: subscription.id,
-          invoiceId: latestInvoice?.id,
-          hasConfirmationSecret: !!latestInvoice?.confirmation_secret,
-          hasPaymentIntent: !!latestInvoice?.payment_intent,
+          isTrial,
+          hasPendingSetupIntent: !!(subscription as any).pending_setup_intent,
         });
         setCors(res, origin);
         res.status(502).json({ error: 'Prenumeration skapades men betalning kunde inte initieras. Försök igen.' });
@@ -387,7 +444,9 @@ async function handleCheckoutIntent(req: any, res: any, body: any, origin: strin
 
       clientSecret = secret;
       mode = 'subscription';
-      intentId = latestInvoice?.payment_intent?.id || intentIdFromSecret;
+      intentId = isTrial
+        ? (subscription as any).pending_setup_intent?.id || intentIdFromSecret
+        : (subscription.latest_invoice as any)?.payment_intent?.id || intentIdFromSecret;
     } else {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amountOre,

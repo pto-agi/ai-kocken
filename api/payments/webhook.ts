@@ -370,6 +370,8 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
       // (is_member, membership_type, hybrid detection, stripe_customer_id)
       await admin.from('profiles').update({
         subscription_status: status,
+        stripe_subscription_id: subscription.id,
+        subscription_cancel_at_period_end: Boolean(rawSubscription.cancel_at_period_end),
         updated_at: new Date().toISOString(),
       }).eq('id', profileId).throwOnError();
     } catch {

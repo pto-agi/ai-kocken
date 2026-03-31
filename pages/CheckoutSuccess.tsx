@@ -25,6 +25,7 @@ interface StoredPlan {
   fullName: string;
   monthCount: number;
   newExpiresAt: string;
+  isTrial?: boolean;
 }
 
 const NEW_PURCHASE_STEPS = [
@@ -165,8 +166,15 @@ export const CheckoutSuccess: React.FC = () => {
     return () => clearTimeout(timeout);
   }, []);
 
+  const isTrial = storedPlan?.isTrial || storedPlan?.id === 'trial30';
   const isRenewal = storedPlan?.purchaseType === 'renewal';
-  const steps = isRenewal ? RENEWAL_STEPS : NEW_PURCHASE_STEPS;
+  const steps = isTrial
+    ? [
+        { icon: Mail, title: 'Bekräftelse via e-post', description: 'Du får ett välkomstmail med information om din provperiod.' },
+        { icon: Download, title: 'Ladda ner Trainerize', description: 'Ladda ner appen Trainerize och invänta din inbjudan från oss.' },
+        { icon: Smartphone, title: '30 dagars full tillgång', description: 'Utforska allt — personlig coach, AI-recept och träningsschema. Ingen debitering under provperioden.' },
+      ]
+    : isRenewal ? RENEWAL_STEPS : NEW_PURCHASE_STEPS;
 
   return (
     <div className="min-h-screen bg-[#F6F1E7]">
@@ -186,12 +194,14 @@ export const CheckoutSuccess: React.FC = () => {
 
           {/* Heading */}
           <h1 className="text-2xl md:text-3xl font-black text-[#3D3D3D] mb-2">
-            {isRenewal ? 'Förlängningen är klar!' : 'Välkommen till PTO!'}
+            {isTrial ? 'Din provperiod har startat!' : isRenewal ? 'Förlängningen är klar!' : 'Välkommen till PTO!'}
           </h1>
           <p className="text-sm text-[#6B6158] font-medium max-w-sm mx-auto mb-3">
-            {isRenewal
-              ? 'Din betalning är bekräftad och ditt medlemskap har förlängts.'
-              : 'Din betalning är bekräftad och ditt konto förbereds. Du är nu en del av teamet!'
+            {isTrial
+              ? 'Du har nu 30 dagars gratis tillgång till alla våra tjänster. Inga pengar dras idag.'
+              : isRenewal
+                ? 'Din betalning är bekräftad och ditt medlemskap har förlängts.'
+                : 'Din betalning är bekräftad och ditt konto förbereds. Du är nu en del av teamet!'
             }
           </p>
 
@@ -205,9 +215,17 @@ export const CheckoutSuccess: React.FC = () => {
                   <span className="font-bold text-[#3D3D3D]">{storedPlan.label}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Belopp</span>
-                  <span className="font-bold text-[#3D3D3D]">{storedPlan.price.toLocaleString('sv-SE')} kr</span>
+                  <span>{isTrial ? 'Idag' : 'Belopp'}</span>
+                  <span className={`font-bold ${isTrial ? 'text-[#16a34a]' : 'text-[#3D3D3D]'}`}>
+                    {isTrial ? '0 kr (gratis)' : `${storedPlan.price.toLocaleString('sv-SE')} kr`}
+                  </span>
                 </div>
+                {isTrial && (
+                  <div className="flex justify-between">
+                    <span>Efter provperioden</span>
+                    <span className="font-bold text-[#3D3D3D]">549 kr/mån</span>
+                  </div>
+                )}
                 {storedPlan.newExpiresAt && (
                   <div className="flex justify-between">
                     <span>Nytt utgångsdatum</span>

@@ -35,13 +35,15 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     setErrorMessage(null);
 
     try {
-      const { error } = await stripe.confirmPayment({
+      // Trial subscriptions use SetupIntent (no charge today), regular use PaymentIntent
+      const confirmFn = plan.isTrial ? stripe.confirmSetup : stripe.confirmPayment;
+      const { error } = await confirmFn({
         elements,
         confirmParams: {
           return_url: returnUrl,
-          receipt_email: email,
+          ...(plan.isTrial ? {} : { receipt_email: email }),
         },
-      });
+      } as any);
 
       if (error) {
         if (error.type === 'card_error' || error.type === 'validation_error') {
@@ -63,14 +65,15 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     async (event: StripeExpressCheckoutElementConfirmEvent) => {
       if (!stripe || !elements) return;
 
-      const { error } = await stripe.confirmPayment({
+      const confirmFn = plan.isTrial ? stripe.confirmSetup : stripe.confirmPayment;
+      const { error } = await confirmFn({
         elements,
         clientSecret: undefined as any, // Elements already has the secret
         confirmParams: {
           return_url: returnUrl,
-          receipt_email: email,
+          ...(plan.isTrial ? {} : { receipt_email: email }),
         },
-      });
+      } as any);
 
       if (error) {
         setErrorMessage(error.message || 'Express checkout misslyckades.');
@@ -79,9 +82,11 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     [stripe, elements, returnUrl, email],
   );
 
-  const ctaLabel = plan.mode === 'subscription'
-    ? 'Starta prenumeration'
-    : 'Slutför köp';
+  const ctaLabel = plan.isTrial
+    ? 'Starta gratis provperiod'
+    : plan.mode === 'subscription'
+      ? 'Starta prenumeration'
+      : 'Slutför köp';
 
   return (
     <div className="space-y-6">

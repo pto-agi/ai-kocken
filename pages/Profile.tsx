@@ -108,25 +108,31 @@ export const Profile: React.FC = () => {
   }, [user?.id, user?.address_line1, user?.address_line2, user?.postal_code, user?.city, user?.country, user?.phone]);
 
   const handleCancelSubscription = async () => {
-    if (!canDeactivateMembership) {
-      setCancelStatus('error');
-      setCancelMessage('Funktionen lanseras snart.');
-      return;
-    }
     if (isCancelling) return;
+    if (!confirm('Är du säker på att du vill avbryta din prenumeration? Du behåller tillgång tills periodens slut.')) return;
     setCancelStatus('idle');
     setCancelMessage(null);
     setIsCancelling(true);
     try {
-      await callMemberAction('deactivate_membership', {
-        stripe_email: user.email,
-        source: 'deactivate_membership'
+      const response = await fetch('/api/payments/cancel-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ reason: 'customer_self_service' }),
       });
+      const data = await response.json().catch(() => ({} as any));
+      if (!response.ok || !data.ok) {
+        throw new Error(data?.error || 'Kunde inte avbryta prenumerationen.');
+      }
       setCancelStatus('success');
+      setCancelMessage(data.message || 'Prenumerationen avbryts vid periodens slut.');
+      await refreshProfile();
     } catch (err) {
-      console.error('Cancel subscription webhook error:', err);
+      console.error('Cancel subscription error:', err);
       setCancelStatus('error');
-      setCancelMessage(err instanceof Error ? err.message : 'Kunde inte skicka.');
+      setCancelMessage(err instanceof Error ? err.message : 'Kunde inte avbryta.');
     } finally {
       setIsCancelling(false);
     }
@@ -507,7 +513,10 @@ export const Profile: React.FC = () => {
   const coachingMeta =
     coachingStatusMeta[(coachingStatus as keyof typeof coachingStatusMeta) || 'inactive'] ||
     coachingStatusMeta.inactive;
-  const canDeactivateMembership = false; // TODO: enable when webhook for deactivation is live
+  const canDeactivateMembership = (
+    user.membership_type === 'subscription' ||
+    user.membership_type === 'hybrid'
+  ) && !user.subscription_cancel_at_period_end;
   const canReactivateMembership = true;
   const sectionTitle = activeTabMeta?.label || 'Översikt';
   const sectionDescription = activeTabMeta?.description || 'Samlad översikt över ditt konto.';
@@ -1048,7 +1057,34 @@ export const Profile: React.FC = () => {
                                 Förläng medlemskap
                               </Link>
                             )}
+
+                            {/* Cancel subscription: only for subscription/hybrid members */}
+                            {canDeactivateMembership && (
+                              <button
+                                onClick={handleCancelSubscription}
+                                disabled={isCancelling}
+                                className="px-5 py-2.5 rounded-xl border border-rose-300/60 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 hover:bg-rose-500/10 hover:border-rose-400 transition-all disabled:opacity-60"
+                              >
+                                {isCancelling ? 'Avbryter…' : 'Avbryt prenumeration'}
+                              </button>
+                            )}
                           </div>
+
+                          {/* Pending cancellation notice */}
+                          {user.subscription_cancel_at_period_end && (
+                            <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-700">
+                              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                              <span>Din prenumeration avslutas vid periodens slut. Du behåller full tillgång tills dess.</span>
+                            </div>
+                          )}
+
+                          {/* Cancel status messages */}
+                          {cancelStatus === 'success' && cancelMessage && (
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">{cancelMessage}</div>
+                          )}
+                          {cancelStatus === 'error' && cancelMessage && (
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-rose-700">{cancelMessage}</div>
+                          )}
                         </div>
                     </div>
                   </div>

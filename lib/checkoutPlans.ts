@@ -23,6 +23,8 @@ export interface CheckoutPlan {
   interval?: 'month';     // For subscription
   description?: string;
   isRenewal?: boolean;    // Dynamic renewal plan
+  isTrial?: boolean;      // 30-day free trial
+  trialDays?: number;     // Trial duration in days
   renewalOffer?: YearEndOffer; // Offer details for renewal
   campaignLabel?: string; // e.g. "Påskkampanj" | "Vårkampanj"
   urgencyText?: string;   // e.g. "Erbjudandet gäller t.o.m. 31 maj"
@@ -109,15 +111,31 @@ export const CHECKOUT_PLANS: CheckoutPlan[] = [
   {
     id: 'monthly',
     label: 'Månadsvis',
-    price: 495,
-    priceOre: 49500,
-    perMonth: 495,
+    price: 549,
+    priceOre: 54900,
+    perMonth: 549,
     mode: 'subscription',
-    stripePriceId: 'price_1TGmidCMd1GQRttC4QMjFroQ',
+    stripePriceId: 'price_1THAldCMd1GQRttCG5nNF6JU',
     interval: 'month',
     description: 'Avsluta när du vill',
   },
 ];
+
+// Trial plan — shown to logged-in users with no active membership
+export const TRIAL_PLAN: CheckoutPlan = {
+  id: 'trial30',
+  label: 'Prova gratis i 30 dagar',
+  badge: '🎉 Prova gratis',
+  price: 0,
+  priceOre: 0,
+  perMonth: 0,
+  mode: 'subscription',
+  stripePriceId: 'price_1THAldCMd1GQRttCG5nNF6JU',
+  interval: 'month',
+  isTrial: true,
+  trialDays: 30,
+  description: 'Därefter 549 kr/mån — avbryt när som helst',
+};
 
 // Hidden test plan — only visible with ?test=1 query param
 export const TEST_PLAN: CheckoutPlan = {
@@ -139,6 +157,7 @@ export function getVisiblePlans(showTest = false): CheckoutPlan[] {
 
 export function getPlanById(id: string): CheckoutPlan | undefined {
   if (id === 'test1m') return TEST_PLAN;
+  if (id === 'trial30') return TRIAL_PLAN;
   return CHECKOUT_PLANS.find((p) => p.id === id);
 }
 

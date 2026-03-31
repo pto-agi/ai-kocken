@@ -47,28 +47,46 @@ export const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({ plan }) => {
   return (
     <div className="space-y-6">
       {/* Selected plan summary */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#f5fae6] to-[#eef5d6] border border-[#d9e8a0] p-5">
+      <div className={`rounded-2xl border p-5 ${
+        plan.isTrial
+          ? 'bg-gradient-to-br from-[#ecfdf5] to-[#d1fae5] border-[#86efac]'
+          : 'bg-gradient-to-br from-[#f5fae6] to-[#eef5d6] border-[#d9e8a0]'
+      }`}>
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-black uppercase tracking-widest text-[#6B8A12]">
-            Din plan
+          <span className={`text-xs font-black uppercase tracking-widest ${plan.isTrial ? 'text-[#16a34a]' : 'text-[#6B8A12]'}`}>
+            {plan.isTrial ? 'Ditt erbjudande' : 'Din plan'}
           </span>
           <span className="text-xs text-[#8A8177] font-medium">
             {plan.label}
           </span>
         </div>
-        <div className="flex items-baseline gap-1">
-          <span className="text-3xl font-black text-[#3D3D3D]">
-            {plan.price.toLocaleString('sv-SE')}
-          </span>
-          <span className="text-lg font-bold text-[#6B6158]">kr</span>
-          {plan.mode === 'subscription' && (
-            <span className="text-sm text-[#8A8177] font-medium">/mån</span>
-          )}
-        </div>
-        {plan.mode === 'payment' && plan.perMonth && (
-          <p className="text-xs text-[#6B8A12] font-medium mt-1">
-            Motsvarar {plan.perMonth.toLocaleString('sv-SE')} kr/mån
-          </p>
+        {plan.isTrial ? (
+          <>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-[#16a34a]">Gratis</span>
+              <span className="text-sm text-[#6B6158] font-medium">i 30 dagar</span>
+            </div>
+            <p className="text-xs text-[#6B6158] font-medium mt-1">
+              Därefter 549 kr/mån — avbryt via Mina sidor
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-[#3D3D3D]">
+                {plan.price.toLocaleString('sv-SE')}
+              </span>
+              <span className="text-lg font-bold text-[#6B6158]">kr</span>
+              {plan.mode === 'subscription' && (
+                <span className="text-sm text-[#8A8177] font-medium">/mån</span>
+              )}
+            </div>
+            {plan.mode === 'payment' && plan.perMonth && (
+              <p className="text-xs text-[#6B8A12] font-medium mt-1">
+                Motsvarar {plan.perMonth.toLocaleString('sv-SE')} kr/mån
+              </p>
+            )}
+          </>
         )}
       </div>
 

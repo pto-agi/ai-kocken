@@ -9,7 +9,7 @@ import {
   CreditCard, Dumbbell,
 } from 'lucide-react';
 
-import { CHECKOUT_PLANS, DEFAULT_PLAN_ID, getPlanById, buildRenewalPlan, getVisiblePlans } from '../lib/checkoutPlans';
+import { CHECKOUT_PLANS, DEFAULT_PLAN_ID, getPlanById, buildRenewalPlan, getVisiblePlans, TRIAL_PLAN } from '../lib/checkoutPlans';
 import type { CheckoutPlan } from '../lib/checkoutPlans';
 import { createIntent } from '../utils/checkoutClient';
 
@@ -115,13 +115,20 @@ export const Checkout: React.FC = () => {
   // Detect campaign expiration: offer calculated but campaign deadline passed
   const campaignExpired = Boolean(renewalOffer && renewalOffer.monthCount > 0 && !renewalPlan);
 
+  // Trial plan: shown for ALL visitors who don't have a renewal offer
+  // - Non-logged-in: always see trial
+  // - Logged-in without active membership: see trial  
+  // - Logged-in with renewal offer: see renewal instead (takes priority)
+  const showTrialPlan = !renewalOffer;
+
   // Build dynamic plan list (test plan visible with ?test=1)
   const showTestPlan = searchParams.get('test') === '1';
   const availablePlans = useMemo(() => {
     const base = getVisiblePlans(showTestPlan);
     if (renewalPlan) return [renewalPlan, ...base];
+    if (showTrialPlan) return [TRIAL_PLAN, ...base];
     return base;
-  }, [renewalPlan, showTestPlan]);
+  }, [renewalPlan, showTestPlan, showTrialPlan]);
 
   // Auto-select renewal plan if renewal flow + has offer
   useEffect(() => {
@@ -139,6 +146,13 @@ export const Checkout: React.FC = () => {
       setShowLoginPrompt(false);
     }
   }, [isRenewalFlow, isLoggedIn]);
+
+  // Auto-select trial plan for visitors without a renewal offer
+  useEffect(() => {
+    if (showTrialPlan && selectedPlanId !== 'trial30' && !isRenewalFlow) {
+      setSelectedPlanId('trial30');
+    }
+  }, [showTrialPlan, isRenewalFlow]);
 
   // Resolve selected plan from both standard and dynamic plans
   const plan = useMemo(() => {
@@ -247,6 +261,7 @@ export const Checkout: React.FC = () => {
           fullName: fullName.trim(),
           monthCount: plan.monthCount || 0,
           newExpiresAt: plan.renewalOffer?.newExpiresAt || '',
+          isTrial: plan.isTrial || false,
         }));
       } catch { /* noop */ }
     }
@@ -408,12 +423,14 @@ export const Checkout: React.FC = () => {
             {/* Title */}
             <div className="text-center">
               <h1 className="text-xl md:text-2xl font-black text-[#3D3D3D] mb-1">
-                {isActiveMember ? 'Förläng ditt medlemskap' : 'Slutför ditt köp'}
+                {isActiveMember ? 'Förläng ditt medlemskap' : selectedPlanId === 'trial30' ? 'Prova gratis i 30 dagar' : 'Slutför ditt köp'}
               </h1>
               <p className="text-sm text-[#6B6158] font-medium">
                 {isActiveMember
                   ? 'Välj ditt erbjudande eller en ny plan'
-                  : 'Välj plan och betala — du är igång på 2 minuter'
+                  : selectedPlanId === 'trial30'
+                    ? 'Ingen debitering under provperioden — avbryt när du vill'
+                    : 'Välj plan och betala — du är igång på 2 minuter'
                 }
               </p>
             </div>

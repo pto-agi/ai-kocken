@@ -74,6 +74,9 @@ export interface UserProfile {
   subscription_status?: string;
   membership_type?: string;     // 'package' | 'subscription' — controls how expiry is displayed
   coaching_expires_at?: string; // DATE STRING from Google Sheets/Zapier
+  stripe_subscription_id?: string;
+  stripe_customer_id?: string;
+  subscription_cancel_at_period_end?: boolean;
   referral_code?: string;
   phone?: string;
   address_line1?: string;
