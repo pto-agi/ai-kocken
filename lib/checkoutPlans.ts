@@ -119,7 +119,26 @@ export const CHECKOUT_PLANS: CheckoutPlan[] = [
   },
 ];
 
+// Hidden test plan — only visible with ?test=1 query param
+export const TEST_PLAN: CheckoutPlan = {
+  id: 'test1m',
+  label: '1 månad (TEST)',
+  badge: '🧪 Test',
+  price: 1,
+  priceOre: 100,
+  perMonth: 1,
+  mode: 'payment',
+  stripePriceId: 'price_1TH9fSCMd1GQRttCkizCuOgy',
+  monthCount: 1,
+  description: 'Intern testplan — visas ej för kunder',
+};
+
+export function getVisiblePlans(showTest = false): CheckoutPlan[] {
+  return showTest ? [...CHECKOUT_PLANS, TEST_PLAN] : CHECKOUT_PLANS;
+}
+
 export function getPlanById(id: string): CheckoutPlan | undefined {
+  if (id === 'test1m') return TEST_PLAN;
   return CHECKOUT_PLANS.find((p) => p.id === id);
 }
 

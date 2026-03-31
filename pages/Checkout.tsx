@@ -9,7 +9,7 @@ import {
   CreditCard, Dumbbell,
 } from 'lucide-react';
 
-import { CHECKOUT_PLANS, DEFAULT_PLAN_ID, getPlanById, buildRenewalPlan } from '../lib/checkoutPlans';
+import { CHECKOUT_PLANS, DEFAULT_PLAN_ID, getPlanById, buildRenewalPlan, getVisiblePlans } from '../lib/checkoutPlans';
 import type { CheckoutPlan } from '../lib/checkoutPlans';
 import { createIntent } from '../utils/checkoutClient';
 
@@ -115,11 +115,13 @@ export const Checkout: React.FC = () => {
   // Detect campaign expiration: offer calculated but campaign deadline passed
   const campaignExpired = Boolean(renewalOffer && renewalOffer.monthCount > 0 && !renewalPlan);
 
-  // Build dynamic plan list
+  // Build dynamic plan list (test plan visible with ?test=1)
+  const showTestPlan = searchParams.get('test') === '1';
   const availablePlans = useMemo(() => {
-    if (renewalPlan) return [renewalPlan, ...CHECKOUT_PLANS];
-    return CHECKOUT_PLANS;
-  }, [renewalPlan]);
+    const base = getVisiblePlans(showTestPlan);
+    if (renewalPlan) return [renewalPlan, ...base];
+    return base;
+  }, [renewalPlan, showTestPlan]);
 
   // Auto-select renewal plan if renewal flow + has offer
   useEffect(() => {
@@ -141,7 +143,7 @@ export const Checkout: React.FC = () => {
   // Resolve selected plan from both standard and dynamic plans
   const plan = useMemo(() => {
     if (selectedPlanId === 'renewal' && renewalPlan) return renewalPlan;
-    return getPlanById(selectedPlanId) || CHECKOUT_PLANS[0];
+    return getPlanById(selectedPlanId) || getVisiblePlans(showTestPlan)[0];
   }, [selectedPlanId, renewalPlan]);
 
   useEffect(() => {

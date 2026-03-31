@@ -234,6 +234,7 @@ const CHECKOUT_PLAN_CONFIG: Record<string, {
   '6m':  { stripePriceId: 'price_1TGmkVCMd1GQRttCKwPn9lpP', amountOre: 299500, mode: 'payment', monthCount: 6,  label: '6 månader' },
   '3m':  { stripePriceId: 'price_1TGmkGCMd1GQRttC28TIA4aG', amountOre: 199500, mode: 'payment', monthCount: 3,  label: '3 månader' },
   monthly: { stripePriceId: 'price_1TGmidCMd1GQRttC4QMjFroQ', amountOre: 49500, mode: 'subscription', label: 'Månadsvis' },
+  test1m: { stripePriceId: 'price_1TH9fSCMd1GQRttCkizCuOgy', amountOre: 100, mode: 'payment', monthCount: 1, label: '1 månad (TEST)' },
 };
 
 async function handleCheckoutIntent(req: any, res: any, body: any, origin: string | undefined) {
