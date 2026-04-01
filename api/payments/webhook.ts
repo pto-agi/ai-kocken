@@ -396,7 +396,8 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
         console.error('AG-Agent checkout-subscription failed:', email, agentResult.error);
       }
     } else {
-      // New client (no profile) → pending entitlement + AG-Agent for Sheet/Email
+      // New client (no profile) → pending entitlement only.
+      // AG-Agent's own Stripe webhook handles admin email + Sheet via processNewSubscription.
       await createPendingEntitlement(admin, {
         email,
         flow: 'subscription',
@@ -406,20 +407,6 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
           full_name: fullName,
         },
       });
-
-      // Still forward for Sheet + Email (we have email even without profile)
-      const agentResult = await callAgentEndpoint('/api/economy/new-checkout-client', {
-        email,
-        full_name: fullName,
-        plan_label: 'Månadsvis',
-        month_count: 0,
-        amount: 0,
-        payment_method: 'stripe',
-        is_subscription: true,
-      });
-      if (!agentResult.ok) {
-        console.error('AG-Agent new-checkout-client (sub) failed:', email, agentResult.error);
-      }
     }
   }
 }
