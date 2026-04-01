@@ -113,8 +113,8 @@ const META_BY_PATH: Record<string, { title: string; description: string }> = {
     description: 'Power dashboard för försäljning, kapital och teamets momentum. Följ månadsmål, tillväxt och nyckeltal som driver fokus och avslut.'
   },
   '/checkout': {
-    title: 'Bli medlem',
-    description: 'Välj plan och starta din coaching med Private Training Online. Personlig coach, AI-recept och uppföljning — allt i en app.'
+    title: 'PT Online – Medlemskap',
+    description: 'Förläng eller gå med genom att välja ditt önskade paket och ange namn samt e-post. Som ny klient guidas du steg för steg genom hela processen.'
   },
   '/checkout/tack': {
     title: 'Tack för ditt köp',

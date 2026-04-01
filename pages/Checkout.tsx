@@ -160,6 +160,7 @@ export const Checkout: React.FC = () => {
     return getPlanById(selectedPlanId) || getVisiblePlans(showTestPlan)[0];
   }, [selectedPlanId, renewalPlan]);
 
+
   useEffect(() => {
     if (session?.user?.email && !email) setEmail(session.user.email);
     if (profile?.full_name && !fullName) setFullName(profile.full_name);
@@ -423,15 +424,10 @@ export const Checkout: React.FC = () => {
             {/* Title */}
             <div className="text-center">
               <h1 className="text-xl md:text-2xl font-black text-[#3D3D3D] mb-1">
-                {isActiveMember ? 'Förläng ditt medlemskap' : selectedPlanId === 'trial30' ? 'Prova gratis i 30 dagar' : 'Slutför ditt köp'}
+                PT Online – Medlemskap
               </h1>
-              <p className="text-sm text-[#6B6158] font-medium">
-                {isActiveMember
-                  ? 'Välj ditt erbjudande eller en ny plan'
-                  : selectedPlanId === 'trial30'
-                    ? 'Ingen debitering under provperioden — avbryt när du vill'
-                    : 'Välj plan och betala — du är igång på 2 minuter'
-                }
+              <p className="text-sm text-[#6B6158] font-medium max-w-lg mx-auto leading-relaxed">
+                Välj önskat paket för att förlänga ditt befintliga medlemskap eller gå med som ny klient. Som ny klient guidas du steg för steg genom hela processen.
               </p>
             </div>
 
