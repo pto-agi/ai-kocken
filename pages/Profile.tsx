@@ -114,13 +114,13 @@ export const Profile: React.FC = () => {
     setCancelMessage(null);
     setIsCancelling(true);
     try {
-      const response = await fetch('/api/payments/cancel-subscription', {
+      const response = await fetch('/api/member-actions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ reason: 'customer_self_service' }),
+        body: JSON.stringify({ action_type: 'cancel_subscription', reason: 'customer_self_service' }),
       });
       const data = await response.json().catch(() => ({} as any));
       if (!response.ok || !data.ok) {

@@ -1,5 +1,7 @@
 import {
   readBody,
+  readJsonBody,
+  getBearerToken,
   isAllowedOrigin,
   setCors,
   escapeHtml,
@@ -15,8 +17,9 @@ import {
   DEFAULT_FROM,
   DEFAULT_TO,
 } from './_shared/emailHelpers.js';
+import { getStripeClient, getSupabaseAdmin, resolveAuthUser } from './_shared/paymentHelpers.js';
 
-type MemberAction = 'pause_membership' | 'deactivate_membership' | 'reactivate_membership';
+type MemberAction = 'pause_membership' | 'deactivate_membership' | 'reactivate_membership' | 'cancel_subscription';
 
 type CustomerContent = {
   subject: string;
@@ -239,13 +242,98 @@ export default async function handler(req: any, res: any) {
 
   const body = await readBody(req);
   const actionType = body.action_type;
-  const actionWebhooks = getActionWebhooks();
 
   if (typeof actionType !== 'string') {
     setCors(res, origin);
     res.status(400).json({ error: 'Missing action_type' });
     return;
   }
+
+  // ── Cancel subscription (Stripe-based, auth-required) ──
+  if (actionType === 'cancel_subscription') {
+    try {
+      const accessToken = getBearerToken(req.headers?.authorization as string | undefined);
+      if (!accessToken) {
+        res.status(401).json({ error: 'Du måste vara inloggad för att avbryta din prenumeration.' });
+        return;
+      }
+      const authUser = await resolveAuthUser(accessToken);
+      if (!authUser?.id) {
+        res.status(401).json({ error: 'Ogiltig session. Logga in igen.' });
+        return;
+      }
+
+      const reason = String(body?.reason || 'customer_self_service');
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        res.status(500).json({ error: 'Databasfel. Försök igen.' });
+        return;
+      }
+
+      const { data: profile, error: profileError } = await admin
+        .from('profiles')
+        .select('stripe_subscription_id, stripe_customer_id, email, full_name, membership_type')
+        .eq('id', authUser.id)
+        .single();
+
+      if (profileError || !profile) {
+        res.status(404).json({ error: 'Profil hittades inte.' });
+        return;
+      }
+      if (!profile.stripe_subscription_id) {
+        res.status(400).json({ error: 'Ingen aktiv prenumeration hittades.' });
+        return;
+      }
+
+      const stripe = getStripeClient();
+      const subscription = await stripe.subscriptions.update(profile.stripe_subscription_id, {
+        cancel_at_period_end: true,
+        metadata: {
+          cancel_reason: reason,
+          canceled_by: 'customer_self_service',
+          canceled_at: new Date().toISOString(),
+        },
+      });
+
+      await admin
+        .from('profiles')
+        .update({ subscription_status: 'active', subscription_cancel_at_period_end: true })
+        .eq('id', authUser.id);
+
+      await admin.from('agent_activity_log').insert({
+        category: 'economy',
+        action: 'subscription_cancel_requested',
+        actor: 'customer_self_service',
+        target_email: profile.email,
+        details: {
+          subscription_id: profile.stripe_subscription_id,
+          cancel_at: subscription.cancel_at
+            ? new Date((subscription.cancel_at as number) * 1000).toISOString()
+            : null,
+          reason,
+        },
+      });
+
+      const cancelDate = subscription.cancel_at
+        ? new Date((subscription.cancel_at as number) * 1000).toLocaleDateString('sv-SE')
+        : 'vid periodens slut';
+
+      res.status(200).json({
+        ok: true,
+        message: `Din prenumeration avslutas ${cancelDate}. Du behåller full tillgång tills dess.`,
+        cancelAt: cancelDate,
+      });
+    } catch (err: any) {
+      console.error('Cancel subscription error:', err);
+      res.status(500).json({
+        error: err?.message || 'Kunde inte avbryta prenumerationen. Försök igen eller kontakta support.',
+      });
+    }
+    return;
+  }
+
+  // ── Legacy webhook-based actions ──
+  const actionWebhooks = getActionWebhooks();
 
   if (!Object.prototype.hasOwnProperty.call(actionWebhooks, actionType)) {
     setCors(res, origin);
