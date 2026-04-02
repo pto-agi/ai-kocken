@@ -199,9 +199,13 @@ export const Checkout: React.FC = () => {
   const handlePlanSelect = useCallback((planId: string) => {
     setSelectedPlanId(planId);
     setState({ phase: 'selecting' });
-    // GA4 e-commerce: select_item
+    // Trial plans only support stripe — force payment method
     // Search availablePlans (includes dynamic renewal plan), fallback to getPlanById
     const selected = availablePlans.find((p) => p.id === planId) || getPlanById(planId);
+    if (selected?.isTrial && paymentMethod !== 'stripe') {
+      setPaymentMethod('stripe');
+    }
+    // GA4 e-commerce: select_item
     if (selected && typeof window !== 'undefined') {
       window.dataLayer = window.dataLayer || [];
       window.dataLayer.push({ ecommerce: null });
@@ -475,10 +479,32 @@ export const Checkout: React.FC = () => {
 
               {/* Divider */}
               <div className="border-t border-[#E6E1D8] my-6" />
-                {/* Payment method selector — accordion style */}
+                {/* Payment method selector — trial gets simplified single option */}
                 <div className="space-y-2 mb-6">
                   <p className="text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Betalningsmetod</p>
                   <div className="rounded-xl border border-[#E6E1D8] overflow-hidden">
+
+                    {plan.isTrial ? (
+                      /* ── Trial: single "Prova gratis" option (always stripe) ── */
+                      <button
+                        type="button"
+                        onClick={() => { setPaymentMethod('stripe'); setState({ phase: 'selecting' }); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 transition-all text-left bg-[#FAFAF5]"
+                      >
+                        <div className="w-[18px] h-[18px] rounded-full border-2 border-[#a0c81d] flex items-center justify-center flex-shrink-0">
+                          <div className="w-2.5 h-2.5 rounded-full bg-[#a0c81d]" />
+                        </div>
+                        <CreditCard className="w-4 h-4 flex-shrink-0 text-[#6B8A12]" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-semibold block text-[#3D3D3D]">
+                            Prova gratis
+                          </span>
+                          <span className="text-[10px] text-[#8A8177] font-medium">Prova gratis i 30 dagar – därefter 549 kr/mån. Inga bindnings- eller uppsägningstider.</span>
+                        </div>
+                      </button>
+                    ) : (
+                      /* ── Non-trial: Kort/Klarna + Friskvård options ── */
+                      <>
                     <button
                       type="button"
                       onClick={() => { setPaymentMethod('stripe'); setState({ phase: 'selecting' }); }}
@@ -532,6 +558,8 @@ export const Checkout: React.FC = () => {
                         <span className="text-[10px] text-[#8A8177] font-medium">Betala via din arbetsgivares friskvårdsbidrag</span>
                       </div>
                     </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
