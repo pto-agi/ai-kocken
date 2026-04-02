@@ -507,30 +507,18 @@ const Start: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label htmlFor="start-email" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">E-post<span className="text-[#a0c81d]">*</span></label>
-                  <input
-                    id="start-email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    value={form.email}
-                    onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                    className={inputClass}
-                    placeholder="Din e-postadress"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="start-date" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Önskat startdatum</label>
-                  <input
-                    id="start-date"
-                    type="date"
-                    value={form.desiredStartDate}
-                    onChange={(e) => setForm((prev) => ({ ...prev, desiredStartDate: e.target.value }))}
-                    className={`${inputClass} max-w-full`}
-                  />
-                </div>
+              <div className="space-y-2">
+                <label htmlFor="start-email" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">E-post<span className="text-[#a0c81d]">*</span></label>
+                <input
+                  id="start-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                  className={inputClass}
+                  placeholder="Din e-postadress"
+                />
               </div>
             </section>
 
@@ -593,33 +581,35 @@ const Start: React.FC = () => {
             <section className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
-                <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Fokusområden</h2>
-              </div>
-              <p className="text-sm text-[#6B6158]">Din målsättning och vad du vill fokusera på. Det är möjligt att välja flera alternativ.</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {focusOptions.map((option) => (
-                  <label
-                    key={option}
-                    className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.focusAreas.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={form.focusAreas.includes(option)}
-                      onChange={() => setForm((prev) => ({ ...prev, focusAreas: toggleArrayValue(prev.focusAreas, option) }))}
-                      className="accent-[#a0c81d]"
-                    />
-                    <span className="text-sm font-semibold text-[#3D3D3D]">{option}</span>
-                  </label>
-                ))}
-              </div>
-            </section>
-
-            <section className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
                 <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Mål & bakgrund</h2>
               </div>
               <div className="space-y-5">
+                {/* Huvudmål — merged from Fokusområden */}
+                <div className="space-y-3">
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Välj dina huvudmål<span className="text-[#a0c81d]">*</span></label>
+                  <p className="text-sm text-[#6B6158]">Vad vill du fokusera på? Välj ett eller flera alternativ.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {focusOptions.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, focusAreas: toggleArrayValue(prev.focusAreas, option) }))}
+                        className={`flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition ${
+                          form.focusAreas.includes(option)
+                            ? 'border-[#a0c81d] bg-[#a0c81d]/10 shadow-sm'
+                            : 'border-[#E6E1D8] hover:border-[#a0c81d]/40 bg-white'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition ${
+                          form.focusAreas.includes(option) ? 'border-[#a0c81d]' : 'border-[#C5BFB5]'
+                        }`}>
+                          {form.focusAreas.includes(option) && <div className="w-2.5 h-2.5 rounded-full bg-[#a0c81d]" />}
+                        </div>
+                        <span className="text-sm font-semibold text-[#3D3D3D]">{option}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {/* Träningserfarenhet — structured chips with descriptions */}
                 <div className="space-y-3">
                   <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Träningserfarenhet<span className="text-[#a0c81d]">*</span></label>
@@ -797,37 +787,49 @@ const Start: React.FC = () => {
                   )}
                 </div>
 
-                <div className="space-y-3">
-                  <label htmlFor="start-sessions" className="text-sm text-[#6B6158]">
-                    Hur många pass per vecka vill du träna?<span className="text-[#a0c81d]">*</span>
-                  </label>
-                  <select
-                    id="start-sessions"
-                    value={form.sessionsPerWeek}
-                    onChange={(e) => setForm((prev) => ({ ...prev, sessionsPerWeek: e.target.value }))}
-                    className={inputClass}
-                    required
-                  >
-                    <option value="">Välj antal pass per vecka</option>
-                    {sessionsOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  {form.sessionsPerWeek === 'other' && (
-                    <input
-                      id="start-sessions-other"
-                      type="number"
-                      min={0}
-                      step={1}
-                      inputMode="numeric"
-                      value={form.sessionsPerWeekOther}
-                      onChange={(e) => setForm((prev) => ({ ...prev, sessionsPerWeekOther: e.target.value }))}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <label htmlFor="start-sessions" className="text-sm text-[#6B6158]">
+                      Hur många pass per vecka vill du träna?<span className="text-[#a0c81d]">*</span>
+                    </label>
+                    <select
+                      id="start-sessions"
+                      value={form.sessionsPerWeek}
+                      onChange={(e) => setForm((prev) => ({ ...prev, sessionsPerWeek: e.target.value }))}
                       className={inputClass}
-                      placeholder="Ange antal pass per vecka"
+                      required
+                    >
+                      <option value="">Välj antal pass per vecka</option>
+                      {sessionsOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    {form.sessionsPerWeek === 'other' && (
+                      <input
+                        id="start-sessions-other"
+                        type="number"
+                        min={0}
+                        step={1}
+                        inputMode="numeric"
+                        value={form.sessionsPerWeekOther}
+                        onChange={(e) => setForm((prev) => ({ ...prev, sessionsPerWeekOther: e.target.value }))}
+                        className={inputClass}
+                        placeholder="Ange antal pass per vecka"
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    <label htmlFor="start-date" className="text-sm text-[#6B6158]">Önskat startdatum</label>
+                    <input
+                      id="start-date"
+                      type="date"
+                      value={form.desiredStartDate}
+                      onChange={(e) => setForm((prev) => ({ ...prev, desiredStartDate: e.target.value }))}
+                      className={`${inputClass} max-w-full`}
                     />
-                  )}
+                  </div>
                 </div>
               </div>
             </section>
