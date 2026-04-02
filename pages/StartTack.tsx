@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, ArrowRight, Sparkles, Mail } from 'lucide-react';
+import { CheckCircle2, ArrowRight, Mail } from 'lucide-react';
 
 export const StartTack: React.FC = () => {
   return (
@@ -10,69 +10,67 @@ export const StartTack: React.FC = () => {
         <div className="absolute bottom-[-10%] left-[-10%] w-[520px] h-[520px] bg-cyan-500/5 rounded-full blur-[110px]" />
       </div>
 
-      <div className="max-w-5xl mx-auto relative z-10 animate-fade-in">
-        <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[2.6rem] p-8 md:p-12 border border-[#E6E1D8] shadow-2xl">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#a0c81d]/15 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
-                  <CheckCircle2 className="w-6 h-6" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Bekräftelse</span>
-              </div>
-              <h1 className="text-3xl md:text-4xl font-black text-[#3D3D3D] tracking-tight">
-                Tack! Din startinlämning är mottagen.
-              </h1>
-              <p className="text-[#6B6158] mt-3 max-w-2xl">
-                Vi har tagit emot dina uppgifter och påbörjar planeringen. Du får ditt upplägg inom cirka 2 arbetsdagar.
-              </p>
+      <div className="max-w-3xl mx-auto relative z-10 animate-fade-in">
+        <div className="bg-white/80 backdrop-blur-xl rounded-[2.6rem] p-8 md:p-12 border border-[#E6E1D8] shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-[#a0c81d]/15 border border-[#a0c81d]/40 flex items-center justify-center text-[#a0c81d]">
+              <CheckCircle2 className="w-6 h-6" />
             </div>
-            <div className="flex flex-col gap-3 w-full md:w-auto">
-              <Link
-                to="/forlangning"
-                className="px-6 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition flex items-center justify-center gap-2"
-              >
-                Mitt utgångsdatum <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                to="/recept"
-                className="px-6 py-3 rounded-xl bg-[#F6F1E7] border border-[#E6E1D8] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:border-[#a0c81d]/40 hover:text-[#a0c81d] transition flex items-center justify-center gap-2"
-              >
-                <Sparkles className="w-4 h-4" /> Skapa veckomeny
-              </Link>
-            </div>
+            <span className="text-xs font-black uppercase tracking-[0.3em] text-[#8A8177]">Bekräftelse</span>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/80 p-6">
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-3">
-                <Sparkles className="w-4 h-4" /> Nästa steg
-              </div>
-              <ul className="space-y-3 text-sm text-[#6B6158]">
-                <li>Vi går igenom dina mål och preferenser och sätter en plan som passar dig.</li>
-                <li>Om vi behöver något mer kontaktar vi dig via e‑post.</li>
-                <li>Din inbjudan till appen skickas till din e‑postadress.</li>
-                <li>Hittar du inget? Kolla gärna skräpposten.</li>
-              </ul>
-            </div>
+          <h1 className="text-3xl md:text-4xl font-black text-[#3D3D3D] tracking-tight">
+            Tack! Din startinlämning är mottagen.
+          </h1>
 
-            <div className="rounded-2xl border border-[#E6E1D8] bg-[#F6F1E7]/80 p-6 flex flex-col justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">
-                  <Mail className="w-4 h-4" /> Håll utkik
-                </div>
-                <h2 className="text-lg font-black text-[#3D3D3D]">Allt sker via e‑post</h2>
-                <p className="text-[#6B6158] text-sm mt-2">
-                  Vi återkopplar med leveranstid, eventuella frågor och din inbjudan.
-                </p>
-              </div>
-              <Link
-                to="/start"
-                className="px-5 py-3 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition flex items-center justify-center gap-2"
-              >
-                Tillbaka till startformuläret
-              </Link>
-            </div>
+          {/* Brödtext */}
+          <div className="mt-6 space-y-4 text-[15px] leading-relaxed text-[#4A4A4A]">
+            <p>
+              Vi har tagit emot dina uppgifter och kommer inom kort att påbörja planeringen
+              av dina nya upplägg.
+            </p>
+            <p>
+              Inom 1–2 arbetsdagar (om du inte önskat ett senare startdatum) kommer dina
+              första upplägg att levereras. I samband med detta skickas även en personlig
+              inbjudan till appen ut till dig via mejl.
+            </p>
+          </div>
+
+          {/* Medlemskonto-sektion */}
+          <div className="mt-10 pt-8 border-t border-[#E6E1D8]">
+            <h2 className="text-xl md:text-2xl font-black text-[#3D3D3D] tracking-tight">
+              Känner du dig produktiv? Ska vi ta ett steg till?
+            </h2>
+            <p className="mt-4 text-[15px] leading-relaxed text-[#4A4A4A]">
+              Förbered dig inför starten genom att skapa ett medlemskonto hos oss.
+              Genom medlemskontot kan du bland annat pausa eller deaktivera ditt
+              medlemskap vid behov. Du kan skapa veckomenyer med recept och göra
+              uppföljningar.
+            </p>
+
+            <Link
+              to="/auth"
+              className="mt-6 inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-[#a0c81d] text-[#F6F1E7] text-xs font-black uppercase tracking-widest hover:bg-[#5C7A12] transition shadow-lg shadow-[#a0c81d]/15"
+            >
+              Skapa medlemskonto <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {/* Kontakt-sektion */}
+          <div className="mt-10 pt-8 border-t border-[#E6E1D8]">
+            <p className="text-[15px] leading-relaxed text-[#4A4A4A]">
+              Om du har några frågor eller funderingar är du varmt välkommen att
+              kontakta oss. Och om inte, så kommer du att höra från din nya coach
+              inom kort.
+            </p>
+
+            <a
+              href="mailto:info@privatetrainingonline.se"
+              className="mt-6 inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-[#F6F1E7] border border-[#E6E1D8] text-xs font-black uppercase tracking-widest text-[#3D3D3D] hover:border-[#a0c81d]/50 hover:text-[#a0c81d] transition"
+            >
+              <Mail className="w-4 h-4" /> Kontakta oss
+            </a>
           </div>
         </div>
       </div>
