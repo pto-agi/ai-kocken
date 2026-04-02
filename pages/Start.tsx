@@ -218,6 +218,7 @@ const Start: React.FC = () => {
   const [status, setStatus] = useState<StartSubmitStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
+  const [hasInjuries, setHasInjuries] = useState<boolean | null>(null);
   // Pending notification body removed — DB trigger handles email automatically
   const isConfigured = isSupabaseConfigured();
   const navigate = useNavigate();
@@ -463,7 +464,7 @@ const Start: React.FC = () => {
           </div>
         )}
 
-        <div className="bg-[#E8F1D5]/80 backdrop-blur-xl rounded-[1.75rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-10 border border-[#E6E1D8] shadow-2xl">
+        <div className="bg-white/90 backdrop-blur-xl rounded-[1.75rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-10 border border-[#E6E1D8] shadow-2xl overflow-hidden">
           {!isConfigured && (
             <div className="mb-8 rounded-2xl border border-amber-500/40 bg-amber-50 p-4 text-amber-900 text-sm" role="alert" aria-live="polite">
               Supabase är inte konfigurerat ännu. Lägg in dina nycklar i <code className="text-amber-950">.env.local</code> för att kunna skicka formulär.
@@ -527,7 +528,7 @@ const Start: React.FC = () => {
                     type="date"
                     value={form.desiredStartDate}
                     onChange={(e) => setForm((prev) => ({ ...prev, desiredStartDate: e.target.value }))}
-                    className={inputClass}
+                    className={`${inputClass} max-w-full`}
                   />
                 </div>
               </div>
@@ -641,49 +642,51 @@ const Start: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Eventuella skador — multi-select chips + fritext */}
+                {/* Eventuella skador — Ja/Nej toggle → expanderar vid Ja */}
                 <div className="space-y-3">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Eventuella skador eller begränsningar</label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {injuryAreaOptions.map((area) => (
-                      <label
-                        key={area}
-                        className={`flex items-center gap-3 p-3 rounded-2xl border transition cursor-pointer ${
-                          form.injuryAreas.includes(area)
-                            ? 'border-[#a0c81d] bg-[#a0c81d]/10'
-                            : 'border-[#E6E1D8] hover:border-[#E6E1D8]'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={form.injuryAreas.includes(area)}
-                          onChange={() => {
-                            setForm((prev) => {
-                              if (area === 'Inga') {
-                                return { ...prev, injuryAreas: prev.injuryAreas.includes('Inga') ? [] : ['Inga'] };
-                              }
-                              const updated = prev.injuryAreas.filter((a) => a !== 'Inga');
-                              return {
-                                ...prev,
-                                injuryAreas: updated.includes(area)
-                                  ? updated.filter((a) => a !== area)
-                                  : [...updated, area],
-                              };
-                            });
-                          }}
-                          className="accent-[#a0c81d]"
-                        />
-                        <span className="text-sm font-semibold text-[#3D3D3D]">{area}</span>
-                      </label>
-                    ))}
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Har du några skador eller begränsningar?</label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHasInjuries(true);
+                        setForm((prev) => ({
+                          ...prev,
+                          injuryAreas: prev.injuryAreas.includes('Inga') ? [] : prev.injuryAreas,
+                        }));
+                      }}
+                      className={`flex-1 py-3 rounded-2xl border text-sm font-semibold transition ${
+                        hasInjuries === true
+                          ? 'border-[#a0c81d] bg-[#a0c81d]/10 text-[#3D3D3D]'
+                          : 'border-[#E6E1D8] text-[#6B6158] hover:border-[#ccc]'
+                      }`}
+                    >
+                      Ja
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHasInjuries(false);
+                        setForm((prev) => ({ ...prev, injuryAreas: ['Inga'], injuries: '' }));
+                      }}
+                      className={`flex-1 py-3 rounded-2xl border text-sm font-semibold transition ${
+                        hasInjuries === false
+                          ? 'border-[#a0c81d] bg-[#a0c81d]/10 text-[#3D3D3D]'
+                          : 'border-[#E6E1D8] text-[#6B6158] hover:border-[#ccc]'
+                      }`}
+                    >
+                      Nej
+                    </button>
                   </div>
-                  {!form.injuryAreas.includes('Inga') && (
+
+                  {/* Description field — only visible when "Ja" */}
+                  {hasInjuries === true && (
                     <input
                       type="text"
                       value={form.injuries}
                       onChange={(e) => setForm((prev) => ({ ...prev, injuries: e.target.value }))}
                       className={inputClass}
-                      placeholder="Beskriv kort (valfritt)"
+                      placeholder="Beskriv dina skador eller begränsningar"
                     />
                   )}
                 </div>
