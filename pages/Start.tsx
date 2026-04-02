@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronUp, ClipboardList, Dumbbell, Bike, Zap, Users, Puzzle, Home, Building2, TreePine, Loader2, Sparkles, Target, Flame, HeartPulse, Sprout, TrendingUp, Award, Crown } from 'lucide-react';
+import { ChevronDown, ChevronUp, ClipboardList, Bike, Home, Building2, TreePine, Loader2, Sparkles, Target, Flame, HeartPulse } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 // Email notifications for startformulär are handled by DB trigger → Edge Function.
@@ -66,11 +66,11 @@ const focusOptions = [
 ];
 
 const trainingFormOptions = [
-  { value: 'Styrketräning', label: 'Styrketräning', icon: Dumbbell },
-  { value: 'Konditionsträning', label: 'Konditionsträning', icon: Bike },
-  { value: 'Cirkelträning/HIIT', label: 'HIIT / Cirkelträning', icon: Zap },
-  { value: 'Gruppträning', label: 'Gruppträning', icon: Users },
-  { value: 'Annat', label: 'Annat', icon: Puzzle },
+  { value: 'Styrketräning', label: 'Styrketräning' },
+  { value: 'Konditionsträning', label: 'Konditionsträning' },
+  { value: 'Cirkelträning/HIIT', label: 'HIIT / Cirkelträning' },
+  { value: 'Gruppträning', label: 'Gruppträning' },
+  { value: 'Annat', label: 'Annat' },
 ];
 
 const trainingPlaceOptions = [
@@ -106,10 +106,10 @@ const sessionsOptions = [
 const genderOptions = ['Man', 'Kvinna', 'Annat'];
 
 const experienceLevelOptions = [
-  { value: 'nybörjare', label: 'Nybörjare', desc: 'Ny till styrketräning eller tränat sporadiskt', icon: Sprout },
-  { value: 'viss erfarenhet', label: 'Viss erfarenhet', desc: 'Tränat regelbundet 6–18 månader', icon: TrendingUp },
-  { value: 'erfaren', label: 'Erfaren', desc: 'Konsekvent träning i 1–3+ år', icon: Award },
-  { value: 'avancerad', label: 'Avancerad', desc: '3+ år, van vid tunga lyft och periodisering', icon: Crown },
+  { value: 'nybörjare', label: 'Nybörjare', desc: 'Ny till styrketräning eller tränat sporadiskt' },
+  { value: 'viss erfarenhet', label: 'Viss erfarenhet', desc: 'Tränat regelbundet 6–18 månader' },
+  { value: 'erfaren', label: 'Erfaren', desc: 'Konsekvent träning i 1–3+ år' },
+  { value: 'avancerad', label: 'Avancerad', desc: '3+ år, van vid tunga lyft och periodisering' },
 ];
 
 const injuryAreaOptions = ['Rygg', 'Nacke', 'Axlar', 'Knän', 'Höfter', 'Handleder', 'Fötter/anklar', 'Inga'];
@@ -601,31 +601,34 @@ const Start: React.FC = () => {
                   />
                 </div>
 
-                {/* Träningserfarenhet — icon cards */}
-                <div className="space-y-3">
+                {/* Träningserfarenhet — choice pills */}
+                <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Träningserfarenhet<span className="text-[#a0c81d]">*</span></label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="flex flex-wrap gap-2">
                     {experienceLevelOptions.map((opt) => {
-                      const Icon = opt.icon;
                       const isSelected = form.experienceLevel === opt.value;
                       return (
                         <button
                           key={opt.value}
                           type="button"
                           onClick={() => setForm((prev) => ({ ...prev, experienceLevel: opt.value }))}
-                          className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 text-center transition ${
+                          title={opt.desc}
+                          className={`px-4 py-2 rounded-full border text-sm font-semibold transition-all ${
                             isSelected
-                              ? 'border-[#a0c81d] bg-[#a0c81d]/10 shadow-sm'
-                              : 'border-[#E6E1D8] hover:border-[#a0c81d]/40 bg-white'
+                              ? 'border-[#a0c81d] bg-[#a0c81d]/15 text-[#3D3D3D] shadow-sm ring-1 ring-[#a0c81d]/30'
+                              : 'border-[#E6E1D8] text-[#6B6158] hover:border-[#a0c81d]/40 bg-white'
                           }`}
                         >
-                          <Icon className={`w-7 h-7 transition ${isSelected ? 'text-[#a0c81d]' : 'text-[#8A8177]'}`} />
-                          <span className={`text-sm font-bold leading-tight transition ${isSelected ? 'text-[#3D3D3D]' : 'text-[#6B6158]'}`}>{opt.label}</span>
-                          <span className={`text-[11px] leading-tight transition ${isSelected ? 'text-[#3D3D3D]' : 'text-[#8A8177]'}`}>{opt.desc}</span>
+                          {opt.label}
                         </button>
                       );
                     })}
                   </div>
+                  {form.experienceLevel && (
+                    <p className="text-xs text-[#8A8177] mt-1 pl-1 transition-all">
+                      {experienceLevelOptions.find(o => o.value === form.experienceLevel)?.desc}
+                    </p>
+                  )}
                 </div>
 
                 {/* Eventuella skador — Ja/Nej toggle → expanderar vid Ja */}
@@ -685,27 +688,29 @@ const Start: React.FC = () => {
                 <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Träningsupplägg</h2>
               </div>
               <div className="space-y-6">
-                {/* Träningsformer — icon cards */}
-                <div className="space-y-3">
+                {/* Träningsformer — checkbox pills */}
+                <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Träningsformer<span className="text-[#a0c81d]">*</span></label>
-                  <p className="text-sm text-[#6B6158]">Välj de träningsformer du vill ha i ditt upplägg.</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                  <div className="flex flex-wrap gap-2">
                     {trainingFormOptions.map((opt) => {
-                      const Icon = opt.icon;
                       const isSelected = form.trainingForms.includes(opt.value);
                       return (
                         <button
                           key={opt.value}
                           type="button"
                           onClick={() => setForm((prev) => ({ ...prev, trainingForms: toggleArrayValue(prev.trainingForms, opt.value) }))}
-                          className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition ${
+                          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border text-sm font-semibold transition-all ${
                             isSelected
-                              ? 'border-[#a0c81d] bg-[#a0c81d]/10 shadow-sm'
-                              : 'border-[#E6E1D8] hover:border-[#a0c81d]/40 bg-white'
+                              ? 'border-[#a0c81d] bg-[#a0c81d]/15 text-[#3D3D3D] shadow-sm ring-1 ring-[#a0c81d]/30'
+                              : 'border-[#E6E1D8] text-[#6B6158] hover:border-[#a0c81d]/40 bg-white'
                           }`}
                         >
-                          <Icon className={`w-7 h-7 transition ${isSelected ? 'text-[#a0c81d]' : 'text-[#8A8177]'}`} />
-                          <span className={`text-xs font-bold text-center leading-tight transition ${isSelected ? 'text-[#3D3D3D]' : 'text-[#6B6158]'}`}>{opt.label}</span>
+                          <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all text-[10px] ${
+                            isSelected
+                              ? 'border-[#a0c81d] bg-[#a0c81d] text-white'
+                              : 'border-[#ccc]'
+                          }`}>{isSelected ? '✓' : ''}</span>
+                          {opt.label}
                         </button>
                       );
                     })}
