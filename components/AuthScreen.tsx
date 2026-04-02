@@ -30,8 +30,17 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
     const [error, setError] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-    const { registerUser, signInUser } = useAuthStore();
+    const { registerUser, signInUser, session } = useAuthStore();
     const isConfigured = isSupabaseConfigured();
+
+    // Redirect to home if already logged in (skip during password recovery)
+    useEffect(() => {
+        if (!session) return;
+        const params = new URLSearchParams(window.location.search);
+        const isRecovery = params.get('reset') === '1' || window.location.hash.includes('type=recovery');
+        if (isRecovery) return;
+        navigate('/', { replace: true });
+    }, [session, navigate]);
 
     // Capture referral code from URL
     const [refCode, setRefCode] = useState<string | null>(null);
