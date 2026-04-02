@@ -577,6 +577,17 @@ const Start: React.FC = () => {
                   />
                 </div>
               </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Kön</label>
+                <div className="flex gap-2">
+                  {genderOptions.map((g) => (
+                    <button key={g} type="button"
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide border transition ${form.gender === g ? 'bg-[#a0c81d] text-white border-[#a0c81d]' : 'bg-white text-[#3D3D3D] border-[#DAD1C5] hover:border-[#a0c81d]'}`}
+                      onClick={() => setForm((prev) => ({ ...prev, gender: g }))}
+                    >{g}</button>
+                  ))}
+                </div>
+              </div>
             </section>
 
             <section className="space-y-6">
@@ -594,7 +605,7 @@ const Start: React.FC = () => {
                     onChange={(e) => setForm((prev) => ({ ...prev, goalDescription: e.target.value }))}
                     className={`${inputClass} min-h-[130px]`}
                     rows={5}
-                    placeholder="T.ex. Jag vill gå ner ca 5 kg och bli starkare. Har inte tränat på ett tag men vill komma igång med 3 pass i veckan. Gillar styrketräning men vill även förbättra konditionen."
+                    placeholder=""
                   />
                 </div>
 
@@ -827,53 +838,8 @@ const Start: React.FC = () => {
                 <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Kostpreferenser</h2>
               </div>
               <div className="space-y-5">
-                {/* Kosthistorik — multi-select chips */}
-                <div className="space-y-3">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Kosthistorik (hur du ätit senaste tiden)</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {dietHistoryOptions.map((opt) => (
-                      <button
-                        key={opt}
-                        type="button"
-                        className={`px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-wide border transition ${
-                          form.dietHistory.includes(opt)
-                            ? 'bg-[#a0c81d] text-white border-[#a0c81d]'
-                            : 'bg-white text-[#3D3D3D] border-[#DAD1C5] hover:border-[#a0c81d]'
-                        }`}
-                        onClick={() => setForm((prev) => ({ ...prev, dietHistory: toggleArrayValue(prev.dietHistory, opt) }))}
-                      >{opt}</button>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Kön</label>
-                    <div className="flex gap-2 flex-wrap">
-                      {genderOptions.map((g) => (
-                        <button key={g} type="button"
-                          className={`px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-wide border transition ${form.gender === g ? 'bg-[#a0c81d] text-white border-[#a0c81d]' : 'bg-white text-[#3D3D3D] border-[#DAD1C5] hover:border-[#a0c81d]'}`}
-                          onClick={() => setForm((prev) => ({ ...prev, gender: g }))}
-                        >{g}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Aktivitetsnivå</label>
-                    <select
-                      value={form.activityLevel}
-                      onChange={(e) => setForm((prev) => ({ ...prev, activityLevel: e.target.value }))}
-                      className={inputClass}
-                    >
-                      <option value="">Välj aktivitetsnivå</option>
-                      {activityLevelOptions.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Kosthållning */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Kosthållning</label>
                     <select
@@ -887,6 +853,8 @@ const Start: React.FC = () => {
                       ))}
                     </select>
                   </div>
+
+                  {/* Antal måltider per dag */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Antal måltider per dag</label>
                     <div className="flex gap-2 flex-wrap">
@@ -900,68 +868,28 @@ const Start: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Allergier &amp; intoleranser</label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {allergyOptions.map((a) => (
-                      <label key={a} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={form.allergies.includes(a.toLowerCase())}
-                          onChange={() => {
-                            setForm((prev) => ({
-                              ...prev,
-                              allergies: prev.allergies.includes(a.toLowerCase())
-                                ? prev.allergies.filter((x) => x !== a.toLowerCase())
-                                : [...prev.allergies, a.toLowerCase()]
-                            }));
-                          }}
-                          className="rounded border-[#E6E1D8] text-[#a0c81d] focus:ring-[#a0c81d]"
-                        />
-                        <span className="text-sm text-[#3D3D3D]">{a}</span>
-                      </label>
-                    ))}
-                  </div>
+                {/* Allergier — fritext istället för checkboxar */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Allergier & intoleranser</label>
+                  <input
+                    type="text"
+                    value={form.foodPreferences}
+                    onChange={(e) => setForm((prev) => ({ ...prev, foodPreferences: e.target.value }))}
+                    className={inputClass}
+                    placeholder="T.ex. laktos, gluten, nötter — lämna tomt om inga"
+                  />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Matlagningsnivå</label>
-                    <select
-                      value={form.cookingLevel}
-                      onChange={(e) => setForm((prev) => ({ ...prev, cookingLevel: e.target.value }))}
-                      className={inputClass}
-                    >
-                      <option value="">Välj nivå</option>
-                      {cookingLevelOptions.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Matpreferenser</label>
-                    <div className="flex gap-2 flex-wrap mb-2">
-                      {preferredFoodOptions.map((food) => (
-                        <button
-                          key={food}
-                          type="button"
-                          className={`px-3 py-1.5 rounded-xl text-sm font-bold uppercase tracking-wide border transition ${
-                            form.preferredFoods.includes(food)
-                              ? 'bg-[#a0c81d] text-white border-[#a0c81d]'
-                              : 'bg-white text-[#3D3D3D] border-[#DAD1C5] hover:border-[#a0c81d]'
-                          }`}
-                          onClick={() => setForm((prev) => ({ ...prev, preferredFoods: toggleArrayValue(prev.preferredFoods, food) }))}
-                        >{food}</button>
-                      ))}
-                    </div>
-                    <input
-                      type="text"
-                      value={form.foodPreferences}
-                      onChange={(e) => setForm((prev) => ({ ...prev, foodPreferences: e.target.value }))}
-                      className={inputClass}
-                      placeholder="Annat, t.ex. ogillar svamp..."
-                    />
-                  </div>
+                {/* Övrigt kring kost — valfritt fritext */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Övrigt kring din kost (valfritt)</label>
+                  <textarea
+                    value={form.dietLast6Months}
+                    onChange={(e) => setForm((prev) => ({ ...prev, dietLast6Months: e.target.value }))}
+                    className={`${inputClass} min-h-[80px]`}
+                    rows={3}
+                    placeholder="Berätta fritt om hur du äter idag, om du har specifika önskemål eller något annat som kan vara relevant."
+                  />
                 </div>
               </div>
             </section>
