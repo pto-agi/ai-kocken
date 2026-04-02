@@ -92,6 +92,11 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     <div className="space-y-6">
       {/* Express Checkout (Apple Pay, Google Pay, Klarna, Link) */}
       <div>
+        {plan.isTrial && (
+          <p className="text-center text-sm font-bold text-[#16a34a] mb-3">
+            0 kr – Prova gratis i 30 dagar
+          </p>
+        )}
         <ExpressCheckoutElement
           onConfirm={handleExpressCheckoutConfirm}
           options={{
