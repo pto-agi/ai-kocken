@@ -577,17 +577,6 @@ const Start: React.FC = () => {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Kön</label>
-                <div className="flex gap-2">
-                  {genderOptions.map((g) => (
-                    <button key={g} type="button"
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide border transition ${form.gender === g ? 'bg-[#a0c81d] text-white border-[#a0c81d]' : 'bg-white text-[#3D3D3D] border-[#DAD1C5] hover:border-[#a0c81d]'}`}
-                      onClick={() => setForm((prev) => ({ ...prev, gender: g }))}
-                    >{g}</button>
-                  ))}
-                </div>
-              </div>
             </section>
 
             <section className="space-y-6">
