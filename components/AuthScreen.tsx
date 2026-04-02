@@ -149,8 +149,17 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ embedded = false, onSuccess }) 
                             localStorage.removeItem('pto_referral_code');
                         })().catch(() => undefined);
                     }
-                    setSuccessMsg("Konto skapat! Kontrollera din e-post.");
+                    // Show success confirmation before auto-login takes effect
+                    setSuccessMsg("Ditt konto är skapat! Du är redo att börja.");
                     setLoading(false);
+                    // Auto-navigate after a brief pause so the user sees the confirmation
+                    setTimeout(() => {
+                        if (onSuccess) {
+                            onSuccess();
+                        } else {
+                            navigate('/auth', { replace: true });
+                        }
+                    }, 2500);
                 } else {
                     setLoading(false);
                 }

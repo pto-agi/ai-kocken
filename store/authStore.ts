@@ -151,7 +151,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else if (event === 'SIGNED_IN' && session) {
         const current = get().session;
         if (!current || current.user.id !== session.user.id) {
-          set({ session, isLoading: true });
+          set({ session, isLoading: false });
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')

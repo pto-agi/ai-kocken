@@ -470,7 +470,7 @@ async function processInvoice(admin: any, invoice: Stripe.Invoice, isPaid: boole
   const subscriptionId = typeof rawInvoice.subscription === 'string' ? rawInvoice.subscription : null;
   if (!subscriptionId) return;
 
-  const status = isPaid ? 'paid' : 'payment_failed';
+  const status = isPaid ? 'active' : 'payment_failed';
   try {
     await admin.from('stripe_subscriptions')
       .update({ status, updated_at: new Date().toISOString() })

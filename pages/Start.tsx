@@ -327,6 +327,9 @@ const Start: React.FC = () => {
     if (validationError) {
       setErrorMessage(validationError);
       setStatus('error');
+      setTimeout(() => {
+        document.getElementById('start-form-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
       return;
     }
 
@@ -997,7 +1000,7 @@ const Start: React.FC = () => {
             </section>
 
             {errorMessage && (
-              <div className="rounded-2xl border border-red-500/40 bg-red-50 p-4 text-red-900 text-sm" role="alert" aria-live="assertive">
+              <div id="start-form-error" className="rounded-2xl border border-red-500/40 bg-red-50 p-4 text-red-900 text-sm animate-pulse" role="alert" aria-live="assertive">
                 {errorMessage}
               </div>
             )}
