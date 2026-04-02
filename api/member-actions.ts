@@ -36,6 +36,7 @@ const ACTION_LABELS: Record<MemberAction, string> = {
   pause_membership: 'Paus av medlemskap',
   deactivate_membership: 'Avslut av medlemskap',
   reactivate_membership: 'Återaktivering av medlemskap',
+  cancel_subscription: 'Avslut av prenumeration',
 };
 
 const ACTION_FIELD_LABELS: Record<string, string> = {
@@ -54,6 +55,7 @@ function getActionWebhooks(): Record<MemberAction, string> {
     pause_membership: process.env.ZAPIER_PAUSE_WEBHOOK_URL || '',
     deactivate_membership: process.env.ZAPIER_DEACTIVATE_WEBHOOK_URL || '',
     reactivate_membership: process.env.ZAPIER_REACTIVATE_WEBHOOK_URL || '',
+    cancel_subscription: '',
   };
 }
 

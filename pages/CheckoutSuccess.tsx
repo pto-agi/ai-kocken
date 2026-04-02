@@ -198,7 +198,11 @@ export const CheckoutSuccess: React.FC = () => {
           </h1>
           <p className="text-sm text-[#6B6158] font-medium max-w-sm mx-auto mb-3">
             {isTrial
-              ? 'Du har nu 30 dagars gratis tillgång till alla våra tjänster. Inga pengar dras idag.'
+              ? <>
+                  Välkommen till Private Training Online! Så kul att du vill prova våra tjänster. 💪
+                  <br /><br />
+                  Det är dags att inleda planeringsarbetet! Skicka gärna in uppgifter kring dina mål, träningserfarenheter, eventuella skador och förutsättningar via knappen nedan.
+                </>
               : isRenewal
                 ? 'Din betalning är bekräftad och ditt medlemskap har förlängts.'
                 : 'Din betalning är bekräftad och ditt konto förbereds. Du är nu en del av teamet!'
@@ -236,45 +240,64 @@ export const CheckoutSuccess: React.FC = () => {
             </div>
           )}
 
-          {/* Next steps */}
-          <div className="space-y-4 text-left mb-10">
-            {steps.map((step, i) => (
-              <div
-                key={step.title}
-                className="flex items-start gap-4 rounded-2xl bg-white border border-[#E6E1D8] p-4 shadow-sm"
-                style={{ animationDelay: `${i * 150}ms` }}
-              >
-                <div className="w-10 h-10 rounded-xl bg-[#f5fae6] flex items-center justify-center flex-shrink-0">
-                  <step.icon className="w-5 h-5 text-[#6B8A12]" />
+          {/* Next steps — hidden for trial (CTA replaces steps) */}
+          {!isTrial && (
+            <div className="space-y-4 text-left mb-10">
+              {steps.map((step, i) => (
+                <div
+                  key={step.title}
+                  className="flex items-start gap-4 rounded-2xl bg-white border border-[#E6E1D8] p-4 shadow-sm"
+                  style={{ animationDelay: `${i * 150}ms` }}
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#f5fae6] flex items-center justify-center flex-shrink-0">
+                    <step.icon className="w-5 h-5 text-[#6B8A12]" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#3D3D3D] mb-0.5">
+                      {i + 1}. {step.title}
+                    </h3>
+                    <p className="text-xs text-[#6B6158] font-medium leading-relaxed">
+                      {step.description}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-[#3D3D3D] mb-0.5">
-                    {i + 1}. {step.title}
-                  </h3>
-                  <p className="text-xs text-[#6B6158] font-medium leading-relaxed">
-                    {step.description}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* CTA */}
           <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="
-                w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest
-                bg-[#a0c81d] text-white
-                hover:bg-[#8ab516] hover:shadow-lg hover:shadow-[#a0c81d]/20
-                active:scale-[0.98] transition-all duration-200
-                flex items-center justify-center gap-2
-              "
-            >
-              {isRenewal ? 'Till min profil' : 'Logga in på myPTO'}
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            {isTrial ? (
+              <a
+                href="https://my.privatetrainingonline.se/start/"
+                className="
+                  w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest
+                  bg-[#a0c81d] text-white
+                  hover:bg-[#8ab516] hover:shadow-lg hover:shadow-[#a0c81d]/20
+                  active:scale-[0.98] transition-all duration-200
+                  flex items-center justify-center gap-2
+                  no-underline
+                "
+              >
+                Startinlämning
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="
+                  w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest
+                  bg-[#a0c81d] text-white
+                  hover:bg-[#8ab516] hover:shadow-lg hover:shadow-[#a0c81d]/20
+                  active:scale-[0.98] transition-all duration-200
+                  flex items-center justify-center gap-2
+                "
+              >
+                {isRenewal ? 'Till min profil' : 'Logga in på myPTO'}
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
             <a
               href="https://www.privatetrainingonline.se"
               className="block w-full py-3 text-xs font-bold text-[#8A8177] hover:text-[#3D3D3D] transition"

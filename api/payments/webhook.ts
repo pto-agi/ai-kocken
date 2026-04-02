@@ -381,23 +381,77 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
 
   // ── Forward new active subscriptions to AG-Agent ──
   // AG-Agent handles: profile hybrid check, Sheet write, welcome email, admin email
+  // Fallback: if AG-Agent is unreachable, send admin notification directly
   if (status === 'active' && email) {
     const meta = (subscription as any).metadata || {};
     const fullName = (meta.full_name as string) || '';
+    const isTrial = (subscription as any).status === 'trialing';
 
-    if (profileId) {
-      // Existing client → forward to AG-Agent subscription processor
-      const agentResult = await callAgentEndpoint('/api/economy/checkout-subscription', {
-        email,
-        full_name: fullName,
-        stripe_customer_id: stripeCustomerId,
-      });
-      if (!agentResult.ok) {
-        console.error('AG-Agent checkout-subscription failed:', email, agentResult.error);
+    const agentResult = await callAgentEndpoint('/api/economy/checkout-subscription', {
+      email,
+      full_name: fullName,
+      stripe_customer_id: stripeCustomerId,
+    });
+
+    if (!agentResult.ok) {
+      console.error('AG-Agent checkout-subscription failed:', email, agentResult.error);
+
+      // ── Fallback: send admin notification directly via Resend ──
+      // AG-Agent will also process this via customer.subscription.created webhook,
+      // so this is a safety net for admin awareness.
+      const resendKey = (process.env.RESEND_API_KEY || '').trim();
+      if (resendKey) {
+        try {
+          const { buildBaseEmailLayout, sendResendEmail, DEFAULT_FROM, DEFAULT_TO } = await import('../_shared/emailHelpers.js');
+          const adminRecipients = (process.env.RESEND_FORM_TO || DEFAULT_TO).split(',').map((s: string) => s.trim()).filter(Boolean);
+          const customerName = fullName || email;
+          const typeLabel = isTrial ? 'Provperiod (30 dagar gratis)' : 'Månadsprenumeration';
+
+          const adminHtml = buildBaseEmailLayout({
+            title: '⚠️ Ny prenumerant — AG-Agent nåddes inte',
+            badge: 'Admin-notis (fallback)',
+            bodyHtml: `
+              <p style="font-size:14px;color:#3D3D3D;margin:0 0 12px;">
+                En ny prenumeration skapades i Stripe men AG-Agent kunde inte nås för full bearbetning.
+                Mejl till kund kan ha missats. Kontrollera att kunden fått välkomstmejl.
+              </p>
+              <table cellspacing="0" cellpadding="6" style="width:100%;font-size:13px;color:#3D3D3D;">
+                <tr><td style="font-weight:700">Kund</td><td>${customerName}</td></tr>
+                <tr><td style="font-weight:700">E-post</td><td>${email}</td></tr>
+                <tr><td style="font-weight:700">Typ</td><td>${typeLabel}</td></tr>
+                <tr><td style="font-weight:700">Stripe Sub</td><td style="font-family:monospace;font-size:11px">${subscription.id}</td></tr>
+                <tr><td style="font-weight:700">Har profil</td><td>${profileId ? 'Ja' : 'Nej (ej registrerad)'}</td></tr>
+                <tr><td style="font-weight:700">Fel</td><td style="color:#dc2626">${agentResult.error || 'Timeout/unreachable'}</td></tr>
+              </table>`,
+          });
+
+          sendResendEmail(resendKey, {
+            from: DEFAULT_FROM,
+            to: adminRecipients,
+            subject: `⚠️ Ny prenumerant (fallback): ${customerName} — ${typeLabel}`,
+            text: `Ny prenumeration: ${customerName} (${email}). Typ: ${typeLabel}. AG-Agent nåddes inte. Kontrollera manuellt.`,
+            html: adminHtml,
+          }).catch((e: any) => console.error('Fallback admin email failed:', e));
+        } catch (emailErr: any) {
+          console.error('Fallback email setup failed:', emailErr);
+        }
       }
-    } else {
-      // New client (no profile) → pending entitlement only.
-      // AG-Agent's own Stripe webhook handles admin email + Sheet via processNewSubscription.
+
+      // Log to activity log for visibility
+      try {
+        await admin.from('agent_activity_log').insert({
+          type: 'membership',
+          title: `⚠️ Ny prenumerant (AG-Agent nåddes ej): ${fullName || email}`,
+          summary: `Prenumeration skapad i Stripe men AG-Agent svarade inte. Admin notifierad via fallback-mejl. Typ: ${isTrial ? 'Provperiod' : 'Månadsvis'}. Email: ${email}.`,
+          status: 'error',
+          client_name: fullName || email,
+          metadata: { subscription_id: subscription.id, email, error: agentResult.error, isTrial },
+        }).throwOnError();
+      } catch { /* best effort */ }
+    }
+
+    // Also create pending entitlement for no-profile cases
+    if (!profileId) {
       await createPendingEntitlement(admin, {
         email,
         flow: 'subscription',
