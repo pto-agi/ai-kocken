@@ -18,6 +18,12 @@ type StartFormState = {
   focusAreas: string[];
   goalDescription: string;
   injuries: string;
+  // Structured fields (new)
+  experienceLevel: string;
+  injuryAreas: string[];
+  dietHistory: string[];
+  preferredFoods: string[];
+  // Legacy (kept for backward compat)
   trainingExperience: string;
   activityLast6Months: string;
   dietLast6Months: string;
@@ -99,6 +105,19 @@ const sessionsOptions = [
 
 const genderOptions = ['Man', 'Kvinna', 'Annat'];
 
+const experienceLevelOptions = [
+  { value: 'nybörjare', label: 'Nybörjare', desc: 'Ny till styrketräning eller tränat sporadiskt' },
+  { value: 'viss erfarenhet', label: 'Viss erfarenhet', desc: 'Tränat regelbundet 6–18 månader' },
+  { value: 'erfaren', label: 'Erfaren', desc: 'Konsekvent träning i 1–3+ år' },
+  { value: 'avancerad', label: 'Avancerad', desc: '3+ år, van vid tunga lyft och periodisering' },
+];
+
+const injuryAreaOptions = ['Rygg', 'Nacke', 'Axlar', 'Knän', 'Höfter', 'Handleder', 'Fötter/anklar', 'Inga'];
+
+const dietHistoryOptions = ['Kaloriräkning', 'Strikt diet', 'Ostrukturerat ätande', 'Periodisk fasta', 'Intuitivt ätande'];
+
+const preferredFoodOptions = ['Kyckling', 'Fisk', 'Nötkött', 'Ägg', 'Bönor & linser', 'Tofu & tempeh', 'Ris', 'Pasta'];
+
 const dietTypeOptions = ['Allätare', 'Vegetarisk', 'Vegan', 'Pescetarian', 'Lakto-ovo vegetarisk'];
 
 const allergyOptions = ['Gluten', 'Laktos', 'Nötter', 'Ägg', 'Soja', 'Fisk', 'Skaldjur'];
@@ -135,6 +154,10 @@ const emptyState: StartFormState = {
   focusAreas: [],
   goalDescription: '',
   injuries: '',
+  experienceLevel: '',
+  injuryAreas: [],
+  dietHistory: [],
+  preferredFoods: [],
   trainingExperience: '',
   activityLast6Months: '',
   dietLast6Months: '',
@@ -226,6 +249,7 @@ const Start: React.FC = () => {
       { label: 'Längd', done: Boolean(form.heightCm.trim()) },
       { label: 'Ålder', done: Boolean(form.age.trim()) },
       { label: 'Fokusområden', done: form.focusAreas.length > 0 },
+      { label: 'Träningserfarenhet', done: Boolean(form.experienceLevel) },
       { label: 'Pass per vecka', done: Boolean(form.sessionsPerWeek) },
     ];
 
@@ -240,6 +264,7 @@ const Start: React.FC = () => {
   }, [
     form.age,
     form.email,
+    form.experienceLevel,
     form.firstName,
     form.focusAreas.length,
     form.heightCm,
@@ -269,6 +294,9 @@ const Start: React.FC = () => {
     }
     if (form.focusAreas.length === 0) {
       return 'Välj minst ett fokusområde.';
+    }
+    if (!form.experienceLevel) {
+      return 'Välj din träningserfarenhet.';
     }
     if (!form.sessionsPerWeek) {
       return 'Välj antal pass per vecka.';
@@ -316,6 +344,12 @@ const Start: React.FC = () => {
       focus_areas: form.focusAreas,
       goal_description: form.goalDescription.trim() || null,
       injuries: form.injuries.trim() || null,
+      // Structured fields
+      experience_level: form.experienceLevel || null,
+      injury_areas: form.injuryAreas.length > 0 ? form.injuryAreas : null,
+      diet_history: form.dietHistory.length > 0 ? form.dietHistory : null,
+      preferred_foods: form.preferredFoods.length > 0 ? form.preferredFoods : null,
+      // Legacy fields (still populated for backward compat)
       training_experience: form.trainingExperience.trim() || null,
       activity_last_6_months: form.activityLast6Months.trim() || null,
       diet_last_6_months: form.dietLast6Months.trim() || null,
@@ -585,50 +619,104 @@ const Start: React.FC = () => {
                 <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Mål & bakgrund</h2>
               </div>
               <div className="space-y-5">
+                {/* Träningserfarenhet — structured chips with descriptions */}
+                <div className="space-y-3">
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Träningserfarenhet<span className="text-[#a0c81d]">*</span></label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {experienceLevelOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        className={`p-4 rounded-2xl border text-left transition ${
+                          form.experienceLevel === opt.value
+                            ? 'border-[#a0c81d] bg-[#a0c81d]/10'
+                            : 'border-[#E6E1D8] hover:border-[#a0c81d]/40'
+                        }`}
+                        onClick={() => setForm((prev) => ({ ...prev, experienceLevel: opt.value }))}
+                      >
+                        <span className="block text-sm font-semibold text-[#3D3D3D]">{opt.label}</span>
+                        <span className="block text-[11px] text-[#8A8177] mt-1 leading-tight">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Eventuella skador — multi-select chips + fritext */}
+                <div className="space-y-3">
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Eventuella skador eller begränsningar</label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {injuryAreaOptions.map((area) => (
+                      <label
+                        key={area}
+                        className={`flex items-center gap-3 p-3 rounded-2xl border transition cursor-pointer ${
+                          form.injuryAreas.includes(area)
+                            ? 'border-[#a0c81d] bg-[#a0c81d]/10'
+                            : 'border-[#E6E1D8] hover:border-[#E6E1D8]'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.injuryAreas.includes(area)}
+                          onChange={() => {
+                            setForm((prev) => {
+                              if (area === 'Inga') {
+                                return { ...prev, injuryAreas: prev.injuryAreas.includes('Inga') ? [] : ['Inga'] };
+                              }
+                              const updated = prev.injuryAreas.filter((a) => a !== 'Inga');
+                              return {
+                                ...prev,
+                                injuryAreas: updated.includes(area)
+                                  ? updated.filter((a) => a !== area)
+                                  : [...updated, area],
+                              };
+                            });
+                          }}
+                          className="accent-[#a0c81d]"
+                        />
+                        <span className="text-sm font-semibold text-[#3D3D3D]">{area}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {!form.injuryAreas.includes('Inga') && (
+                    <input
+                      type="text"
+                      value={form.injuries}
+                      onChange={(e) => setForm((prev) => ({ ...prev, injuries: e.target.value }))}
+                      className={inputClass}
+                      placeholder="Beskriv kort (valfritt)"
+                    />
+                  )}
+                </div>
+
+                {/* Målbeskrivning — krympt textarea */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Målbeskrivning</label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Övriga detaljer kring dina mål (valfritt)</label>
                   <textarea
                     value={form.goalDescription}
                     onChange={(e) => setForm((prev) => ({ ...prev, goalDescription: e.target.value }))}
-                    className={textareaClass}
-                    placeholder="Beskriv dina mål och vad du vill uppnå."
+                    className={`${inputClass} min-h-[72px]`}
+                    rows={2}
+                    placeholder="Har du specifika mål, tidsmål eller annan info som kan vara relevant?"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Eventuella skador</label>
-                  <textarea
-                    value={form.injuries}
-                    onChange={(e) => setForm((prev) => ({ ...prev, injuries: e.target.value }))}
-                    className={textareaClass}
-                    placeholder="Ange skador eller begränsningar."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Träningserfarenheter</label>
-                  <textarea
-                    value={form.trainingExperience}
-                    onChange={(e) => setForm((prev) => ({ ...prev, trainingExperience: e.target.value }))}
-                    className={textareaClass}
-                    placeholder="Berätta om dina tidigare träningserfarenheter."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Aktivitet senaste 6 månaderna</label>
-                  <textarea
-                    value={form.activityLast6Months}
-                    onChange={(e) => setForm((prev) => ({ ...prev, activityLast6Months: e.target.value }))}
-                    className={textareaClass}
-                    placeholder="Beskriv din aktivitetsnivå de senaste 6 månaderna."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Kosthållning senaste 6 månaderna</label>
-                  <textarea
-                    value={form.dietLast6Months}
-                    onChange={(e) => setForm((prev) => ({ ...prev, dietLast6Months: e.target.value }))}
-                    className={textareaClass}
-                    placeholder="Beskriv din kosthållning de senaste 6 månaderna."
-                  />
+
+                {/* Kosthistorik — multi-select chips */}
+                <div className="space-y-3">
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Kosthistorik (hur du ätit senaste tiden)</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {dietHistoryOptions.map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold border transition ${
+                          form.dietHistory.includes(opt)
+                            ? 'bg-[#a0c81d] text-white border-[#a0c81d]'
+                            : 'bg-[#F6F1E7]/70 text-[#6B6158] border-[#E6E1D8] hover:border-[#a0c81d]'
+                        }`}
+                        onClick={() => setForm((prev) => ({ ...prev, dietHistory: toggleArrayValue(prev.dietHistory, opt) }))}
+                      >{opt}</button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </section>
@@ -733,12 +821,26 @@ const Start: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Matpreferenser</label>
+                    <div className="flex gap-2 flex-wrap mb-2">
+                      {preferredFoodOptions.map((food) => (
+                        <button
+                          key={food}
+                          type="button"
+                          className={`px-3 py-1.5 rounded-xl text-sm font-semibold border transition ${
+                            form.preferredFoods.includes(food)
+                              ? 'bg-[#a0c81d] text-white border-[#a0c81d]'
+                              : 'bg-[#F6F1E7]/70 text-[#6B6158] border-[#E6E1D8] hover:border-[#a0c81d]'
+                          }`}
+                          onClick={() => setForm((prev) => ({ ...prev, preferredFoods: toggleArrayValue(prev.preferredFoods, food) }))}
+                        >{food}</button>
+                      ))}
+                    </div>
                     <input
                       type="text"
                       value={form.foodPreferences}
                       onChange={(e) => setForm((prev) => ({ ...prev, foodPreferences: e.target.value }))}
                       className={inputClass}
-                      placeholder="T.ex. ogillar svamp, vill ha mycket kyckling..."
+                      placeholder="Annat, t.ex. ogillar svamp..."
                     />
                   </div>
                 </div>
