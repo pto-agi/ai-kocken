@@ -153,12 +153,12 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                     </div>
 
                     {/* Plan info */}
-                    <div className="flex items-baseline gap-2">
+                    <div>
                       <span className="text-sm font-semibold text-[#3D3D3D]">{plan.label}</span>
                       {plan.description && (
-                        <span className="text-[11px] text-[#8A8177] font-medium">
+                        <div className="text-[11px] text-[#8A8177] font-medium mt-0.5">
                           {plan.description}
-                        </span>
+                        </div>
                       )}
                     </div>
                   </div>

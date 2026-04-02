@@ -134,7 +134,7 @@ export const TRIAL_PLAN: CheckoutPlan = {
   interval: 'month',
   isTrial: true,
   trialDays: 30,
-  description: 'Därefter 549 kr/mån — avbryt när som helst',
+  description: 'Därefter 549 kr/mån. Avsluta när du vill. Inga bindnings- eller uppsägningstider.',
 };
 
 // Hidden test plan — only visible with ?test=1 query param

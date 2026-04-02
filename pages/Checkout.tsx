@@ -151,6 +151,7 @@ export const Checkout: React.FC = () => {
   useEffect(() => {
     if (showTrialPlan && selectedPlanId !== 'trial30' && !isRenewalFlow) {
       setSelectedPlanId('trial30');
+      setPaymentMethod('stripe'); // Trial only supports stripe
     }
   }, [showTrialPlan, isRenewalFlow]);
 
@@ -372,8 +373,8 @@ export const Checkout: React.FC = () => {
       <main className="pt-20 pb-12 px-4">
         <div className="max-w-6xl mx-auto">
 
-          {/* Login prompt for unauthenticated renewal visitors */}
-          {showLoginPrompt && (
+          {/* Login prompt for unauthenticated renewal visitors — TEMPORARILY DISABLED */}
+          {/* {showLoginPrompt && (
             <div className="max-w-lg mx-auto mb-8 rounded-2xl border border-[#d9e8a0] bg-[#f5fae6] p-5 space-y-4">
               <div className="flex items-start gap-3">
                 <UserCircle2 className="w-6 h-6 text-[#6B8A12] mt-0.5 flex-shrink-0" />
@@ -404,7 +405,7 @@ export const Checkout: React.FC = () => {
                 </button>
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Campaign expired banner — renewal offer existed but deadline passed */}
           {campaignExpired && isRenewalFlow && (
