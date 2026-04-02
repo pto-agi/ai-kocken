@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, ClipboardList, Loader2, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, ClipboardList, Dumbbell, Bike, Zap, Users, Puzzle, Home, Building2, TreePine, Loader2, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 // Email notifications for startformulär are handled by DB trigger → Edge Function.
@@ -43,6 +43,7 @@ type StartFormState = {
   homeEquipmentOther: string;
   sessionsPerWeek: string;
   sessionsPerWeekOther: string;
+  showGoalDetails: boolean;
   showMeasurements: boolean;
   bodyMeasurements: {
     chestBack: string;
@@ -65,18 +66,17 @@ const focusOptions = [
 ];
 
 const trainingFormOptions = [
-  'Styrketräning',
-  'Konditionsträning',
-  'Cirkelträning/HIIT',
-  'Gruppträning',
-  'Annat'
+  { value: 'Styrketräning', label: 'Styrketräning', icon: Dumbbell },
+  { value: 'Konditionsträning', label: 'Konditionsträning', icon: Bike },
+  { value: 'Cirkelträning/HIIT', label: 'HIIT / Cirkelträning', icon: Zap },
+  { value: 'Gruppträning', label: 'Gruppträning', icon: Users },
+  { value: 'Annat', label: 'Annat', icon: Puzzle },
 ];
 
 const trainingPlaceOptions = [
-  'Gym',
-  'Hemma',
-  'Utomhus',
-  'Annat'
+  { value: 'Gym', label: 'Gym', icon: Building2 },
+  { value: 'Hemma', label: 'Hemma', icon: Home },
+  { value: 'Utomhus', label: 'Utomhus', icon: TreePine },
 ];
 
 const homeEquipmentOptions = [
@@ -175,6 +175,7 @@ const emptyState: StartFormState = {
   homeEquipmentOther: '',
   sessionsPerWeek: '',
   sessionsPerWeekOther: '',
+  showGoalDetails: false,
   showMeasurements: false,
   bodyMeasurements: {
     chestBack: '',
@@ -626,7 +627,7 @@ const Start: React.FC = () => {
                         onClick={() => setForm((prev) => ({ ...prev, experienceLevel: opt.value }))}
                       >
                         <span className="block text-sm font-semibold text-[#3D3D3D]">{opt.label}</span>
-                        <span className="block text-[11px] text-[#8A8177] mt-1 leading-tight">{opt.desc}</span>
+                        <span className="block text-xs font-medium text-[#6B6158] mt-1 leading-snug">{opt.desc}</span>
                       </button>
                     ))}
                   </div>
@@ -681,16 +682,25 @@ const Start: React.FC = () => {
                   )}
                 </div>
 
-                {/* Målbeskrivning — krympt textarea */}
+                {/* Målbeskrivning — collapsible */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Övriga detaljer kring dina mål (valfritt)</label>
-                  <textarea
-                    value={form.goalDescription}
-                    onChange={(e) => setForm((prev) => ({ ...prev, goalDescription: e.target.value }))}
-                    className={`${inputClass} min-h-[72px]`}
-                    rows={2}
-                    placeholder="Har du specifika mål, tidsmål eller annan info som kan vara relevant?"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, showGoalDetails: !prev.showGoalDetails }))}
+                    className="flex items-center justify-between w-full text-left group"
+                  >
+                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158] cursor-pointer group-hover:text-[#3D3D3D] transition">Övriga detaljer kring dina mål (valfritt)</label>
+                    {form.showGoalDetails ? <ChevronUp className="w-4 h-4 text-[#8A8177]" /> : <ChevronDown className="w-4 h-4 text-[#8A8177]" />}
+                  </button>
+                  {form.showGoalDetails && (
+                    <textarea
+                      value={form.goalDescription}
+                      onChange={(e) => setForm((prev) => ({ ...prev, goalDescription: e.target.value }))}
+                      className={`${inputClass} min-h-[120px]`}
+                      rows={4}
+                      placeholder="Beskriv specifika mål, tidsmål eller annan info som kan vara relevant för din planering."
+                    />
+                  )}
                 </div>
               </div>
             </section>
@@ -700,24 +710,31 @@ const Start: React.FC = () => {
                 <div className="w-2 h-6 bg-[#a0c81d] rounded-full"></div>
                 <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Träningsupplägg</h2>
               </div>
-              <div className="space-y-5">
+              <div className="space-y-6">
+                {/* Träningsformer — icon cards */}
                 <div className="space-y-3">
-                  <p className="text-sm text-[#6B6158]">Vilka träningsformer vill du att vi planerar för? Det är möjligt att välja flera alternativ.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {trainingFormOptions.map((option) => (
-                      <label
-                        key={option}
-                        className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.trainingForms.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={form.trainingForms.includes(option)}
-                          onChange={() => setForm((prev) => ({ ...prev, trainingForms: toggleArrayValue(prev.trainingForms, option) }))}
-                          className="accent-[#a0c81d]"
-                        />
-                        <span className="text-sm font-semibold text-[#3D3D3D]">{option}</span>
-                      </label>
-                    ))}
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Träningsformer<span className="text-[#a0c81d]">*</span></label>
+                  <p className="text-sm text-[#6B6158]">Välj de träningsformer du vill ha i ditt upplägg.</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                    {trainingFormOptions.map((opt) => {
+                      const Icon = opt.icon;
+                      const isSelected = form.trainingForms.includes(opt.value);
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setForm((prev) => ({ ...prev, trainingForms: toggleArrayValue(prev.trainingForms, opt.value) }))}
+                          className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition ${
+                            isSelected
+                              ? 'border-[#a0c81d] bg-[#a0c81d]/10 shadow-sm'
+                              : 'border-[#E6E1D8] hover:border-[#a0c81d]/40 bg-white'
+                          }`}
+                        >
+                          <Icon className={`w-7 h-7 transition ${isSelected ? 'text-[#a0c81d]' : 'text-[#8A8177]'}`} />
+                          <span className={`text-xs font-bold text-center leading-tight transition ${isSelected ? 'text-[#3D3D3D]' : 'text-[#6B6158]'}`}>{opt.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                   {form.trainingForms.includes('Annat') && (
                     <input
@@ -730,41 +747,40 @@ const Start: React.FC = () => {
                   )}
                 </div>
 
+                {/* Träningsplats — icon cards */}
                 <div className="space-y-3">
-                  <p className="text-sm text-[#6B6158]">Välj om du vill träna primärt på gym, hemma eller utomhus. Det är möjligt att välja flera alternativ.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {trainingPlaceOptions.map((option) => (
-                      <label
-                        key={option}
-                        className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.trainingPlaces.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={form.trainingPlaces.includes(option)}
-                          onChange={() => setForm((prev) => ({ ...prev, trainingPlaces: toggleArrayValue(prev.trainingPlaces, option) }))}
-                          className="accent-[#a0c81d]"
-                        />
-                        <span className="text-sm font-semibold text-[#3D3D3D]">{option}</span>
-                      </label>
-                    ))}
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Var vill du träna?</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {trainingPlaceOptions.map((opt) => {
+                      const Icon = opt.icon;
+                      const isSelected = form.trainingPlaces.includes(opt.value);
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setForm((prev) => ({ ...prev, trainingPlaces: toggleArrayValue(prev.trainingPlaces, opt.value) }))}
+                          className={`flex flex-col items-center gap-2 py-5 px-3 rounded-2xl border-2 transition ${
+                            isSelected
+                              ? 'border-[#a0c81d] bg-[#a0c81d]/10 shadow-sm'
+                              : 'border-[#E6E1D8] hover:border-[#a0c81d]/40 bg-white'
+                          }`}
+                        >
+                          <Icon className={`w-8 h-8 transition ${isSelected ? 'text-[#a0c81d]' : 'text-[#8A8177]'}`} />
+                          <span className={`text-sm font-bold transition ${isSelected ? 'text-[#3D3D3D]' : 'text-[#6B6158]'}`}>{opt.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  {form.trainingPlaces.includes('Annat') && (
-                    <input
-                      type="text"
-                      value={form.trainingPlacesOther}
-                      onChange={(e) => setForm((prev) => ({ ...prev, trainingPlacesOther: e.target.value }))}
-                      className={inputClass}
-                      placeholder="Ange annan träningsplats"
-                    />
-                  )}
                   {form.trainingPlaces.includes('Hemma') && (
-                    <div className="mt-4 space-y-3">
-                      <p className="text-sm text-[#6B6158]">Vilken utrustning har du hemma?</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="mt-3 space-y-3">
+                      <p className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Utrustning hemma</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {homeEquipmentOptions.map((option) => (
                           <label
                             key={option}
-                            className={`flex items-center gap-3 p-4 rounded-2xl border transition ${form.homeEquipment.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'}`}
+                            className={`flex items-center gap-2 p-3 rounded-2xl border transition cursor-pointer ${
+                              form.homeEquipment.includes(option) ? 'border-[#a0c81d] bg-[#a0c81d]/10' : 'border-[#E6E1D8] hover:border-[#E6E1D8]'
+                            }`}
                           >
                             <input
                               type="checkbox"
@@ -789,8 +805,8 @@ const Start: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
-                    <label htmlFor="start-sessions" className="text-sm text-[#6B6158]">
-                      Hur många pass per vecka vill du träna?<span className="text-[#a0c81d]">*</span>
+                    <label htmlFor="start-sessions" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">
+                      Antal pass per vecka<span className="text-[#a0c81d]">*</span>
                     </label>
                     <select
                       id="start-sessions"
@@ -799,7 +815,7 @@ const Start: React.FC = () => {
                       className={inputClass}
                       required
                     >
-                      <option value="">Välj antal pass per vecka</option>
+                      <option value="">Välj antal</option>
                       {sessionsOptions.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -821,7 +837,7 @@ const Start: React.FC = () => {
                     )}
                   </div>
                   <div className="space-y-3">
-                    <label htmlFor="start-date" className="text-sm text-[#6B6158]">Önskat startdatum</label>
+                    <label htmlFor="start-date" className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Önskat startdatum</label>
                     <input
                       id="start-date"
                       type="date"
