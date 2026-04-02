@@ -294,8 +294,8 @@ const Start: React.FC = () => {
     if (!form.weightKg || !form.heightCm || !form.age) {
       return 'Fyll i vikt, längd och ålder.';
     }
-    if (form.focusAreas.length === 0) {
-      return 'Välj minst ett fokusområde.';
+    if (!form.goalDescription.trim()) {
+      return 'Berätta lite om dina mål och vad du vill uppnå.';
     }
     if (!form.experienceLevel) {
       return 'Välj din träningserfarenhet.';
@@ -585,32 +585,19 @@ const Start: React.FC = () => {
                 <h2 className="text-xl font-black text-[#3D3D3D] uppercase tracking-wide">Mål & bakgrund</h2>
               </div>
               <div className="space-y-5">
-                {/* Huvudmål — icon cards */}
+                {/* Berätta om dina mål — personal narrative */}
                 <div className="space-y-3">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Välj dina huvudmål<span className="text-[#a0c81d]">*</span></label>
-                  <p className="text-sm text-[#6B6158]">Vad vill du fokusera på? Välj ett eller flera alternativ.</p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {focusOptions.map((opt) => {
-                      const Icon = opt.icon;
-                      const isSelected = form.focusAreas.includes(opt.value);
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setForm((prev) => ({ ...prev, focusAreas: toggleArrayValue(prev.focusAreas, opt.value) }))}
-                          className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition ${
-                            isSelected
-                              ? 'border-[#a0c81d] bg-[#a0c81d]/10 shadow-sm'
-                              : 'border-[#E6E1D8] hover:border-[#a0c81d]/40 bg-white'
-                          }`}
-                        >
-                          <Icon className={`w-7 h-7 transition ${isSelected ? 'text-[#a0c81d]' : 'text-[#8A8177]'}`} />
-                          <span className={`text-xs font-bold text-center leading-tight transition ${isSelected ? 'text-[#3D3D3D]' : 'text-[#6B6158]'}`}>{opt.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Dina mål<span className="text-[#a0c81d]">*</span></label>
+                  <p className="text-sm text-[#6B6158] leading-relaxed">Berätta med egna ord vad du vill uppnå. Det kan vara allt från att gå ner i vikt, bygga muskler, förbättra din hälsa eller helt enkelt komma igång med en rutin. Ju mer vi vet, desto bättre kan vi anpassa ditt upplägg.</p>
+                  <textarea
+                    value={form.goalDescription}
+                    onChange={(e) => setForm((prev) => ({ ...prev, goalDescription: e.target.value }))}
+                    className={`${inputClass} min-h-[130px]`}
+                    rows={5}
+                    placeholder="T.ex. Jag vill gå ner ca 5 kg och bli starkare. Har inte tränat på ett tag men vill komma igång med 3 pass i veckan. Gillar styrketräning men vill även förbättra konditionen."
+                  />
                 </div>
+
                 {/* Träningserfarenhet — icon cards */}
                 <div className="space-y-3">
                   <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158]">Träningserfarenhet<span className="text-[#a0c81d]">*</span></label>
@@ -683,27 +670,6 @@ const Start: React.FC = () => {
                       onChange={(e) => setForm((prev) => ({ ...prev, injuries: e.target.value }))}
                       className={inputClass}
                       placeholder="Beskriv dina skador eller begränsningar"
-                    />
-                  )}
-                </div>
-
-                {/* Målbeskrivning — collapsible */}
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, showGoalDetails: !prev.showGoalDetails }))}
-                    className="flex items-center justify-between w-full text-left group"
-                  >
-                    <label className="text-xs font-bold uppercase tracking-widest text-[#6B6158] cursor-pointer group-hover:text-[#3D3D3D] transition">Övriga detaljer kring dina mål (valfritt)</label>
-                    {form.showGoalDetails ? <ChevronUp className="w-4 h-4 text-[#8A8177]" /> : <ChevronDown className="w-4 h-4 text-[#8A8177]" />}
-                  </button>
-                  {form.showGoalDetails && (
-                    <textarea
-                      value={form.goalDescription}
-                      onChange={(e) => setForm((prev) => ({ ...prev, goalDescription: e.target.value }))}
-                      className={`${inputClass} min-h-[120px]`}
-                      rows={4}
-                      placeholder="Beskriv specifika mål, tidsmål eller annan info som kan vara relevant för din planering."
                     />
                   )}
                 </div>
