@@ -210,6 +210,7 @@ function App() {
               <main className="pt-20 flex-grow flex flex-col">
                 <BliKlient />
               </main>
+              <Footer />
             </div>
           } />
 
