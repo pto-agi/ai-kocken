@@ -230,7 +230,7 @@ export const BliKlient: React.FC = () => {
   // ══════════════════════════════════════════════════
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #F6F1E7 0%, #EDE8DB 40%, #E8E3D6 100%)' }}>
+    <div className="min-h-screen bg-[#FAFAFA]">
       <CheckoutHeader />
 
       {/* ═══ MAIN CONTENT — Single column ═══ */}
