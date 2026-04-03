@@ -283,7 +283,7 @@ export const BliKlient: React.FC = () => {
 
               {/* Card header */}
               <div className="bg-[#FAFAF5] border-b border-[#3D3D3D] px-5 py-3.5">
-                <h2 className="text-[11px] font-black text-[#6B6158] uppercase tracking-[0.15em]">Anmälan</h2>
+                <h2 className="text-[13px] font-semibold text-[#3D3D3D] uppercase tracking-[0.12em]">Kom igång</h2>
               </div>
 
               <div className="p-5 md:p-6 space-y-5">
