@@ -232,19 +232,18 @@ export const BliKlient: React.FC = () => {
     <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #F6F1E7 0%, #EDE8DB 40%, #E8E3D6 100%)' }}>
       <CheckoutHeader />
 
-      {/* ═══ MAIN CONTENT — Two-column on desktop ═══ */}
-      <div className="max-w-[1080px] mx-auto px-4 pt-20 md:pt-28 pb-10">
-        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
+      {/* ═══ MAIN CONTENT — Single column ═══ */}
+      <div className="max-w-[560px] mx-auto px-4 pt-20 md:pt-28 pb-10">
 
-          {/* ─── LEFT: Campaign hero + trust bullets ─── */}
-          <div className="w-full lg:w-[420px] lg:sticky lg:top-24 shrink-0">
+          {/* ─── ROW 1: Campaign hero + trust bullets ─── */}
+          <div className="mb-8 text-center">
             {/* Campaign heading */}
             <h1 className="font-bold text-[#3D3D3D] leading-none tracking-tight mb-2 uppercase" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '38px', fontWeight: 700, textWrap: 'balance' as any }}>
               {showCampaign ? CAMPAIGN.name : 'Bli klient'}
             </h1>
 
             {showCampaign && !countdown.expired && (
-              <p className="text-[11px] text-[#8A8177] font-semibold tracking-wide mb-4 hidden sm:flex items-center gap-1.5">
+              <p className="text-[11px] text-[#8A8177] font-semibold tracking-wide mb-4 flex items-center justify-center gap-1.5">
                 <Timer className="w-3 h-3 text-[#a0c81d]" aria-hidden="true" />
                 <span className="font-mono">{countdown.days}d {String(countdown.hours).padStart(2,'0')}h {String(countdown.mins).padStart(2,'0')}m</span>
                 <span className="text-[#C5BFB5]">kvar</span>
@@ -260,7 +259,7 @@ export const BliKlient: React.FC = () => {
             </p>
 
             {/* Trust bullets */}
-            <ul className="space-y-2.5 mb-8">
+            <ul className="space-y-2.5 mb-6 text-left inline-block">
               {TRUST_BULLETS.map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-start gap-2.5">
                   <Icon className="w-4 h-4 text-[#a0c81d] mt-0.5 shrink-0" aria-hidden="true" />
@@ -268,17 +267,10 @@ export const BliKlient: React.FC = () => {
                 </li>
               ))}
             </ul>
-
-            {/* Security strip — desktop only */}
-            <div className="hidden lg:flex items-center gap-4 text-[10px] text-[#8A8177] font-bold uppercase tracking-wider pb-4">
-              <span className="flex items-center gap-1"><Lock className="w-3 h-3" aria-hidden="true" /> Säker betalning</span>
-              <span>·</span>
-              <span className="flex items-center gap-1"><Shield className="w-3 h-3" aria-hidden="true" /> Krypterat via Stripe</span>
-            </div>
           </div>
 
-          {/* ─── RIGHT: Checkout form ─── */}
-          <div ref={checkoutRef} className="flex-1 w-full min-w-0">
+          {/* ─── ROW 2: Checkout form ─── */}
+          <div ref={checkoutRef} className="w-full">
             <div className="rounded-2xl bg-white border border-[#DDD8CD] shadow-lg shadow-black/[0.04] overflow-hidden">
 
               {/* Card header */}
@@ -438,7 +430,6 @@ export const BliKlient: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
       </div>
 
       {/* ═══ FAQ ═══ */}
