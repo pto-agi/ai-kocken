@@ -19,7 +19,18 @@ import {
   ListChecks
 } from 'lucide-react';
 
-const Navbar: React.FC = () => {
+interface NavLink {
+  path: string;
+  label: string;
+  icon: React.FC<{ className?: string }>;
+  external?: boolean;
+}
+
+interface NavbarProps {
+  navLinksOverride?: NavLink[];
+}
+
+const Navbar: React.FC<NavbarProps> = ({ navLinksOverride }) => {
   const { session, signOut, profile } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -49,7 +60,7 @@ const Navbar: React.FC = () => {
     setIsDrawerOpen(false);
   };
 
-  const navLinks = hasStaffAccess
+  const defaultNavLinks: NavLink[] = hasStaffAccess
     ? [
         { path: '/intranet', label: 'INTRANÄT', icon: ShieldCheck },
         ...(isManager ? [{ path: '/intranet/manager', label: 'MANAGER', icon: LayoutDashboard }] : []),
@@ -62,6 +73,8 @@ const Navbar: React.FC = () => {
         { path: '/uppfoljning', label: 'UPPFÖLJNING', icon: ClipboardCheck },
         { path: '/refill', label: 'SHOP', icon: ShoppingBasket },
       ];
+
+  const navLinks = navLinksOverride || defaultNavLinks;
 
   return (
     <>
@@ -85,30 +98,32 @@ const Navbar: React.FC = () => {
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className="relative group py-2"
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm font-heading font-semibold tracking-wide transition-colors duration-300 ${
-                    isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'
-                  }`}>
-                    {link.label}
-                  </span>
-                  {'aiBadge' in link && link.aiBadge && (
-                    <span className="relative ml-1 flex h-2.5 w-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#a0c81d]/60" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#a0c81d]" />
+            {navLinks.map((link) => {
+              const LinkEl = link.external ? 'a' : Link;
+              const linkProps = link.external
+                ? { href: link.path, target: '_blank' as const, rel: 'noopener noreferrer' }
+                : { to: link.path };
+              return (
+                <LinkEl
+                  key={link.path}
+                  {...(linkProps as any)}
+                  className="relative group py-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-heading font-semibold tracking-wide transition-colors duration-300 ${
+                      isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'
+                    }`}>
+                      {link.label}
                     </span>
+                  </div>
+                  {!link.external && (
+                    <span className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#a0c81d] transition-all duration-300 ${
+                      isActive(link.path) ? 'opacity-100 scale-100 shadow-[0_0_8px_#a0c81d]' : 'opacity-0 scale-0'
+                    }`}></span>
                   )}
-                </div>
-                <span className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#a0c81d] transition-all duration-300 ${
-                  isActive(link.path) ? 'opacity-100 scale-100 shadow-[0_0_8px_#a0c81d]' : 'opacity-0 scale-0'
-                }`}></span>
-              </Link>
-            ))}
+                </LinkEl>
+              );
+            })}
             
             {session ? (
               <div className="ml-2 flex items-center gap-2">
@@ -203,31 +218,31 @@ const Navbar: React.FC = () => {
         )}
 
         <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1.5">
-          {navLinks.map((link) => (
-            <Link
-              key={link.path}
-              to={link.path}
-              className={`flex items-center justify-between p-3 rounded-lg transition-all duration-200 group border border-transparent ${
-                isActive(link.path) 
-                  ? 'bg-[#a0c81d]/15 border-[#a0c81d]/40' 
-                  : 'hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <link.icon className={`w-4 h-4 ${isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'}`} />
-                <span className={`font-heading text-sm font-semibold tracking-wide ${isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'}`}>
-                  {link.label}
-                </span>
-                {'aiBadge' in link && link.aiBadge && (
-                  <span className="relative ml-1 flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#a0c81d]/60" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#a0c81d]" />
+          {navLinks.map((link) => {
+            const LinkEl = link.external ? 'a' : Link;
+            const linkProps = link.external
+              ? { href: link.path, target: '_blank' as const, rel: 'noopener noreferrer' }
+              : { to: link.path };
+            return (
+              <LinkEl
+                key={link.path}
+                {...(linkProps as any)}
+                className={`flex items-center justify-between p-3 rounded-lg transition-all duration-200 group border border-transparent ${
+                  isActive(link.path) 
+                    ? 'bg-[#a0c81d]/15 border-[#a0c81d]/40' 
+                    : 'hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <link.icon className={`w-4 h-4 ${isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'}`} />
+                  <span className={`font-heading text-sm font-semibold tracking-wide ${isActive(link.path) ? 'text-[#a0c81d]' : 'text-white group-hover:text-[#a0c81d]'}`}>
+                    {link.label}
                   </span>
-                )}
-              </div>
-              <ChevronRight className={`w-3.5 h-3.5 text-white/60 transition-transform group-hover:translate-x-1 ${isActive(link.path) ? 'text-[#a0c81d]' : ''}`} />
-            </Link>
-          ))}
+                </div>
+                <ChevronRight className={`w-3.5 h-3.5 text-white/60 transition-transform group-hover:translate-x-1 ${isActive(link.path) ? 'text-[#a0c81d]' : ''}`} />
+              </LinkEl>
+            );
+          })}
 
           <div className="mt-4 pt-4 border-t border-[#6B6158] px-1">
              <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-2 px-2">Konto</p>
@@ -279,4 +294,5 @@ const Navbar: React.FC = () => {
   );
 };
 
+export type { NavLink };
 export default Navbar;

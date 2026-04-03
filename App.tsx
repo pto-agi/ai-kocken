@@ -3,9 +3,19 @@ import React, { Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import Navbar from './components/Navbar';
+import type { NavLink } from './components/Navbar';
 import Footer from './components/Footer';
 import { Loader2 } from 'lucide-react';
 import { AuthGuard } from './components/AuthGuard';
+import { Dumbbell, BookOpen, Newspaper, ShoppingBag } from 'lucide-react';
+
+// Nav links for /bli-klient — matches the WP site navigation
+const WP_NAV_LINKS: NavLink[] = [
+  { path: 'https://privatetrainingonline.se/pt-online/', label: 'PT ONLINE', icon: Dumbbell, external: true },
+  { path: 'https://privatetrainingonline.se/program/', label: 'PROGRAM', icon: BookOpen, external: true },
+  { path: 'https://privatetrainingonline.se/artiklar/', label: 'ARTIKLAR', icon: Newspaper, external: true },
+  { path: 'https://privatetrainingonline.se/webbutik/', label: 'WEBBUTIK', icon: ShoppingBag, external: true },
+];
 
 const Home = React.lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
 const Recipes = React.lazy(() => import('./pages/Recipes').then((module) => ({ default: module.Recipes })));
@@ -191,8 +201,17 @@ function App() {
         <Routes>
           {/* ── Distraction-free checkout (no Navbar/Footer) ── */}
           <Route path="/checkout" element={<Checkout />} />
-          <Route path="/bli-klient" element={<BliKlient />} />
           <Route path="/checkout/tack" element={<CheckoutSuccess />} />
+
+          {/* ── Bli-klient layout with Navbar + WP nav links ── */}
+          <Route path="/bli-klient" element={
+            <div className="min-h-screen bg-[#FAFAFA] text-[#3D3D3D] font-sans flex flex-col">
+              <Navbar navLinksOverride={WP_NAV_LINKS} />
+              <main className="pt-20 flex-grow flex flex-col">
+                <BliKlient />
+              </main>
+            </div>
+          } />
 
           {/* ── Standard layout with Navbar + Footer ── */}
           <Route path="*" element={

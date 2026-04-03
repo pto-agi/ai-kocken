@@ -17,7 +17,7 @@ import { trackCheckoutEvent } from '../utils/paymentAnalytics';
 import { useAuthStore } from '../store/authStore';
 import { computeYearEndOffer } from '../utils/extensionOffer';
 
-import { CheckoutHeader } from '../components/checkout/CheckoutHeader';
+
 import { PlanSelector } from '../components/checkout/PlanSelector';
 import { CheckoutForm } from '../components/checkout/CheckoutForm';
 import { PaymentMethodBadges } from '../components/checkout/PaymentMethodBadges';
@@ -225,7 +225,7 @@ export const BliKlient: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
-      <CheckoutHeader />
+
 
       {/* ═══ MAIN CONTENT — Single column ═══ */}
       <div className="max-w-[900px] mx-auto px-4 md:px-8 pt-20 md:pt-28 pb-10">
