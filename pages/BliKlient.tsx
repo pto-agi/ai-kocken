@@ -110,6 +110,16 @@ export const BliKlient: React.FC = () => {
   const checkoutRef = useRef<HTMLDivElement>(null);
   const showCampaign = CAMPAIGN.active && new Date() < CAMPAIGN.deadline;
 
+  // ── SEO ──
+  useEffect(() => {
+    document.title = 'Bli klient — PT Online med personlig coach | Private Training Online';
+    const meta = document.querySelector('meta[name="description"]');
+    const desc = 'Kom igång med PT online. Skräddarsytt träningsprogram och kostupplägg utifrån ditt mål. Över 30 000 nöjda klienter sedan 2012. 14 dagars ångerrätt.';
+    if (meta) { meta.setAttribute('content', desc); }
+    else { const m = document.createElement('meta'); m.name = 'description'; m.content = desc; document.head.appendChild(m); }
+    return () => { document.title = 'My PTO'; };
+  }, []);
+
   // ── Renewal / Trial ──
   const isRenewalFlow = searchParams.get('flow') === 'renewal';
   const isActiveMember = Boolean(profile && (profile.membership_type === 'package' || profile.membership_type === 'subscription' || profile.membership_type === 'hybrid'));
