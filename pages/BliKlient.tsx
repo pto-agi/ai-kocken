@@ -233,17 +233,17 @@ export const BliKlient: React.FC = () => {
       <CheckoutHeader />
 
       {/* ═══ MAIN CONTENT — Single column ═══ */}
-      <div className="max-w-[680px] mx-auto px-4 pt-20 md:pt-28 pb-10">
+      <div className="max-w-[900px] mx-auto px-4 md:px-8 pt-20 md:pt-28 pb-10">
 
           {/* ─── ROW 1: Campaign hero + trust bullets ─── */}
-          <div className="mb-8 text-center">
+          <div className="mb-8">
             {/* Campaign heading */}
             <h1 className="font-bold text-[#3D3D3D] leading-none mb-2 uppercase" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '48px', fontWeight: 700, letterSpacing: '-1px', textWrap: 'balance' as any }}>
               {showCampaign ? CAMPAIGN.name : 'Bli klient'}
             </h1>
 
             {showCampaign && !countdown.expired && (
-              <p className="text-[11px] text-[#8A8177] font-semibold tracking-wide mb-4 flex items-center justify-center gap-1.5">
+              <p className="text-[11px] text-[#8A8177] font-semibold tracking-wide mb-4 flex items-center gap-1.5">
                 <Timer className="w-3 h-3 text-[#a0c81d]" aria-hidden="true" />
                 <span className="font-mono">{countdown.days}d {String(countdown.hours).padStart(2,'0')}h {String(countdown.mins).padStart(2,'0')}m</span>
                 <span className="text-[#C5BFB5]">kvar</span>
@@ -259,7 +259,7 @@ export const BliKlient: React.FC = () => {
             </p>
 
             {/* Trust bullets */}
-            <ul className="space-y-2.5 mb-6 text-left inline-block">
+            <ul className="space-y-2.5 mb-6">
               {TRUST_BULLETS.map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-start gap-2.5">
                   <Icon className="w-4 h-4 text-[#a0c81d] mt-0.5 shrink-0" aria-hidden="true" />
