@@ -157,6 +157,22 @@ export const CheckoutSuccess: React.FC = () => {
         pto_new_expires_at: plan?.newExpiresAt || '',
       });
 
+      // ── Google Ads primary conversion: sign_up ──
+      // Fires GTM trigger "purchasesignup" → Google Ads Conversion (998982034)
+      // Also fires GA4 Event tag → sign_up (G-G5JHXFLWGJ)
+      window.dataLayer.push({
+        event: 'sign_up',
+        method: 'stripe',
+        value: plan?.price || 0,
+        currency: plan?.currency || 'SEK',
+        transaction_id: sessionId || `pto_${Date.now()}`,
+        plan_id: plan?.id || '',
+        plan_label: plan?.label || '',
+        purchase_type: purchaseType,
+      });
+      // Legacy GTM trigger name (matches existing WP GravityForms setup)
+      window.dataLayer.push({ event: 'purchasesignup' });
+
       // Clean up
       try { sessionStorage.removeItem('pto_checkout_plan'); } catch { /* noop */ }
     }

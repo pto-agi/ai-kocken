@@ -393,9 +393,17 @@ export const BliKlient: React.FC = () => {
                         const data = await res.json();
                         if (data.ok && data.friskvard) {
                           const pt = (plan.isRenewal||isActiveMember)?'renewal':'new_purchase';
+                          const txId = `friskvard_${data.friskvard_order_id||Date.now()}`;
                           window.dataLayer=window.dataLayer||[];window.dataLayer.push({ecommerce:null});
-                          window.dataLayer.push({event:'purchase',ecommerce:{transaction_id:`friskvard_${data.friskvard_order_id||Date.now()}`,currency:'SEK',value:plan.price,payment_type:'friskvardsbidrag',items:[{item_id:plan.id,item_name:plan.label,item_category:pt,price:plan.price,currency:'SEK',quantity:1}]}});
+                          window.dataLayer.push({event:'purchase',ecommerce:{transaction_id:txId,currency:'SEK',value:plan.price,payment_type:'friskvardsbidrag',items:[{item_id:plan.id,item_name:plan.label,item_category:pt,price:plan.price,currency:'SEK',quantity:1}]}});
                           window.dataLayer.push({event:pt==='renewal'?'pto_renewal_completed':'pto_new_purchase_completed',purchaseType:pt,paymentMethod:'friskvardsbidrag',planId:plan.id,value:plan.price});
+                          // Enhanced Conversions
+                          if (email || fullName) {
+                            window.dataLayer.push({event:'enhanced_conversion_data',enhanced_conversions:{email:email||'',...(fullName?{first_name:fullName.split(' ')[0]||'',last_name:fullName.split(' ').slice(1).join(' ')||''}:{})}});
+                          }
+                          // Google Ads primary conversion: sign_up
+                          window.dataLayer.push({event:'sign_up',method:'friskvardsbidrag',value:plan.price,currency:'SEK',transaction_id:txId,plan_id:plan.id,plan_label:plan.label,purchase_type:pt});
+                          window.dataLayer.push({event:'purchasesignup'});
                           navigate(`/tack-forlangning-friskvard?friskvard=1&plan=${encodeURIComponent(plan.label)}&price=${plan.price}`);
                         } else { setState({ phase: 'error', message: data.error || 'Kunde inte registrera.' }); }
                       } catch { setState({ phase: 'error', message: 'Oväntat fel.' }); }
