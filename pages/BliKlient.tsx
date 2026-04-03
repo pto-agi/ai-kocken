@@ -363,7 +363,8 @@ export const BliKlient: React.FC = () => {
                       </div>
                     )}
                     <button type="button" onClick={handleStartPayment}
-                      className="w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-widest bg-[#a0c81d] text-white hover:bg-[#8ab516] hover:shadow-lg hover:shadow-[#a0c81d]/20 active:scale-[0.98] transition-[background-color,box-shadow,transform] flex items-center justify-center gap-2">
+                      className="w-full py-3.5 rounded-xl uppercase tracking-wide bg-[#a0c81d] text-white hover:bg-[#8ab516] hover:shadow-lg hover:shadow-[#a0c81d]/20 active:scale-[0.98] transition-[background-color,box-shadow,transform] flex items-center justify-center gap-2"
+                      style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: '16px', letterSpacing: '0.08em' }}>
                       Gå vidare <ArrowRight className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
