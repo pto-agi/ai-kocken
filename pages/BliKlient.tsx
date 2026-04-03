@@ -44,10 +44,11 @@ const PTO_APPEARANCE: Appearance = {
     borderRadius: '12px', spacingUnit: '4px',
   },
   rules: {
-    '.Input': { border: '1px solid #3D3D3D', boxShadow: 'none', padding: '12px 14px' },
+    '.Input': { border: '1px solid #B5AFA5', boxShadow: 'none', padding: '12px 14px' },
+    '.Input::placeholder': { color: '#8A8177' },
     '.Input:focus': { border: '1px solid #a0c81d', boxShadow: '0 0 0 1px #a0c81d' },
     '.Label': { color: '#6B6158', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase' as any, letterSpacing: '0.05em' },
-    '.Tab': { border: '1px solid #3D3D3D', borderRadius: '12px' },
+    '.Tab': { border: '1px solid #B5AFA5', borderRadius: '12px' },
     '.Tab--selected': { border: '1px solid #a0c81d', backgroundColor: '#f5fae6' },
   },
 };
@@ -274,7 +275,7 @@ export const BliKlient: React.FC = () => {
             <div className="rounded-2xl bg-white border border-[#DDD8CD] shadow-lg shadow-black/[0.04] overflow-hidden">
 
               {/* Card header */}
-              <div className="bg-[#FAFAF5] border-b border-[#3D3D3D] px-5 py-3.5">
+              <div className="bg-[#FAFAF5] border-b border-[#B5AFA5] px-5 py-3.5">
                 <h2 className="font-bold text-[#3D3D3D] uppercase tracking-[0.05em]" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '22px', fontWeight: 700 }}>Kom igång</h2>
               </div>
 
@@ -283,7 +284,7 @@ export const BliKlient: React.FC = () => {
                 <div>
                   <label htmlFor="bk-email" className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">E-post <span className="text-red-400">*</span></label>
                   <input id="bk-email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={e => setEmail(e.target.value)} placeholder="namn@example.com"
-                    className="w-full px-4 py-3 rounded-xl border border-[#3D3D3D] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a0c81d]/60 focus-visible:border-transparent transition-colors" />
+                    className="w-full px-4 py-3 rounded-xl border border-[#B5AFA5] bg-white text-sm text-[#3D3D3D] placeholder:text-[#8A8177] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a0c81d]/60 focus-visible:border-transparent transition-colors" />
                 </div>
 
                 {/* Name */}
@@ -292,10 +293,10 @@ export const BliKlient: React.FC = () => {
                     Namn <span className="text-[#C5BFB5] normal-case tracking-normal font-medium">(valfritt)</span>
                   </label>
                   <input id="bk-name" name="name" type="text" autoComplete="name" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Förnamn Efternamn"
-                    className="w-full px-4 py-3 rounded-xl border border-[#3D3D3D] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a0c81d]/60 focus-visible:border-transparent transition-colors" />
+                    className="w-full px-4 py-3 rounded-xl border border-[#B5AFA5] bg-white text-sm text-[#3D3D3D] placeholder:text-[#8A8177] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a0c81d]/60 focus-visible:border-transparent transition-colors" />
                 </div>
 
-                <div className="border-t border-[#3D3D3D]" />
+                <div className="border-t border-[#B5AFA5]" />
 
                 {/* Plan */}
                 <div>
@@ -307,12 +308,12 @@ export const BliKlient: React.FC = () => {
                   />
                 </div>
 
-                <div className="border-t border-[#3D3D3D]" />
+                <div className="border-t border-[#B5AFA5]" />
 
                 {/* Payment method */}
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Betalningsmetod</label>
-                  <div className="rounded-xl border border-[#3D3D3D] overflow-hidden">
+                  <div className="rounded-xl border border-[#B5AFA5] overflow-hidden">
                     {plan.isTrial ? (
                       <div className="flex items-center gap-3 px-4 py-3 bg-[#FAFAF5]">
                         <div className="w-4 h-4 rounded-full border-2 border-[#a0c81d] flex items-center justify-center shrink-0">
@@ -338,7 +339,7 @@ export const BliKlient: React.FC = () => {
                           </div>
                         </button>
                         <button type="button" onClick={() => { setPaymentMethod('friskvard'); setState({ phase: 'selecting' }); if (selectedPlanId === 'monthly') setSelectedPlanId('12m'); }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 border-t border-[#3D3D3D] text-left transition ${paymentMethod === 'friskvard' ? 'bg-[#FAFAF5]' : 'bg-white hover:bg-[#FAFAF5]'}`}>
+                          className={`w-full flex items-center gap-3 px-4 py-3 border-t border-[#B5AFA5] text-left transition ${paymentMethod === 'friskvard' ? 'bg-[#FAFAF5]' : 'bg-white hover:bg-[#FAFAF5]'}`}>
                           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${paymentMethod === 'friskvard' ? 'border-[#a0c81d]' : 'border-[#C5BFB5]'}`}>
                             {paymentMethod === 'friskvard' && <div className="w-2 h-2 rounded-full bg-[#a0c81d]" />}
                           </div>
@@ -420,7 +421,7 @@ export const BliKlient: React.FC = () => {
               </div>
 
               {/* Card footer */}
-              <div className="bg-[#FAFAF5] border-t border-[#3D3D3D] px-5 py-3">
+              <div className="bg-[#FAFAF5] border-t border-[#B5AFA5] px-5 py-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-[#8A8177] font-medium flex items-center gap-1">
                     <Lock className="w-3 h-3" aria-hidden="true" /> Säker betalning · Krypterat via Stripe

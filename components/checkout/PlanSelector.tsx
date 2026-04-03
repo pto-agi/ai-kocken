@@ -112,15 +112,15 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
       {/* Separator between special and standard plans */}
       {specialPlans.length > 0 && standardPlans.length > 0 && (
         <div className="flex items-center gap-3 py-1">
-          <div className="flex-1 border-t border-[#3D3D3D]" />
+          <div className="flex-1 border-t border-[#B5AFA5]" />
           <span className="text-[10px] font-bold uppercase tracking-widest text-[#8A8177]">Eller välj ny plan</span>
-          <div className="flex-1 border-t border-[#3D3D3D]" />
+          <div className="flex-1 border-t border-[#B5AFA5]" />
         </div>
       )}
 
       {/* Standard plans — compact accordion list matching Stripe's radio style */}
       {standardPlans.length > 0 && (
-        <div className="rounded-xl border border-[#3D3D3D] overflow-hidden">
+        <div className="rounded-xl border border-[#B5AFA5] overflow-hidden">
           {standardPlans.map((plan, index) => {
             const isSelected = plan.id === selectedPlanId;
 
@@ -131,7 +131,7 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                 onClick={() => onSelect(plan.id)}
                 className={`
                   group relative w-full text-left px-4 py-3 transition-all duration-150
-                  ${index > 0 ? 'border-t border-[#3D3D3D]' : ''}
+                  ${index > 0 ? 'border-t border-[#B5AFA5]' : ''}
                   ${isSelected
                     ? 'bg-[#FAFAF5]'
                     : 'bg-white hover:bg-[#FAFAF5]'
