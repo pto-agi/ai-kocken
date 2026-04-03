@@ -5,7 +5,7 @@ import type { Appearance } from '@stripe/stripe-js';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Loader2, AlertTriangle, ArrowRight,
-  Shield, Zap, Lock, Timer,
+  Shield, Zap, Lock,
   Dumbbell, Users, CheckCircle, Undo2, Award,
   CreditCard, ChevronDown,
 } from 'lucide-react';
@@ -62,21 +62,6 @@ const CAMPAIGN = {
   deadline: new Date('2026-04-07T23:59:59'),
 };
 
-function useCountdown(deadline: Date) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const diff = Math.max(0, deadline.getTime() - now);
-  return {
-    days: Math.floor(diff / 86_400_000),
-    hours: Math.floor((diff % 86_400_000) / 3_600_000),
-    mins: Math.floor((diff % 3_600_000) / 60_000),
-    secs: Math.floor((diff % 60_000) / 1000),
-    expired: diff <= 0,
-  };
-}
 
 // ── Data ──
 
@@ -123,8 +108,7 @@ export const BliKlient: React.FC = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const checkoutRef = useRef<HTMLDivElement>(null);
-  const countdown = useCountdown(CAMPAIGN.deadline);
-  const showCampaign = CAMPAIGN.active && !countdown.expired;
+  const showCampaign = CAMPAIGN.active && new Date() < CAMPAIGN.deadline;
 
   // ── Renewal / Trial ──
   const isRenewalFlow = searchParams.get('flow') === 'renewal';
@@ -243,13 +227,6 @@ export const BliKlient: React.FC = () => {
               {showCampaign ? CAMPAIGN.name : 'Bli klient'}
             </h1>
 
-            {showCampaign && !countdown.expired && (
-              <p className="text-[11px] text-[#8A8177] font-semibold tracking-wide mb-4 flex items-center gap-1.5">
-                <Timer className="w-3 h-3 text-[#a0c81d]" aria-hidden="true" />
-                <span className="font-mono">{countdown.days}d {String(countdown.hours).padStart(2,'0')}h {String(countdown.mins).padStart(2,'0')}m</span>
-                <span className="text-[#C5BFB5]">kvar</span>
-              </p>
-            )}
 
             <p className="text-[#3C4043] leading-relaxed mb-3" style={{ fontFamily: "'Open Sans', sans-serif", fontSize: '16px', fontWeight: 400 }}>
               Kom igång idag till halva priset under årets påskkampanj, gäller endast till {CAMPAIGN.deadlineLabel}.
@@ -264,7 +241,7 @@ export const BliKlient: React.FC = () => {
               {TRUST_BULLETS.map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-start gap-2.5">
                   <Icon className="w-4 h-4 text-[#a0c81d] mt-0.5 shrink-0" aria-hidden="true" />
-                  <span className="text-[#3C4043] leading-snug" style={{ fontFamily: "'Open Sans', sans-serif", fontSize: '16px', fontWeight: 400 }}>{text}</span>
+                  <span className="text-[#3C4043] leading-snug" style={{ fontFamily: "'Open Sans', sans-serif", fontSize: '14px', fontWeight: 400 }}>{text}</span>
                 </li>
               ))}
             </ul>
