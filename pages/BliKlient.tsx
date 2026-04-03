@@ -40,7 +40,7 @@ const PTO_APPEARANCE: Appearance = {
   theme: 'flat',
   variables: {
     colorPrimary: '#a0c81d', colorBackground: '#ffffff', colorText: '#3D3D3D',
-    colorDanger: '#df1b41', fontFamily: 'Inter, system-ui, sans-serif',
+    colorDanger: '#df1b41', fontFamily: 'Open Sans, system-ui, sans-serif',
     borderRadius: '12px', spacingUnit: '4px',
   },
   rules: {

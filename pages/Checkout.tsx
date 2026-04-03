@@ -31,7 +31,7 @@ const PTO_APPEARANCE: Appearance = {
     colorBackground: '#ffffff',
     colorText: '#3D3D3D',
     colorDanger: '#df1b41',
-    fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+    fontFamily: 'Open Sans, system-ui, -apple-system, sans-serif',
     borderRadius: '12px',
     spacingUnit: '4px',
   },
