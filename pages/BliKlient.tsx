@@ -233,12 +233,12 @@ export const BliKlient: React.FC = () => {
       <CheckoutHeader />
 
       {/* ═══ MAIN CONTENT — Single column ═══ */}
-      <div className="max-w-[560px] mx-auto px-4 pt-20 md:pt-28 pb-10">
+      <div className="max-w-[680px] mx-auto px-4 pt-20 md:pt-28 pb-10">
 
           {/* ─── ROW 1: Campaign hero + trust bullets ─── */}
           <div className="mb-8 text-center">
             {/* Campaign heading */}
-            <h1 className="font-bold text-[#3D3D3D] leading-none tracking-tight mb-2 uppercase" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '38px', fontWeight: 700, textWrap: 'balance' as any }}>
+            <h1 className="font-bold text-[#3D3D3D] leading-none mb-2 uppercase" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '48px', fontWeight: 700, letterSpacing: '-1px', textWrap: 'balance' as any }}>
               {showCampaign ? CAMPAIGN.name : 'Bli klient'}
             </h1>
 
@@ -250,7 +250,7 @@ export const BliKlient: React.FC = () => {
               </p>
             )}
 
-            <p className="text-[#3D3D3D] leading-relaxed mb-3" style={{ fontFamily: "'Open Sans', sans-serif", fontSize: '16px', fontWeight: 400 }}>
+            <p className="text-[#3C4043] leading-relaxed mb-3" style={{ fontFamily: "'Open Sans', sans-serif", fontSize: '16px', fontWeight: 400 }}>
               Kom igång idag till halva priset under årets påskkampanj, gäller endast till {CAMPAIGN.deadlineLabel}.
             </p>
 
@@ -263,7 +263,7 @@ export const BliKlient: React.FC = () => {
               {TRUST_BULLETS.map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-start gap-2.5">
                   <Icon className="w-4 h-4 text-[#a0c81d] mt-0.5 shrink-0" aria-hidden="true" />
-                  <span className="text-[#4A4A4A] leading-snug" style={{ fontFamily: "'Open Sans', sans-serif", fontSize: '16px', fontWeight: 400 }}>{text}</span>
+                  <span className="text-[#3C4043] leading-snug" style={{ fontFamily: "'Open Sans', sans-serif", fontSize: '16px', fontWeight: 400 }}>{text}</span>
                 </li>
               ))}
             </ul>
