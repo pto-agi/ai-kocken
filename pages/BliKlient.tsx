@@ -20,7 +20,7 @@ import { computeYearEndOffer } from '../utils/extensionOffer';
 
 import { PlanSelector } from '../components/checkout/PlanSelector';
 import { CheckoutForm } from '../components/checkout/CheckoutForm';
-import { PaymentMethodBadges } from '../components/checkout/PaymentMethodBadges';
+
 
 // ── GTM ──
 
@@ -418,11 +418,10 @@ export const BliKlient: React.FC = () => {
 
               {/* Card footer */}
               <div className="bg-[#FAFAF5] border-t border-[#B5AFA5] px-5 py-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-center">
                   <span className="text-[10px] text-[#8A8177] font-medium flex items-center gap-1">
                     <Lock className="w-3 h-3" aria-hidden="true" /> Säker betalning
                   </span>
-                  <PaymentMethodBadges />
                 </div>
               </div>
             </div>
@@ -450,13 +449,6 @@ export const BliKlient: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-6 px-4 border-t border-[#DDD8CD]">
-        <p className="text-center text-[10px] text-[#8A8177]">
-          © {new Date().getFullYear()} Private Training Online · Org.nr 559387-3108 ·{' '}
-          <a href="https://www.privatetrainingonline.se" className="underline hover:text-[#3D3D3D] transition">privatetrainingonline.se</a>
-        </p>
-      </footer>
     </div>
   );
 };
