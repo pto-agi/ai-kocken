@@ -423,7 +423,7 @@ export const BliKlient: React.FC = () => {
 
       {/* ═══ FAQ ═══ */}
       <section className="py-12 px-4">
-        <div className="max-w-[680px] mx-auto">
+        <div className="max-w-[900px] mx-auto px-4 md:px-8">
           <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-[#a0c81d] mb-4">Vanliga frågor</h2>
           <div className="space-y-1.5">
             {FAQ.map(({ q, a }, i) => (
