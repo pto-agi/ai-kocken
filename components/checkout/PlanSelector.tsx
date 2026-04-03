@@ -85,9 +85,16 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                   </>
                 ) : (
                   <>
-                    <span className="text-sm font-bold text-[#3D3D3D]">
-                      {plan.price.toLocaleString('sv-SE')} kr
-                    </span>
+                    <div className="flex items-baseline gap-1.5">
+                      {plan.originalPrice && plan.originalPrice > plan.price && (
+                        <span className="text-[12px] text-[#B5AFA5] line-through font-medium">
+                          {plan.originalPrice.toLocaleString('sv-SE')}
+                        </span>
+                      )}
+                      <span className="text-sm font-bold text-[#3D3D3D]">
+                        {plan.price.toLocaleString('sv-SE')} kr
+                      </span>
+                    </div>
                     <div className="text-[11px] text-[#6B8A12] font-medium">
                       {plan.perMonth.toLocaleString('sv-SE')} kr/mån
                     </div>
@@ -166,22 +173,45 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                   {/* Price */}
                   <div className="text-right flex-shrink-0 ml-4">
                     {plan.mode === 'subscription' ? (
-                      <div className="flex items-baseline gap-0.5">
-                        <span className="text-sm font-bold text-[#3D3D3D]">
-                          {plan.price.toLocaleString('sv-SE')} kr
-                        </span>
-                        <span className="text-[11px] text-[#8A8177] font-medium">/mån</span>
+                      <div>
+                        <div className="flex items-baseline justify-end gap-1.5">
+                          {plan.originalPrice && plan.originalPrice > plan.price && (
+                            <span className="text-[12px] text-[#B5AFA5] line-through font-medium">
+                              {plan.originalPrice.toLocaleString('sv-SE')}
+                            </span>
+                          )}
+                          <span className="text-sm font-bold text-[#3D3D3D]">
+                            {plan.price.toLocaleString('sv-SE')} kr
+                          </span>
+                          <span className="text-[11px] text-[#8A8177] font-medium">/mån</span>
+                        </div>
+                        {plan.savings && (
+                          <span className="inline-block mt-0.5 text-[9px] font-bold uppercase tracking-wide text-[#6B8A12] bg-[#f0f7d4] px-1.5 py-0.5 rounded-full">
+                            {plan.savings}
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <div>
-                        <div className="flex items-baseline gap-0.5">
+                        <div className="flex items-baseline justify-end gap-1.5">
+                          {plan.originalPrice && plan.originalPrice > plan.price && (
+                            <span className="text-[12px] text-[#B5AFA5] line-through font-medium">
+                              {plan.originalPrice.toLocaleString('sv-SE')}
+                            </span>
+                          )}
                           <span className="text-sm font-bold text-[#3D3D3D]">
                             {plan.price.toLocaleString('sv-SE')} kr
                           </span>
                         </div>
-                        <div className="text-[11px] text-[#8A8177] font-medium">
-                          {plan.perMonth.toLocaleString('sv-SE')} kr/mån
-                        </div>
+                        {plan.savings ? (
+                          <span className="inline-block mt-0.5 text-[9px] font-bold uppercase tracking-wide text-[#6B8A12] bg-[#f0f7d4] px-1.5 py-0.5 rounded-full">
+                            {plan.savings}
+                          </span>
+                        ) : (
+                          <div className="text-[11px] text-[#8A8177] font-medium">
+                            {plan.perMonth.toLocaleString('sv-SE')} kr/mån
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

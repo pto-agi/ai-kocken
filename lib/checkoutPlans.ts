@@ -13,8 +13,9 @@ export interface CheckoutPlan {
   id: string;
   label: string;
   badge?: string;
-  price: number;          // Total price in SEK
+  price: number;          // Total price in SEK (campaign/active price)
   priceOre: number;       // Total price in öre (Stripe amount)
+  originalPrice?: number; // Original price before campaign discount
   perMonth: number;       // Per-month cost in SEK (for comparison)
   savings?: string;       // e.g. "Spara 33%"
   mode: 'payment' | 'subscription';
@@ -80,9 +81,10 @@ export const CHECKOUT_PLANS: CheckoutPlan[] = [
     label: '12 månader',
     badge: 'Populärast',
     price: 3995,
+    originalPrice: 7800,
     priceOre: 399500,
     perMonth: 333,
-    savings: 'Spara 33%',
+    savings: 'Spara 49%',
     mode: 'payment',
     stripePriceId: 'price_1TGmkmCMd1GQRttCQruyEMfM',
     monthCount: 12,
@@ -92,8 +94,10 @@ export const CHECKOUT_PLANS: CheckoutPlan[] = [
     id: '6m',
     label: '6 månader',
     price: 2995,
+    originalPrice: 3995,
     priceOre: 299500,
     perMonth: 499,
+    savings: 'Spara 25%',
     mode: 'payment',
     stripePriceId: 'price_1TGmkVCMd1GQRttCKwPn9lpP',
     monthCount: 6,
@@ -101,17 +105,20 @@ export const CHECKOUT_PLANS: CheckoutPlan[] = [
   {
     id: '3m',
     label: '3 månader',
-    price: 1995,
-    priceOre: 199500,
-    perMonth: 665,
+    price: 1795,
+    originalPrice: 1995,
+    priceOre: 179500,
+    perMonth: 598,
+    savings: 'Spara 10%',
     mode: 'payment',
-    stripePriceId: 'price_1TGmkGCMd1GQRttC28TIA4aG',
+    stripePriceId: 'price_1TIFOfCMd1GQRttC9hXRvW0r',
     monthCount: 3,
   },
   {
     id: 'monthly',
     label: 'Månadsvis',
     price: 549,
+    originalPrice: 695,
     priceOre: 54900,
     perMonth: 549,
     mode: 'subscription',

@@ -146,16 +146,8 @@ export const CheckoutSuccess: React.FC = () => {
         });
       }
 
-      // Custom event to distinguish renewal vs new_purchase in GA4
-      window.dataLayer.push({
-        event: purchaseType === 'renewal' ? 'pto_renewal_completed' : 'pto_new_purchase_completed',
-        pto_purchase_type: purchaseType,
-        pto_plan_id: plan?.id || '',
-        pto_plan_label: plan?.label || '',
-        pto_amount: plan?.price || 0,
-        pto_month_count: plan?.monthCount || 0,
-        pto_new_expires_at: plan?.newExpiresAt || '',
-      });
+
+
 
       // ── Google Ads primary conversion: sign_up ──
       // Fires GTM trigger "purchasesignup" → Google Ads Conversion (998982034)

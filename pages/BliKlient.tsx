@@ -193,7 +193,29 @@ export const BliKlient: React.FC = () => {
     window.dataLayer.push({ event: 'add_payment_info', ecommerce: { currency: 'SEK', value: plan.price, payment_type: paymentMethod === 'friskvard' ? 'friskvardsbidrag' : 'card_klarna', items: [{ item_id: selectedPlanId, item_name: plan.label, item_category: purchaseType, price: plan.price, currency: 'SEK', quantity: 1 }] } });
     try { sessionStorage.setItem('pto_checkout_plan', JSON.stringify({ id: selectedPlanId, label: plan.label, price: plan.price, currency: 'SEK', purchaseType, email: email.trim(), fullName: fullName.trim(), monthCount: plan.monthCount || 0, newExpiresAt: plan.renewalOffer?.newExpiresAt || '', isTrial: plan.isTrial || false })); } catch { /* noop */ }
 
-    if (paymentMethod === 'friskvard') { setState({ phase: 'friskvard' }); return; }
+    if (paymentMethod === 'friskvard') {
+      setState({ phase: 'loading' });
+      try {
+        const res = await fetch('/api/payments/create-checkout-session', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+          body: JSON.stringify({ flow: plan.id === 'renewal' ? 'forlangning' : 'premium', mode: plan.id === 'renewal' ? 'payment' : plan.mode, paymentMethod: 'friskvardsbidrag', email, fullName, userId: session?.user?.id, planId: plan.id, planLabel: plan.label, planPrice: plan.price, planMonthCount: plan.monthCount || 0, ...(plan.id === 'renewal' && renewalOffer ? { forlangningOffer: { monthlyPrice: renewalOffer.monthlyPrice, monthCount: renewalOffer.monthCount, totalPrice: renewalOffer.totalPrice, campaignYear: renewalOffer.campaignYear, billableDays: renewalOffer.billableDays, calculationMode: renewalOffer.calculationMode, currentExpiresAt: renewalOffer.currentExpiresAt, billingStartsAt: renewalOffer.billingStartsAt, newExpiresAt: renewalOffer.newExpiresAt } } : {}) }),
+        });
+        const data = await res.json();
+        if (data.ok && data.friskvard) {
+          const pt = (plan.isRenewal||isActiveMember)?'renewal':'new_purchase';
+          const txId = `friskvard_${data.friskvard_order_id||Date.now()}`;
+          window.dataLayer=window.dataLayer||[];window.dataLayer.push({ecommerce:null});
+          window.dataLayer.push({event:'purchase',ecommerce:{transaction_id:txId,currency:'SEK',value:plan.price,payment_type:'friskvardsbidrag',items:[{item_id:plan.id,item_name:plan.label,item_category:pt,price:plan.price,currency:'SEK',quantity:1}]}});
+          if (email || fullName) {
+            window.dataLayer.push({event:'enhanced_conversion_data',enhanced_conversions:{email:email||'',...(fullName?{first_name:fullName.split(' ')[0]||'',last_name:fullName.split(' ').slice(1).join(' ')||''}:{})}});
+          }
+          window.dataLayer.push({event:'sign_up',method:'friskvardsbidrag',value:plan.price,currency:'SEK',transaction_id:txId,plan_id:plan.id,plan_label:plan.label,purchase_type:pt});
+          window.dataLayer.push({event:'purchasesignup'});
+          navigate(`/tack-forlangning-friskvard?friskvard=1&plan=${encodeURIComponent(plan.label)}&price=${plan.price}`);
+        } else { setState({ phase: 'error', message: data.error || 'Kunde inte registrera.' }); }
+      } catch { setState({ phase: 'error', message: 'Oväntat fel.' }); }
+      return;
+    }
     setState({ phase: 'loading' });
 
     if (plan.isRenewal && plan.renewalOffer) {
@@ -373,47 +395,7 @@ export const BliKlient: React.FC = () => {
                   </Elements>
                 )}
 
-                {/* Friskvård */}
-                {state.phase === 'friskvard' && (
-                  <div className="space-y-4">
-                    <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 space-y-2">
-                      <h3 className="text-sm font-bold text-blue-900">Betalning med friskvårdsbidrag</h3>
-                      <p className="text-xs text-blue-700 leading-relaxed">Din beställning registreras direkt. Du får instruktioner via e-post om hur du slutför betalningen via din arbetsgivares friskvårdsportal.</p>
-                      <div className="rounded-lg bg-white/80 border border-blue-200 p-3 text-xs text-blue-800 flex justify-between">
-                        <span>Plan: <b>{plan.label}</b></span><span><b>{plan.price.toLocaleString('sv-SE')} kr</b></span>
-                      </div>
-                    </div>
-                    <button type="button" onClick={async () => {
-                      setState({ phase: 'loading' });
-                      try {
-                        const res = await fetch('/api/payments/create-checkout-session', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
-                          body: JSON.stringify({ flow: plan.id === 'renewal' ? 'forlangning' : 'premium', mode: plan.id === 'renewal' ? 'payment' : plan.mode, paymentMethod: 'friskvardsbidrag', email, fullName, userId: session?.user?.id, planId: plan.id, planLabel: plan.label, planPrice: plan.price, planMonthCount: plan.monthCount || 0, ...(plan.id === 'renewal' && renewalOffer ? { forlangningOffer: { monthlyPrice: renewalOffer.monthlyPrice, monthCount: renewalOffer.monthCount, totalPrice: renewalOffer.totalPrice, campaignYear: renewalOffer.campaignYear, billableDays: renewalOffer.billableDays, calculationMode: renewalOffer.calculationMode, currentExpiresAt: renewalOffer.currentExpiresAt, billingStartsAt: renewalOffer.billingStartsAt, newExpiresAt: renewalOffer.newExpiresAt } } : {}) }),
-                        });
-                        const data = await res.json();
-                        if (data.ok && data.friskvard) {
-                          const pt = (plan.isRenewal||isActiveMember)?'renewal':'new_purchase';
-                          const txId = `friskvard_${data.friskvard_order_id||Date.now()}`;
-                          window.dataLayer=window.dataLayer||[];window.dataLayer.push({ecommerce:null});
-                          window.dataLayer.push({event:'purchase',ecommerce:{transaction_id:txId,currency:'SEK',value:plan.price,payment_type:'friskvardsbidrag',items:[{item_id:plan.id,item_name:plan.label,item_category:pt,price:plan.price,currency:'SEK',quantity:1}]}});
-                          window.dataLayer.push({event:pt==='renewal'?'pto_renewal_completed':'pto_new_purchase_completed',purchaseType:pt,paymentMethod:'friskvardsbidrag',planId:plan.id,value:plan.price});
-                          // Enhanced Conversions
-                          if (email || fullName) {
-                            window.dataLayer.push({event:'enhanced_conversion_data',enhanced_conversions:{email:email||'',...(fullName?{first_name:fullName.split(' ')[0]||'',last_name:fullName.split(' ').slice(1).join(' ')||''}:{})}});
-                          }
-                          // Google Ads primary conversion: sign_up
-                          window.dataLayer.push({event:'sign_up',method:'friskvardsbidrag',value:plan.price,currency:'SEK',transaction_id:txId,plan_id:plan.id,plan_label:plan.label,purchase_type:pt});
-                          window.dataLayer.push({event:'purchasesignup'});
-                          navigate(`/tack-forlangning-friskvard?friskvard=1&plan=${encodeURIComponent(plan.label)}&price=${plan.price}`);
-                        } else { setState({ phase: 'error', message: data.error || 'Kunde inte registrera.' }); }
-                      } catch { setState({ phase: 'error', message: 'Oväntat fel.' }); }
-                    }} className="w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-widest bg-blue-600 text-white hover:bg-blue-700 transition flex items-center justify-center gap-2">
-                      Bekräfta friskvårdsbeställning
-                    </button>
-                    <button type="button" onClick={() => { setPaymentMethod('stripe'); setState({ phase: 'selecting' }); }}
-                      className="w-full py-2 text-xs text-[#8A8177] font-bold hover:text-[#3D3D3D] transition">← Byt till kort / Klarna</button>
-                  </div>
-                )}
+
               </div>
 
               {/* Card footer */}
