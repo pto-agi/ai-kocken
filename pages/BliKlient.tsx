@@ -56,9 +56,9 @@ const PTO_APPEARANCE: Appearance = {
 
 const CAMPAIGN = {
   active: true,
-  name: 'Vårkampanj',
-  tagline: 'Kom igång till kampanjpris',
-  deadline: new Date('2026-05-31T23:59:59'),
+  name: 'Påskkampanj',
+  deadlineLabel: '7/4-2026',
+  deadline: new Date('2026-04-07T23:59:59'),
 };
 
 function useCountdown(deadline: Date) {
@@ -232,48 +232,31 @@ export const BliKlient: React.FC = () => {
     <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #F6F1E7 0%, #EDE8DB 40%, #E8E3D6 100%)' }}>
       <CheckoutHeader />
 
-      {/* ═══ CAMPAIGN TICKER ═══ */}
-      {showCampaign && (
-        <div className="bg-[#2C2C2C] py-2 px-4 mt-[56px] overflow-hidden">
-          <div className="max-w-2xl mx-auto flex items-center justify-center gap-3 sm:gap-5">
-            <span className="shrink-0 px-2 py-0.5 rounded bg-[#a0c81d] text-[9px] font-black text-white uppercase tracking-widest">
-              {CAMPAIGN.name}
-            </span>
-            <span className="text-white/80 text-xs font-semibold hidden sm:block">{CAMPAIGN.tagline}</span>
-            <div className="flex items-center gap-1 font-mono text-white text-[11px] font-bold tracking-tight">
-              <Timer className="w-3 h-3 text-[#a0c81d] mr-0.5" aria-hidden="true" />
-              <span className="bg-white/[0.08] rounded px-1.5 py-0.5">{String(countdown.days).padStart(2,'0')}</span>
-              <span className="text-white/30">:</span>
-              <span className="bg-white/[0.08] rounded px-1.5 py-0.5">{String(countdown.hours).padStart(2,'0')}</span>
-              <span className="text-white/30">:</span>
-              <span className="bg-white/[0.08] rounded px-1.5 py-0.5">{String(countdown.mins).padStart(2,'0')}</span>
-              <span className="text-white/30">:</span>
-              <span className="bg-white/[0.08] rounded px-1.5 py-0.5">{String(countdown.secs).padStart(2,'0')}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ═══ MAIN CONTENT — Two-column on desktop ═══ */}
-      <div className={`max-w-[1080px] mx-auto px-4 ${showCampaign ? 'pt-8 md:pt-12' : 'pt-20 md:pt-28'} pb-10`}>
+      <div className="max-w-[1080px] mx-auto px-4 pt-20 md:pt-28 pb-10">
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
 
           {/* ─── LEFT: Campaign hero + trust bullets ─── */}
           <div className="w-full lg:w-[420px] lg:sticky lg:top-24 shrink-0">
             {/* Campaign heading */}
-            <h1 className="text-2xl sm:text-3xl font-black text-[#3D3D3D] leading-tight tracking-tight mb-3" style={{ fontFamily: "'Inter', system-ui, sans-serif", textWrap: 'balance' as any }}>
+            <h1 className="text-2xl sm:text-3xl font-black text-[#3D3D3D] leading-tight tracking-tight mb-2" style={{ fontFamily: "'Inter', system-ui, sans-serif", textWrap: 'balance' as any }}>
               {showCampaign ? CAMPAIGN.name : 'Bli klient'}
             </h1>
 
-            {showCampaign && (
-              <p className="text-sm text-[#6B6158] leading-relaxed mb-4">
-                Registrera dig innan kampanjen löper ut och kom igång till kampanjpris.
+            {showCampaign && !countdown.expired && (
+              <p className="text-[11px] text-[#8A8177] font-semibold tracking-wide mb-4 hidden sm:flex items-center gap-1.5">
+                <Timer className="w-3 h-3 text-[#a0c81d]" aria-hidden="true" />
+                <span className="font-mono">{countdown.days}d {String(countdown.hours).padStart(2,'0')}h {String(countdown.mins).padStart(2,'0')}m</span>
+                <span className="text-[#C5BFB5]">kvar</span>
               </p>
             )}
 
-            <p className="text-sm text-[#3D3D3D] font-medium leading-relaxed mb-6">
-              Du väljer själv önskat startdatum och kan börja när du vill. När du slutfört din anmälan
-              så har du kontakt med din nya coach inom 24 timmar.
+            <p className="text-sm text-[#3D3D3D] font-medium leading-relaxed mb-3">
+              Kom igång idag till halva priset under årets påskkampanj, gäller endast till {CAMPAIGN.deadlineLabel}.
+            </p>
+
+            <p className="text-sm text-[#6B6158] leading-relaxed mb-6">
+              Börja när du vill. Välj själv önskat startdatum, och få kontakt med din nya coach inom 24 timmar.
             </p>
 
             {/* Trust bullets */}
