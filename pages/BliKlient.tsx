@@ -241,7 +241,7 @@ export const BliKlient: React.FC = () => {
             </span>
             <span className="text-white/80 text-xs font-semibold hidden sm:block">{CAMPAIGN.tagline}</span>
             <div className="flex items-center gap-1 font-mono text-white text-[11px] font-bold tracking-tight">
-              <Timer className="w-3 h-3 text-[#a0c81d] mr-0.5" />
+              <Timer className="w-3 h-3 text-[#a0c81d] mr-0.5" aria-hidden="true" />
               <span className="bg-white/[0.08] rounded px-1.5 py-0.5">{String(countdown.days).padStart(2,'0')}</span>
               <span className="text-white/30">:</span>
               <span className="bg-white/[0.08] rounded px-1.5 py-0.5">{String(countdown.hours).padStart(2,'0')}</span>
@@ -261,7 +261,7 @@ export const BliKlient: React.FC = () => {
           {/* ─── LEFT: Campaign hero + trust bullets ─── */}
           <div className="w-full lg:w-[420px] lg:sticky lg:top-24 shrink-0">
             {/* Campaign heading */}
-            <h1 className="text-2xl sm:text-3xl font-black text-[#3D3D3D] leading-tight tracking-tight mb-3" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+            <h1 className="text-2xl sm:text-3xl font-black text-[#3D3D3D] leading-tight tracking-tight mb-3" style={{ fontFamily: "'Inter', system-ui, sans-serif", textWrap: 'balance' as any }}>
               {showCampaign ? CAMPAIGN.name : 'Bli klient'}
             </h1>
 
@@ -280,7 +280,7 @@ export const BliKlient: React.FC = () => {
             <ul className="space-y-2.5 mb-8">
               {TRUST_BULLETS.map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-start gap-2.5">
-                  <Icon className="w-4 h-4 text-[#a0c81d] mt-0.5 shrink-0" />
+                  <Icon className="w-4 h-4 text-[#a0c81d] mt-0.5 shrink-0" aria-hidden="true" />
                   <span className="text-[13px] text-[#4A4A4A] font-medium leading-snug">{text}</span>
                 </li>
               ))}
@@ -288,9 +288,9 @@ export const BliKlient: React.FC = () => {
 
             {/* Security strip — desktop only */}
             <div className="hidden lg:flex items-center gap-4 text-[10px] text-[#8A8177] font-bold uppercase tracking-wider pb-4">
-              <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Säker betalning</span>
+              <span className="flex items-center gap-1"><Lock className="w-3 h-3" aria-hidden="true" /> Säker betalning</span>
               <span>·</span>
-              <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> Krypterat via Stripe</span>
+              <span className="flex items-center gap-1"><Shield className="w-3 h-3" aria-hidden="true" /> Krypterat via Stripe</span>
             </div>
           </div>
 
@@ -306,18 +306,18 @@ export const BliKlient: React.FC = () => {
               <div className="p-5 md:p-6 space-y-5">
                 {/* E-post */}
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">E-post <span className="text-red-400">*</span></label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="E-postadress"
-                    className="w-full px-4 py-3 rounded-xl border border-[#E6E1D8] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/60 focus:border-transparent transition" />
+                  <label htmlFor="bk-email" className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">E-post <span className="text-red-400">*</span></label>
+                  <input id="bk-email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={e => setEmail(e.target.value)} placeholder="namn@example.com"
+                    className="w-full px-4 py-3 rounded-xl border border-[#E6E1D8] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a0c81d]/60 focus-visible:border-transparent transition-colors" />
                 </div>
 
                 {/* Name */}
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">
+                  <label htmlFor="bk-name" className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">
                     Namn <span className="text-[#C5BFB5] normal-case tracking-normal font-medium">(valfritt)</span>
                   </label>
-                  <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Förnamn Efternamn"
-                    className="w-full px-4 py-3 rounded-xl border border-[#E6E1D8] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus:outline-none focus:ring-2 focus:ring-[#a0c81d]/60 focus:border-transparent transition" />
+                  <input id="bk-name" name="name" type="text" autoComplete="name" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Förnamn Efternamn"
+                    className="w-full px-4 py-3 rounded-xl border border-[#E6E1D8] bg-white text-sm text-[#3D3D3D] placeholder:text-[#C5BFB5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a0c81d]/60 focus-visible:border-transparent transition-colors" />
                 </div>
 
                 <div className="border-t border-[#E6E1D8]" />
@@ -343,7 +343,7 @@ export const BliKlient: React.FC = () => {
                         <div className="w-4 h-4 rounded-full border-2 border-[#a0c81d] flex items-center justify-center shrink-0">
                           <div className="w-2 h-2 rounded-full bg-[#a0c81d]" />
                         </div>
-                        <CreditCard className="w-4 h-4 text-[#6B8A12] shrink-0" />
+                        <CreditCard className="w-4 h-4 text-[#6B8A12] shrink-0" aria-hidden="true" />
                         <div>
                           <span className="text-sm font-semibold text-[#3D3D3D] block">Prova gratis</span>
                           <span className="text-[10px] text-[#8A8177]">30 dagar gratis – därefter 549 kr/mån</span>
@@ -356,7 +356,7 @@ export const BliKlient: React.FC = () => {
                           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${paymentMethod === 'stripe' ? 'border-[#a0c81d]' : 'border-[#C5BFB5]'}`}>
                             {paymentMethod === 'stripe' && <div className="w-2 h-2 rounded-full bg-[#a0c81d]" />}
                           </div>
-                          <CreditCard className={`w-4 h-4 shrink-0 ${paymentMethod === 'stripe' ? 'text-[#6B8A12]' : 'text-[#8A8177]'}`} />
+                          <CreditCard className={`w-4 h-4 shrink-0 ${paymentMethod === 'stripe' ? 'text-[#6B8A12]' : 'text-[#8A8177]'}`} aria-hidden="true" />
                           <div>
                             <span className={`text-sm font-semibold block ${paymentMethod === 'stripe' ? 'text-[#3D3D3D]' : 'text-[#6B6158]'}`}>Kort / Klarna</span>
                             <span className="text-[10px] text-[#8A8177]">Kort, Apple Pay eller Klarna</span>
@@ -367,7 +367,7 @@ export const BliKlient: React.FC = () => {
                           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${paymentMethod === 'friskvard' ? 'border-[#a0c81d]' : 'border-[#C5BFB5]'}`}>
                             {paymentMethod === 'friskvard' && <div className="w-2 h-2 rounded-full bg-[#a0c81d]" />}
                           </div>
-                          <Dumbbell className={`w-4 h-4 shrink-0 ${paymentMethod === 'friskvard' ? 'text-[#6B8A12]' : 'text-[#8A8177]'}`} />
+                          <Dumbbell className={`w-4 h-4 shrink-0 ${paymentMethod === 'friskvard' ? 'text-[#6B8A12]' : 'text-[#8A8177]'}`} aria-hidden="true" />
                           <div>
                             <span className={`text-sm font-semibold block ${paymentMethod === 'friskvard' ? 'text-[#3D3D3D]' : 'text-[#6B6158]'}`}>Friskvårdsbidrag</span>
                             <span className="text-[10px] text-[#8A8177]">Betala via friskvårdsportal</span>
@@ -383,12 +383,12 @@ export const BliKlient: React.FC = () => {
                   <div className="space-y-3">
                     {state.phase === 'error' && (
                       <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><span>{state.message}</span>
+                        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" /><span role="alert">{state.message}</span>
                       </div>
                     )}
                     <button type="button" onClick={handleStartPayment}
-                      className="w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-widest bg-[#a0c81d] text-white hover:bg-[#8ab516] hover:shadow-lg hover:shadow-[#a0c81d]/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                      Gå vidare <ArrowRight className="w-4 h-4" />
+                      className="w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-widest bg-[#a0c81d] text-white hover:bg-[#8ab516] hover:shadow-lg hover:shadow-[#a0c81d]/20 active:scale-[0.98] transition-[background-color,box-shadow,transform] flex items-center justify-center gap-2">
+                      Gå vidare <ArrowRight className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
                 )}
@@ -397,7 +397,7 @@ export const BliKlient: React.FC = () => {
                 {state.phase === 'loading' && (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="w-6 h-6 animate-spin text-[#a0c81d]" />
-                    <span className="ml-2 text-sm text-[#6B6158]">Förbereder betalning...</span>
+                    <span className="ml-2 text-sm text-[#6B6158]">Förbereder betalning…</span>
                   </div>
                 )}
 
@@ -448,7 +448,7 @@ export const BliKlient: React.FC = () => {
               <div className="bg-[#FAFAF5] border-t border-[#E6E1D8] px-5 py-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-[#8A8177] font-medium flex items-center gap-1">
-                    <Lock className="w-3 h-3" /> Säker betalning · Krypterat via Stripe
+                    <Lock className="w-3 h-3" aria-hidden="true" /> Säker betalning · Krypterat via Stripe
                   </span>
                   <PaymentMethodBadges />
                 </div>
@@ -468,9 +468,9 @@ export const BliKlient: React.FC = () => {
                 <button type="button" onClick={() => { setOpenFaq(prev => { const n = prev === i ? null : i; if (n !== null) pushEvent('faq_click', { question: q }); return n; }); }}
                   className="w-full flex items-center justify-between px-4 py-3 text-left">
                   <span className="text-[13px] font-bold text-[#3D3D3D] pr-4">{q}</span>
-                  <ChevronDown className={`w-4 h-4 text-[#8A8177] shrink-0 transition-transform ${openFaq === i ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-[#8A8177] shrink-0 transition-transform motion-reduce:transition-none ${openFaq === i ? 'rotate-180' : ''}`} aria-hidden="true" />
                 </button>
-                <div className={`overflow-hidden transition-all duration-200 ${openFaq === i ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className={`overflow-hidden transition-[max-height,opacity] duration-200 motion-reduce:transition-none ${openFaq === i ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
                   <p className="px-4 pb-3 text-xs text-[#6B6158] leading-relaxed">{a}</p>
                 </div>
               </div>

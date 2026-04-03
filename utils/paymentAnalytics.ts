@@ -1,7 +1,7 @@
 type CheckoutEventName = 'checkout_started' | 'checkout_completed' | 'plan_selected' | 'payment_submitted';
 
 type CheckoutEventPayload = {
-  flow: 'premium' | 'forlangning' | 'refill' | 'checkout';
+  flow: 'premium' | 'forlangning' | 'refill' | 'checkout' | 'bli-klient';
   mode?: 'payment' | 'subscription';
   sessionId?: string;
   planId?: string;
