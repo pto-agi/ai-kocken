@@ -251,11 +251,11 @@ export const BliKlient: React.FC = () => {
               </p>
             )}
 
-            <p className="text-sm text-[#3D3D3D] font-medium leading-relaxed mb-3">
+            <p className="text-[#3D3D3D] leading-relaxed mb-3" style={{ fontFamily: "'Open Sans', sans-serif", fontSize: '16px', fontWeight: 400 }}>
               Kom igång idag till halva priset under årets påskkampanj, gäller endast till {CAMPAIGN.deadlineLabel}.
             </p>
 
-            <p className="text-sm text-[#6B6158] leading-relaxed mb-6">
+            <p className="text-[#6B6158] leading-relaxed mb-6" style={{ fontFamily: "'Open Sans', sans-serif", fontSize: '16px', fontWeight: 400 }}>
               Börja när du vill. Välj själv önskat startdatum, och få kontakt med din nya coach inom 24 timmar.
             </p>
 
@@ -264,7 +264,7 @@ export const BliKlient: React.FC = () => {
               {TRUST_BULLETS.map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-start gap-2.5">
                   <Icon className="w-4 h-4 text-[#a0c81d] mt-0.5 shrink-0" aria-hidden="true" />
-                  <span className="text-[13px] text-[#4A4A4A] font-medium leading-snug">{text}</span>
+                  <span className="text-[#4A4A4A] leading-snug" style={{ fontFamily: "'Open Sans', sans-serif", fontSize: '16px', fontWeight: 400 }}>{text}</span>
                 </li>
               ))}
             </ul>
