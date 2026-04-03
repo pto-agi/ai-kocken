@@ -47,7 +47,7 @@ const PTO_APPEARANCE: Appearance = {
     '.Input': { border: '1px solid #B5AFA5', boxShadow: 'none', padding: '12px 14px' },
     '.Input::placeholder': { color: '#8A8177' },
     '.Input:focus': { border: '1px solid #a0c81d', boxShadow: '0 0 0 1px #a0c81d' },
-    '.Label': { color: '#6B6158', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase' as any, letterSpacing: '0.05em' },
+    '.Label': { color: '#3D3D3D', fontSize: '12px', fontWeight: '500', fontFamily: 'Open Sans, sans-serif', textTransform: 'uppercase' as any, letterSpacing: '0.04em' },
     '.Tab': { border: '1px solid #B5AFA5', borderRadius: '12px' },
     '.Tab--selected': { border: '1px solid #a0c81d', backgroundColor: '#f5fae6' },
   },
@@ -282,14 +282,14 @@ export const BliKlient: React.FC = () => {
               <div className="p-5 md:p-6 space-y-5">
                 {/* E-post */}
                 <div>
-                  <label htmlFor="bk-email" className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">E-post <span className="text-red-400">*</span></label>
+                  <label htmlFor="bk-email" className="block text-[12px] font-medium uppercase tracking-wide text-[#3D3D3D] mb-1.5">E-post <span className="text-red-400">*</span></label>
                   <input id="bk-email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={e => setEmail(e.target.value)} placeholder="namn@example.com"
                     className="w-full px-4 py-3 rounded-xl border border-[#B5AFA5] bg-white text-sm text-[#3D3D3D] placeholder:text-[#8A8177] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a0c81d]/60 focus-visible:border-transparent transition-colors" />
                 </div>
 
                 {/* Name */}
                 <div>
-                  <label htmlFor="bk-name" className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-1.5">
+                  <label htmlFor="bk-name" className="block text-[12px] font-medium uppercase tracking-wide text-[#3D3D3D] mb-1.5">
                     Namn <span className="text-[#C5BFB5] normal-case tracking-normal font-medium">(valfritt)</span>
                   </label>
                   <input id="bk-name" name="name" type="text" autoComplete="name" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Förnamn Efternamn"
@@ -300,7 +300,7 @@ export const BliKlient: React.FC = () => {
 
                 {/* Plan */}
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2.5">Paket</label>
+                  <label className="block text-[12px] font-medium uppercase tracking-wide text-[#3D3D3D] mb-2.5">Paket</label>
                   <PlanSelector
                     plans={paymentMethod === 'friskvard' ? availablePlans.filter(p => p.id !== 'monthly') : availablePlans}
                     selectedPlanId={selectedPlanId}
@@ -312,7 +312,7 @@ export const BliKlient: React.FC = () => {
 
                 {/* Payment method */}
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[#8A8177] mb-2">Betalningsmetod</label>
+                  <label className="block text-[12px] font-medium uppercase tracking-wide text-[#3D3D3D] mb-2">Betalningsmetod</label>
                   <div className="rounded-xl border border-[#B5AFA5] overflow-hidden">
                     {plan.isTrial ? (
                       <div className="flex items-center gap-3 px-4 py-3 bg-[#FAFAF5]">
