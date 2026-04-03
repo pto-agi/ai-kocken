@@ -239,7 +239,7 @@ export const BliKlient: React.FC = () => {
           {/* ─── LEFT: Campaign hero + trust bullets ─── */}
           <div className="w-full lg:w-[420px] lg:sticky lg:top-24 shrink-0">
             {/* Campaign heading */}
-            <h1 className="text-2xl sm:text-3xl font-black text-[#3D3D3D] leading-tight tracking-tight mb-2" style={{ fontFamily: "'Inter', system-ui, sans-serif", textWrap: 'balance' as any }}>
+            <h1 className="font-bold text-[#3D3D3D] leading-none tracking-tight mb-2 uppercase" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '38px', fontWeight: 700, textWrap: 'balance' as any }}>
               {showCampaign ? CAMPAIGN.name : 'Bli klient'}
             </h1>
 
@@ -283,7 +283,7 @@ export const BliKlient: React.FC = () => {
 
               {/* Card header */}
               <div className="bg-[#FAFAF5] border-b border-[#3D3D3D] px-5 py-3.5">
-                <h2 className="text-[13px] font-semibold text-[#3D3D3D] uppercase tracking-[0.12em]">Kom igång</h2>
+                <h2 className="font-bold text-[#3D3D3D] uppercase tracking-[0.05em]" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: '22px', fontWeight: 700 }}>Kom igång</h2>
               </div>
 
               <div className="p-5 md:p-6 space-y-5">
