@@ -119,7 +119,7 @@ export const Checkout: React.FC = () => {
   // - Non-logged-in: always see trial
   // - Logged-in without active membership: see trial  
   // - Logged-in with renewal offer: see renewal instead (takes priority)
-  const showTrialPlan = !renewalOffer;
+  const showTrialPlan = !renewalOffer && import.meta.env.VITE_TRIAL_ENABLED === 'true';
 
   // Build dynamic plan list (test plan visible with ?test=1)
   const showTestPlan = searchParams.get('test') === '1';
