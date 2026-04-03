@@ -228,7 +228,7 @@ export const BliKlient: React.FC = () => {
 
 
       {/* ═══ MAIN CONTENT — Single column ═══ */}
-      <div className="max-w-[900px] mx-auto px-4 md:px-8 pt-20 md:pt-28 pb-10">
+      <div className="max-w-[900px] mx-auto px-4 md:px-8 pt-6 md:pt-10 pb-10">
 
           {/* ─── ROW 1: Campaign hero + trust bullets ─── */}
           <div className="mb-8">
@@ -412,7 +412,7 @@ export const BliKlient: React.FC = () => {
               <div className="bg-[#FAFAF5] border-t border-[#B5AFA5] px-5 py-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-[#8A8177] font-medium flex items-center gap-1">
-                    <Lock className="w-3 h-3" aria-hidden="true" /> Säker betalning · Krypterat via Stripe
+                    <Lock className="w-3 h-3" aria-hidden="true" /> Säker betalning
                   </span>
                   <PaymentMethodBadges />
                 </div>
