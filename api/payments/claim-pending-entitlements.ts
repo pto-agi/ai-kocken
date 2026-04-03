@@ -229,6 +229,7 @@ export default async function handler(req: any, res: any) {
     if (applied.length > 0) {
       try {
         const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
+        const agentSecret = process.env.AG_AGENT_SECRET || (process.env.SUPABASE_SERVICE_ROLE_KEY || '').slice(0, 32);
 
         for (const type of applied) {
           if (type === 'package') {
@@ -248,7 +249,7 @@ export default async function handler(req: any, res: any) {
               const timeout = setTimeout(() => controller.abort(), 10_000);
               await fetch(`${agentBaseUrl}/api/economy/forlangning`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': agentSecret },
                 body: JSON.stringify(agentPayload),
                 signal: controller.signal,
               });
@@ -268,7 +269,7 @@ export default async function handler(req: any, res: any) {
               const timeout = setTimeout(() => controller.abort(), 10_000);
               await fetch(`${agentBaseUrl}/api/economy/checkout-subscription`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': agentSecret },
                 body: JSON.stringify(agentPayload),
                 signal: controller.signal,
               });

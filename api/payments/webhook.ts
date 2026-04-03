@@ -555,6 +555,7 @@ async function callAgentEndpoint(
   payload: Record<string, unknown>,
 ): Promise<{ ok: boolean; status?: number; error?: string }> {
   const base = AG_BASE();
+  const agentSecret = process.env.AG_AGENT_SECRET || (process.env.SUPABASE_SERVICE_ROLE_KEY || '').slice(0, 32);
 
   // Wake-up ping (fire-and-forget — just poke Render awake)
   fetch(`${base}/health`, { method: 'GET' }).catch(() => {});
@@ -565,7 +566,10 @@ async function callAgentEndpoint(
       const timer = setTimeout(() => controller.abort(), 30_000);
       const res = await fetch(`${base}${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Secret': agentSecret,
+        },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
