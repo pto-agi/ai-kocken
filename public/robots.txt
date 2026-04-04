@@ -1,0 +1,16 @@
+# robots.txt — my.privatetrainingonline.se
+User-agent: *
+Allow: /bli-klient
+Allow: /checkout/tack
+
+# Block internal app routes from indexing
+Disallow: /checkout
+Disallow: /profil
+Disallow: /recept
+Disallow: /nps
+Disallow: /referral
+Disallow: /admin
+Disallow: /inlamningar
+Disallow: /api/
+
+Sitemap: https://my.privatetrainingonline.se/sitemap.xml
