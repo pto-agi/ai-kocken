@@ -150,6 +150,14 @@ async function resolvePendingEntitlements(
 }
 
 async function processPaidCheckoutSession(admin: any, session: Stripe.Checkout.Session) {
+  // Guard: skip if payment hasn't actually completed
+  // Stripe sends checkout.session.completed even for subscriptions with
+  // payment_behavior='default_incomplete' where payment_status is 'unpaid'
+  if (session.payment_status === 'unpaid') {
+    console.log(`checkout.session.completed skipped — payment_status=unpaid (sessionId=${session.id})`);
+    return;
+  }
+
   const metadata = session.metadata || {};
   const flow = metadata.flow || 'unknown';
   const userId = metadata.user_id || '';

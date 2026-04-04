@@ -17,7 +17,8 @@ import { trackCheckoutEvent } from '../utils/paymentAnalytics';
 import { useAuthStore } from '../store/authStore';
 import { computeYearEndOffer } from '../utils/extensionOffer';
 
-import { CheckoutHeader } from '../components/checkout/CheckoutHeader';
+
+
 import { PlanSelector } from '../components/checkout/PlanSelector';
 import { CheckoutForm } from '../components/checkout/CheckoutForm';
 import { PaymentMethodBadges } from '../components/checkout/PaymentMethodBadges';
@@ -367,10 +368,9 @@ export const Checkout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F6F1E7]">
-      <CheckoutHeader />
 
       {/* ═══ MAIN CONTENT ═══ */}
-      <main className="pt-20 pb-12 px-4">
+      <main className="pt-8 pb-12 px-4">
         <div className="max-w-6xl mx-auto">
 
           {/* Login prompt for unauthenticated renewal visitors — TEMPORARILY DISABLED */}
