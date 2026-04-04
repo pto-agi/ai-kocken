@@ -539,6 +539,41 @@ async function beginEventProcessing(admin: any, event: Stripe.Event): Promise<bo
     const code = String(error?.code || '');
     const message = String(error?.message || '').toLowerCase();
     if (code === '23505' || message.includes('duplicate key') || message.includes('unique')) {
+      // Duplicate event — check if previous attempt failed or is stale
+      try {
+        const { data: existing } = await admin
+          .from('stripe_webhook_events')
+          .select('status, updated_at')
+          .eq('stripe_event_id', event.id)
+          .maybeSingle();
+
+        if (existing) {
+          // Allow retry if previous attempt failed
+          if (existing.status === 'failed') {
+            await admin
+              .from('stripe_webhook_events')
+              .update({ status: 'processing', error_message: null, updated_at: new Date().toISOString() })
+              .eq('stripe_event_id', event.id)
+              .throwOnError();
+            return true;
+          }
+          // Allow retry if processing lock is stale (>5 min = likely crashed)
+          if (existing.status === 'processing') {
+            const updatedAt = new Date(existing.updated_at).getTime();
+            const staleLockMs = 5 * 60 * 1000;
+            if (Date.now() - updatedAt > staleLockMs) {
+              await admin
+                .from('stripe_webhook_events')
+                .update({ updated_at: new Date().toISOString() })
+                .eq('stripe_event_id', event.id)
+                .throwOnError();
+              return true;
+            }
+          }
+        }
+      } catch {
+        // If status check fails, treat as duplicate to be safe
+      }
       return false;
     }
     if (code === '23514' || message.includes('check constraint')) {
