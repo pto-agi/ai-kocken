@@ -119,6 +119,16 @@ async function markTransaction(
     } catch {
       // non-blocking
     }
+  } else if (input.paymentIntentId) {
+    try {
+      await admin
+        .from('stripe_transactions')
+        .update(updates)
+        .eq('stripe_payment_intent_id', input.paymentIntentId)
+        .throwOnError();
+    } catch {
+      // non-blocking
+    }
   }
 }
 
@@ -243,20 +253,17 @@ async function processPaidCheckoutSession(admin: any, session: Stripe.Checkout.S
       return;
     }
 
-    try {
-      await admin
-        .from('profiles')
-        .update({
-          coaching_expires_at: newExpiresAt,
-          subscription_status: 'active',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', profileId)
-        .throwOnError();
-      await resolvePendingEntitlements(admin, { email, flow: 'forlangning' });
-    } catch {
-      // non-blocking
-    }
+    // Critical: profile update MUST succeed — throw on failure so Stripe retries
+    await admin
+      .from('profiles')
+      .update({
+        coaching_expires_at: newExpiresAt,
+        subscription_status: 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', profileId)
+      .throwOnError();
+    await resolvePendingEntitlements(admin, { email, flow: 'forlangning' }).catch(() => {});
 
     // ── Notify AntiGravity Agent: Sheet write, TZ reactivation, email ──
     const customerName = session.customer_details?.name || metadata.email || '';
@@ -318,7 +325,7 @@ async function processPaidCheckoutSession(admin: any, session: Stripe.Checkout.S
   }
 }
 
-async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscription) {
+async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscription, eventType: string) {
   const stripeCustomerId = typeof subscription.customer === 'string' ? subscription.customer : '';
   let email: string | null = null;
   let userId: string | null = null;
@@ -388,9 +395,28 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
   }
 
   // ── Forward new active subscriptions to AG-Agent ──
-  // AG-Agent handles: profile hybrid check, Sheet write, welcome email, admin email
-  // Fallback: if AG-Agent is unreachable, send admin notification directly
-  if (status === 'active' && email) {
+  // Only trigger on initial activation to prevent duplicate welcome flows.
+  // subscription.created = new sub, subscription.updated with status transition = reactivation.
+  const isNewActivation = eventType === 'customer.subscription.created';
+  let isStatusTransition = false;
+  if (!isNewActivation && eventType === 'customer.subscription.updated') {
+    // Check if status actually changed to active (was something else before)
+    try {
+      const { data: existing } = await admin
+        .from('stripe_subscriptions')
+        .select('status')
+        .eq('stripe_subscription_id', subscription.id)
+        .maybeSingle();
+      // If previous status was not active/trialing, this is a real transition
+      if (existing && existing.status !== 'active' && existing.status !== 'trialing') {
+        isStatusTransition = true;
+      }
+    } catch {
+      // If lookup fails, skip agent call to be safe
+    }
+  }
+
+  if (status === 'active' && email && (isNewActivation || isStatusTransition)) {
     const meta = (subscription as any).metadata || {};
     const fullName = (meta.full_name as string) || '';
     const isTrial = (subscription as any).status === 'trialing';
@@ -650,21 +676,18 @@ async function processPackagePurchase(admin: any, pi: Stripe.PaymentIntent) {
 
     const newMembershipType = hasActiveSubscription ? 'hybrid' : 'package';
 
-    try {
-      await admin
-        .from('profiles')
-        .update({
-          coaching_expires_at: newExpiresAt,
-          is_member: true,
-          membership_type: newMembershipType,
-          subscription_status: 'active',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', profile.id)
-        .throwOnError();
-    } catch {
-      // non-blocking
-    }
+    // Critical: profile update MUST succeed — throw on failure so Stripe retries
+    await admin
+      .from('profiles')
+      .update({
+        coaching_expires_at: newExpiresAt,
+        is_member: true,
+        membership_type: newMembershipType,
+        subscription_status: 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', profile.id)
+      .throwOnError();
 
     // Resolve any earlier pending entitlements
     await resolvePendingEntitlements(admin, { email, flow: 'checkout' });
@@ -800,21 +823,18 @@ async function processRenewalPurchase(admin: any, pi: Stripe.PaymentIntent) {
 
     const newMembershipType = hasActiveSubscription ? 'hybrid' : 'package';
 
-    try {
-      await admin
-        .from('profiles')
-        .update({
-          coaching_expires_at: newExpiresAt,
-          is_member: true,
-          membership_type: newMembershipType,
-          subscription_status: 'active',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', profile.id)
-        .throwOnError();
-    } catch {
-      // non-blocking
-    }
+    // Critical: profile update MUST succeed — throw on failure so Stripe retries
+    await admin
+      .from('profiles')
+      .update({
+        coaching_expires_at: newExpiresAt,
+        is_member: true,
+        membership_type: newMembershipType,
+        subscription_status: 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', profile.id)
+      .throwOnError();
 
     // Resolve pending entitlements
     await resolvePendingEntitlements(admin, { email, flow: 'renewal' });
@@ -942,7 +962,7 @@ export default async function handler(req: any, res: any) {
         case 'customer.subscription.created':
         case 'customer.subscription.updated':
         case 'customer.subscription.deleted': {
-          await processSubscriptionUpdate(admin, event.data.object as Stripe.Subscription);
+          await processSubscriptionUpdate(admin, event.data.object as Stripe.Subscription, event.type);
           break;
         }
         case 'invoice.paid':

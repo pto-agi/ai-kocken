@@ -233,7 +233,7 @@ const CHECKOUT_PLAN_CONFIG: Record<string, {
 }> = {
   '12m': { stripePriceId: 'price_1TGmkmCMd1GQRttCQruyEMfM', amountOre: 399500, mode: 'payment', monthCount: 12, label: '12 månader' },
   '6m':  { stripePriceId: 'price_1TGmkVCMd1GQRttCKwPn9lpP', amountOre: 299500, mode: 'payment', monthCount: 6,  label: '6 månader' },
-  '3m':  { stripePriceId: 'price_1TGmkGCMd1GQRttC28TIA4aG', amountOre: 199500, mode: 'payment', monthCount: 3,  label: '3 månader' },
+  '3m':  { stripePriceId: 'price_1TIFOfCMd1GQRttC9hXRvW0r', amountOre: 179500, mode: 'payment', monthCount: 3,  label: '3 månader' },
   monthly: { stripePriceId: 'price_1THAldCMd1GQRttCG5nNF6JU', amountOre: 54900, mode: 'subscription', label: 'Månadsvis' },
   trial30: { stripePriceId: 'price_1THAldCMd1GQRttCG5nNF6JU', amountOre: 0, mode: 'subscription', label: 'Prova gratis i 30 dagar', trialDays: 30 },
   test1m: { stripePriceId: 'price_1TH9j7CMd1GQRttCrY6XyM1l', amountOre: 300, mode: 'payment', monthCount: 1, label: '1 månad (TEST)' },
@@ -742,6 +742,34 @@ export default async function handler(req: any, res: any) {
         text: `Ny friskvårdsbeställning från ${customerName}. Tjänst: ${flowLabel}. Belopp: ${amountSek} kr. Order-ID: ${order.id}`,
         html: adminHtml,
       }).catch((e: any) => console.error('friskvard admin email failed', e));
+    }
+
+    // ── Notify AG Agent (reliable admin notification + activity log) ──
+    try {
+      const agentBaseUrl = process.env.ANTIGRAVITY_AGENT_URL || 'https://ag3nt-g3ew.onrender.com';
+      const agentSecret = process.env.AG_AGENT_SECRET || (process.env.SUPABASE_SERVICE_ROLE_KEY || '').slice(0, 32);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      fetch(`${agentBaseUrl}/api/economy/friskvard-submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': agentSecret },
+        body: JSON.stringify({
+          email: userEmail || '',
+          full_name: fullName || '',
+          flow,
+          amount_sek: amountSek,
+          plan_label: payload.planLabel || flowLabel,
+          order_id: order.id,
+          month_count: payload.planMonthCount || 0,
+        }),
+        signal: controller.signal,
+      }).then(() => clearTimeout(timeout))
+        .catch((e: any) => {
+          clearTimeout(timeout);
+          console.error('AG-Agent friskvard-submit failed:', e?.message);
+        });
+    } catch {
+      // non-blocking
     }
 
     setCors(res, origin);
