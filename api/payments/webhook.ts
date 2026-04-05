@@ -422,9 +422,9 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
     && previousStatus !== null
     && previousStatus !== 'active'
     && previousStatus !== 'trialing'
-    && status === 'active';
+    && (status === 'active' || status === 'trialing');
 
-  if (status === 'active' && email && (isNewActivation || isStatusTransition)) {
+  if ((status === 'active' || status === 'trialing') && email && (isNewActivation || isStatusTransition)) {
     const meta = (subscription as any).metadata || {};
     const fullName = (meta.full_name as string) || '';
     const isTrial = (subscription as any).status === 'trialing';
@@ -585,7 +585,10 @@ async function processInvoice(admin: any, invoice: Stripe.Invoice, isPaid: boole
   }
 
   // ── Update stripe_subscriptions ──
-  const status = isPaid ? 'active' : 'payment_failed';
+  // For trial invoices (amount_due = 0, billing_reason = subscription_create),
+  // preserve 'trialing' status instead of overwriting to 'active'.
+  const isTrial = isPaid && rawInvoice.amount_due === 0 && rawInvoice.billing_reason === 'subscription_create';
+  const status = isPaid ? (isTrial && previousStatus === 'trialing' ? 'trialing' : 'active') : 'payment_failed';
   try {
     await admin.from('stripe_subscriptions')
       .update({ status, updated_at: new Date().toISOString() })
