@@ -361,6 +361,22 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
     : null;
   const status = normalizeStatus(String(rawSubscription.status || 'unknown'));
 
+  // ── Capture previous status BEFORE upsert overwrites it ──
+  // This is critical for detecting incomplete→active transitions.
+  // Without this, the upsert writes 'active' and the later check
+  // reads back 'active', missing the transition entirely.
+  let previousStatus: string | null = null;
+  try {
+    const { data: existingRow } = await admin
+      .from('stripe_subscriptions')
+      .select('status')
+      .eq('stripe_subscription_id', subscription.id)
+      .maybeSingle();
+    previousStatus = (existingRow?.status as string | undefined) || null;
+  } catch {
+    // If lookup fails, previousStatus stays null (treated as new)
+  }
+
   try {
     await admin.from('stripe_subscriptions').upsert(
       {
@@ -398,23 +414,14 @@ async function processSubscriptionUpdate(admin: any, subscription: Stripe.Subscr
   // Only trigger on initial activation to prevent duplicate welcome flows.
   // subscription.created = new sub, subscription.updated with status transition = reactivation.
   const isNewActivation = eventType === 'customer.subscription.created';
-  let isStatusTransition = false;
-  if (!isNewActivation && eventType === 'customer.subscription.updated') {
-    // Check if status actually changed to active (was something else before)
-    try {
-      const { data: existing } = await admin
-        .from('stripe_subscriptions')
-        .select('status')
-        .eq('stripe_subscription_id', subscription.id)
-        .maybeSingle();
-      // If previous status was not active/trialing, this is a real transition
-      if (existing && existing.status !== 'active' && existing.status !== 'trialing') {
-        isStatusTransition = true;
-      }
-    } catch {
-      // If lookup fails, skip agent call to be safe
-    }
-  }
+  // Detect real status transitions (e.g. incomplete→active) using the
+  // previousStatus we captured BEFORE the upsert overwrote it.
+  const isStatusTransition = !isNewActivation
+    && eventType === 'customer.subscription.updated'
+    && previousStatus !== null
+    && previousStatus !== 'active'
+    && previousStatus !== 'trialing'
+    && status === 'active';
 
   if (status === 'active' && email && (isNewActivation || isStatusTransition)) {
     const meta = (subscription as any).metadata || {};
@@ -504,6 +511,57 @@ async function processInvoice(admin: any, invoice: Stripe.Invoice, isPaid: boole
   const subscriptionId = typeof rawInvoice.subscription === 'string' ? rawInvoice.subscription : null;
   if (!subscriptionId) return;
 
+  const stripeCustomerId = typeof rawInvoice.customer === 'string' ? rawInvoice.customer : '';
+
+  // ── Resolve email from stripe_customers or stripe_subscriptions ──
+  let email: string | null = null;
+
+  // Try stripe_customers first
+  try {
+    const { data: customerRow } = await admin
+      .from('stripe_customers')
+      .select('email')
+      .eq('stripe_customer_id', stripeCustomerId)
+      .limit(1)
+      .maybeSingle();
+    email = (customerRow?.email as string | undefined) || null;
+  } catch {
+    // continue
+  }
+
+  // Fallback: check stripe_subscriptions for email
+  if (!email) {
+    try {
+      const { data: subRow } = await admin
+        .from('stripe_subscriptions')
+        .select('email')
+        .eq('stripe_subscription_id', subscriptionId)
+        .maybeSingle();
+      email = (subRow?.email as string | undefined) || null;
+    } catch {
+      // continue
+    }
+  }
+
+  // Fallback: invoice customer_email
+  if (!email) {
+    email = (rawInvoice.customer_email as string | undefined) || null;
+  }
+
+  // ── Read previous status BEFORE update ──
+  let previousStatus: string | null = null;
+  try {
+    const { data: existingRow } = await admin
+      .from('stripe_subscriptions')
+      .select('status')
+      .eq('stripe_subscription_id', subscriptionId)
+      .maybeSingle();
+    previousStatus = (existingRow?.status as string | undefined) || null;
+  } catch {
+    // If lookup fails, treat as unknown
+  }
+
+  // ── Update stripe_subscriptions ──
   const status = isPaid ? 'active' : 'payment_failed';
   try {
     await admin.from('stripe_subscriptions')
@@ -512,6 +570,156 @@ async function processInvoice(admin: any, invoice: Stripe.Invoice, isPaid: boole
       .throwOnError();
   } catch {
     // non-blocking
+  }
+
+  // ── Handle payment failures: admin notification ──
+  if (!isPaid && email) {
+    try {
+      // Resolve customer name from Stripe for the notification
+      let customerName = email;
+      try {
+        const stripe = getStripeClient();
+        if (stripeCustomerId) {
+          const customer = await stripe.customers.retrieve(stripeCustomerId);
+          if (!(customer as any).deleted) {
+            customerName = (customer as Stripe.Customer).name || email;
+          }
+        }
+      } catch {
+        // use email as fallback name
+      }
+
+      const amountKr = Math.round((rawInvoice.amount_due || 0) / 100);
+
+      // Log the failure
+      await admin.from('agent_activity_log').insert({
+        type: 'membership',
+        title: `⚠️ Betalning misslyckades: ${customerName}`,
+        summary: `Stripe-betalning misslyckades för ${email}. Belopp: ${amountKr} kr. Admin notifierad via mejl.`,
+        status: 'error',
+        client_name: customerName,
+        metadata: { subscription_id: subscriptionId, email, invoice_id: invoice.id, amount: amountKr },
+      }).throwOnError();
+
+      // Send admin notification email
+      const resendKey = (process.env.RESEND_API_KEY || '').trim();
+      if (resendKey) {
+        const { buildBaseEmailLayout, sendResendEmail, DEFAULT_FROM, DEFAULT_TO } = await import('../_shared/emailHelpers.js');
+        const adminRecipients = (process.env.RESEND_FORM_TO || DEFAULT_TO).split(',').map((s: string) => s.trim()).filter(Boolean);
+        const adminHtml = buildBaseEmailLayout({
+          title: '⚠️ Misslyckad betalning',
+          badge: 'Stripe Subscription',
+          bodyHtml: `
+            <p style="font-size:14px;color:#3D3D3D;margin:0 0 12px;">
+              En prenumerationsbetalning misslyckades i Stripe.
+            </p>
+            <table cellspacing="0" cellpadding="6" style="width:100%;font-size:13px;color:#3D3D3D;">
+              <tr><td style="font-weight:700">Kund</td><td>${customerName}</td></tr>
+              <tr><td style="font-weight:700">E-post</td><td>${email}</td></tr>
+              <tr><td style="font-weight:700">Belopp</td><td>${amountKr} kr</td></tr>
+              <tr><td style="font-weight:700">Faktura</td><td style="font-family:monospace;font-size:11px">${invoice.id}</td></tr>
+            </table>`,
+        });
+        sendResendEmail(resendKey, {
+          from: DEFAULT_FROM,
+          to: adminRecipients,
+          subject: `PTO Technology | ⚠️ Misslyckad betalning: ${customerName}`,
+          text: `Betalning misslyckades: ${customerName} (${email}). Belopp: ${amountKr} kr.`,
+          html: adminHtml,
+        }).catch((e: any) => console.error('Payment failed admin email error:', e));
+      }
+    } catch {
+      // best effort
+    }
+    return; // Don't proceed with activation on payment failure
+  }
+
+  // ── Detect first successful payment → trigger AG-Agent onboarding ──
+  // This is the PRIMARY activation trigger. customer.subscription.updated is unreliable
+  // (often not delivered to this webhook endpoint), but invoice.paid ALWAYS arrives.
+  //
+  // Activation conditions:
+  // 1. Invoice was paid successfully (isPaid = true)
+  // 2. Previous status was NOT active/trialing (i.e., this is the first payment)
+  // 3. We have an email to work with
+  const isFirstActivation = isPaid
+    && email
+    && previousStatus !== 'active'
+    && previousStatus !== 'trialing';
+
+  if (isFirstActivation) {
+    console.log(`[invoice.paid] First activation detected for ${email}, sub=${subscriptionId}, prev=${previousStatus}`);
+
+    // Resolve customer name for the AG-Agent payload
+    let resolvedName = '';
+    try {
+      const stripe = getStripeClient();
+      if (stripeCustomerId) {
+        const customer = await stripe.customers.retrieve(stripeCustomerId);
+        if (!(customer as any).deleted) {
+          resolvedName = (customer as Stripe.Customer).name || '';
+        }
+      }
+    } catch {
+      // continue without name
+    }
+
+    const agentResult = await callAgentEndpoint('/api/economy/checkout-subscription', {
+      email,
+      full_name: resolvedName,
+      stripe_customer_id: stripeCustomerId,
+    });
+
+    if (!agentResult.ok) {
+      console.error('[invoice.paid] AG-Agent checkout-subscription failed:', email, agentResult.error);
+
+      // ── Fallback: admin notification ──
+      const resendKey = (process.env.RESEND_API_KEY || '').trim();
+      if (resendKey) {
+        try {
+          const { buildBaseEmailLayout, sendResendEmail, DEFAULT_FROM, DEFAULT_TO } = await import('../_shared/emailHelpers.js');
+          const adminRecipients = (process.env.RESEND_FORM_TO || DEFAULT_TO).split(',').map((s: string) => s.trim()).filter(Boolean);
+          const customerName = resolvedName || email;
+          const adminHtml = buildBaseEmailLayout({
+            title: '⚠️ Ny prenumerant — AG-Agent nåddes inte',
+            badge: 'invoice.paid fallback',
+            bodyHtml: `
+              <p style="font-size:14px;color:#3D3D3D;margin:0 0 12px;">
+                En prenumerationsbetalning lyckades men AG-Agent kunde inte nås.
+                Kunden fick sannolikt INTE välkomstmejl. Kör manuellt via /api/economy/checkout-subscription.
+              </p>
+              <table cellspacing="0" cellpadding="6" style="width:100%;font-size:13px;color:#3D3D3D;">
+                <tr><td style="font-weight:700">Kund</td><td>${customerName}</td></tr>
+                <tr><td style="font-weight:700">E-post</td><td>${email}</td></tr>
+                <tr><td style="font-weight:700">Stripe Sub</td><td style="font-family:monospace;font-size:11px">${subscriptionId}</td></tr>
+                <tr><td style="font-weight:700">Stripe Customer</td><td style="font-family:monospace;font-size:11px">${stripeCustomerId}</td></tr>
+                <tr><td style="font-weight:700">Fel</td><td style="color:#dc2626">${agentResult.error || 'Timeout/unreachable'}</td></tr>
+              </table>`,
+          });
+          sendResendEmail(resendKey, {
+            from: DEFAULT_FROM,
+            to: adminRecipients,
+            subject: `⚠️ Ny prenumerant (invoice.paid fallback): ${customerName}`,
+            text: `Betalning OK: ${customerName} (${email}). AG-Agent nåddes inte. Kontrollera manuellt.`,
+            html: adminHtml,
+          }).catch((e: any) => console.error('Fallback admin email failed:', e));
+        } catch (emailErr: any) {
+          console.error('Fallback email setup failed:', emailErr);
+        }
+      }
+
+      // Log to activity log
+      try {
+        await admin.from('agent_activity_log').insert({
+          type: 'membership',
+          title: `⚠️ Ny prenumerant (AG-Agent nåddes ej): ${resolvedName || email}`,
+          summary: `Betalning OK via invoice.paid men AG-Agent svarade inte. Email: ${email}. Sub: ${subscriptionId}.`,
+          status: 'error',
+          client_name: resolvedName || email,
+          metadata: { subscription_id: subscriptionId, email, error: agentResult.error },
+        }).throwOnError();
+      } catch { /* best effort */ }
+    }
   }
 }
 
