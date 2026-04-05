@@ -16,7 +16,8 @@ export const config = {
 };
 
 function normalizeStatus(status: string): string {
-  if (status === 'trialing') return 'active';
+  // Preserve 'trialing' as distinct status — allows trial-specific logic
+  // and accurate reporting. AG-Agent already handles trialing correctly.
   if (status === 'canceled') return 'deactivated';
   return status;
 }
@@ -548,6 +549,28 @@ async function processInvoice(admin: any, invoice: Stripe.Invoice, isPaid: boole
     email = (rawInvoice.customer_email as string | undefined) || null;
   }
 
+  // Final fallback: fetch email directly from Stripe Customer API
+  if (!email && stripeCustomerId) {
+    try {
+      const stripe = getStripeClient();
+      const customer = await stripe.customers.retrieve(stripeCustomerId);
+      if (!(customer as any).deleted && (customer as Stripe.Customer).email) {
+        email = (customer as Stripe.Customer).email;
+        // Enrich the DB record so future lookups don't need the API call
+        if (email) {
+          admin.from('stripe_customers').upsert({
+            stripe_customer_id: stripeCustomerId,
+            email,
+            name: (customer as Stripe.Customer).name || null,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'stripe_customer_id' }).then(() => {}).catch(() => {});
+        }
+      }
+    } catch {
+      // best effort
+    }
+  }
+
   // ── Read previous status BEFORE update ──
   let previousStatus: string | null = null;
   try {
@@ -573,7 +596,22 @@ async function processInvoice(admin: any, invoice: Stripe.Invoice, isPaid: boole
   }
 
   // ── Handle payment failures: admin notification ──
+  // Skip notification if payment_intent is in 'requires_action' state (3D Secure in progress).
+  // These are temporary failures that resolve within seconds when the customer completes authentication.
   if (!isPaid && email) {
+    const paymentIntentId = rawInvoice.payment_intent;
+    if (typeof paymentIntentId === 'string') {
+      try {
+        const stripe = getStripeClient();
+        const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+        if (pi.status === 'requires_action') {
+          console.log(`[invoice.payment_failed] Skipping admin notification — 3D Secure in progress (pi=${paymentIntentId})`);
+          return; // 3D Secure authentication pending, not a real failure
+        }
+      } catch {
+        // If we can't check, fall through to send the notification
+      }
+    }
     try {
       // Resolve customer name from Stripe for the notification
       let customerName = email;
