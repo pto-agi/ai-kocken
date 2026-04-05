@@ -206,7 +206,7 @@ function App() {
           {/* ── Bli-klient layout with Navbar + WP nav links ── */}
           <Route path="/bli-klient" element={
             <div className="min-h-screen bg-[#FAFAFA] text-[#3D3D3D] font-sans flex flex-col">
-              <Navbar navLinksOverride={WP_NAV_LINKS} />
+              <Navbar navLinksOverride={WP_NAV_LINKS} wpMode />
               <main className="pt-20 flex-grow flex flex-col">
                 <BliKlient />
               </main>

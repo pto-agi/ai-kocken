@@ -28,9 +28,11 @@ interface NavLink {
 
 interface NavbarProps {
   navLinksOverride?: NavLink[];
+  /** When true, logo matches the WP site: no border/shadow, no "PTO" text, links to privatetrainingonline.se */
+  wpMode?: boolean;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ navLinksOverride }) => {
+const Navbar: React.FC<NavbarProps> = ({ navLinksOverride, wpMode }) => {
   const { session, signOut, profile } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -86,16 +88,24 @@ const Navbar: React.FC<NavbarProps> = ({ navLinksOverride }) => {
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-full flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 group relative z-50">
-            <div className="relative flex items-center justify-center w-12 h-12 rounded-xl border border-[#6B6158] shadow-lg bg-[#3D3D3D] group-hover:border-[#a0c81d]/30 transition-all duration-300 overflow-hidden">
+          {wpMode ? (
+            <a href="https://privatetrainingonline.se/" className="flex items-center gap-3 group relative z-50">
+              <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-[#3D3D3D] transition-all duration-300 overflow-hidden">
+                <img src="/pto-logotyp-2026.png" alt="Private Training Online" className="w-9 h-9 object-contain" />
+              </div>
+            </a>
+          ) : (
+            <Link to="/" className="flex items-center gap-3 group relative z-50">
+              <div className="relative flex items-center justify-center w-12 h-12 rounded-xl border border-[#6B6158] shadow-lg bg-[#3D3D3D] group-hover:border-[#a0c81d]/30 transition-all duration-300 overflow-hidden">
                 <img src="/pto-logotyp-2026.png" alt="PTO" className="w-9 h-9 object-contain" />
-            </div>
-            <div className="flex flex-col">
+              </div>
+              <div className="flex flex-col">
                 <div className="flex items-baseline leading-none">
-                    <span className="text-xl font-bold text-white tracking-tight font-heading">PTO</span>
+                  <span className="text-xl font-bold text-white tracking-tight font-heading">PTO</span>
                 </div>
-            </div>
-          </Link>
+              </div>
+            </Link>
+          )}
 
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => {
@@ -193,12 +203,14 @@ const Navbar: React.FC<NavbarProps> = ({ navLinksOverride }) => {
             </button>
 
             <div className="flex items-center gap-3 pr-10">
-                <div className="relative flex items-center justify-center w-9 h-9 rounded-lg border border-[#6B6158] bg-[#3D3D3D] overflow-hidden">
+                <div className={`relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#3D3D3D] overflow-hidden ${wpMode ? '' : 'border border-[#6B6158]'}`}>
                     <img src="/pto-logotyp-2026.png" alt="PTO" className="w-7 h-7 object-contain" />
                 </div>
-                <div className="flex items-baseline leading-none">
+                {!wpMode && (
+                  <div className="flex items-baseline leading-none">
                     <span className="text-lg font-bold text-white tracking-tight font-heading">PTO</span>
-                </div>
+                  </div>
+                )}
             </div>
         </div>
 
